@@ -3,3 +3,6 @@ init:
 
 test:
 	py.test tests
+
+run:
+	python -m client.main

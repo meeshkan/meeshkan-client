@@ -2,6 +2,11 @@
 
 Client code for running ML jobs.
 
+### Running client
+```bash
+make run
+```
+
 ### Install requirements
 ```bash
 make init
