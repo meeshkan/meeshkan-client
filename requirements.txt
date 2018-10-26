@@ -3,5 +3,7 @@ attrs==18.2.0
 more-itertools==4.3.0
 pluggy==0.8.0
 py==1.7.0
+Pyro4==4.74
 pytest==3.9.2
+serpent==1.27
 six==1.11.0
