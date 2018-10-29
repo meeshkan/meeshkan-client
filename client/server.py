@@ -4,6 +4,10 @@ import tempfile
 
 
 class Server(object):
+    """
+    Abstraction for Pyro server. When started, writes a tmp file with the object URI.
+    When closed, deletes the file. Server is started with an `api` instance that is registered with the daemon.
+    """
 
     def __init__(self):
         self._tmp_file = os.path.join(tempfile.gettempdir(), 'pyro_uri.txt')
@@ -15,8 +19,8 @@ class Server(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def close(self):
-        if self._started_server:  # Wrote the file, free to delete it
+    def close(self, force=False):
+        if self._started_server or force:  # Wrote the file, free to delete it
             print('Clean-up: deleting', self._tmp_file)
             os.remove(self._tmp_file)
 
@@ -39,11 +43,10 @@ class Server(object):
 
     def start(self, instance):
         assert self.is_running is False
-        with Pyro4.Daemon(host='127.0.0.1', port=7778) as daemon:  # make a Pyro daemon
-            uri = daemon.register(instance)  # register the greeting maker as a Pyro object
+        with Pyro4.Daemon(host='127.0.0.1', port=7778) as daemon:
+            uri = daemon.register(instance)
             self.register_uri(uri.asString())
             self._started_server = True
-            print("URI: {}".format(uri))  # print the uri so we can use it in the client later
             daemon.requestLoop()
         return uri
 
