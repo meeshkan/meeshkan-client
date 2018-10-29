@@ -9,8 +9,8 @@ class Server(object):
     When closed, deletes the file. Server is started with an `api` instance that is registered with the daemon.
     """
 
-    def __init__(self):
-        self._tmp_file = os.path.join(tempfile.gettempdir(), 'pyro_uri.txt')
+    def __init__(self, tmp_file_name='pyro_uri.txt'):
+        self._tmp_file = os.path.join(tempfile.gettempdir(), tmp_file_name)
         self._started_server = False
 
     def __enter__(self):
@@ -20,7 +20,7 @@ class Server(object):
         self.close()
 
     def close(self, force=False):
-        if self._started_server or force:  # Wrote the file, free to delete it
+        if self._started_server or (force and os.path.isfile(self._tmp_file)):  # Wrote the file, free to delete it
             print('Clean-up: deleting', self._tmp_file)
             os.remove(self._tmp_file)
 
@@ -43,7 +43,7 @@ class Server(object):
 
     def start(self, instance):
         assert self.is_running is False
-        with Pyro4.Daemon(host='127.0.0.1', port=7778) as daemon:
+        with Pyro4.Daemon(host='127.0.0.1', port=7779) as daemon:
             uri = daemon.register(instance)
             self.register_uri(uri.asString())
             self._started_server = True

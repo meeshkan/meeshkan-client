@@ -17,9 +17,14 @@ make init
 make test
 ```
 
-## Pyro hacking
+## Pyro server and daemon
 
 #### Start server
 ```bash
 python -m client.server
+```
+
+#### CLI
+```bash
+python -m client.client
 ```

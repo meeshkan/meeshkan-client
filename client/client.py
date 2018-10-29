@@ -21,6 +21,7 @@ def main():
 
     api: Api = Pyro4.Proxy(uri)
 
+    # TODO Add command-line interface here
     api.submit("echo hello")
     logger.info(api.list_jobs())
 
