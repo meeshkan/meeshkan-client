@@ -37,10 +37,10 @@ class Server(object):
         with open(self._tmp_file, "w") as f:
             f.write(uri)
 
-    def start(self, cls):
+    def start(self, instance):
         assert self.is_running is False
         with Pyro4.Daemon(host='127.0.0.1', port=7778) as daemon:  # make a Pyro daemon
-            uri = daemon.register(cls)  # register the greeting maker as a Pyro object
+            uri = daemon.register(instance)  # register the greeting maker as a Pyro object
             self.register_uri(uri.asString())
             self._started_server = True
             print("URI: {}".format(uri))  # print the uri so we can use it in the client later
@@ -48,11 +48,18 @@ class Server(object):
         return uri
 
 
+def serve(server):
+    from .api import Api
+    from .scheduler import Scheduler
+    with Scheduler() as scheduler:
+        api: Api = Api(scheduler=scheduler)
+        server.start(api)
+
+
 def main():
     with Server() as server:
         if not server.is_running:
-            from .api import Api
-            server.start(Api)
+            serve(server)
         else:
             uri = server.get_uri
             print('Server is already running at {0}'.format(uri))

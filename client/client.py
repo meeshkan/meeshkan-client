@@ -1,5 +1,6 @@
 import Pyro4
 from .server import Server
+from .api import Api
 
 
 def main():
@@ -10,10 +11,10 @@ def main():
 
     uri = server.get_uri
 
-    name = input("What is your name? ").strip()
+    api: Api = Pyro4.Proxy(uri)
 
-    api = Pyro4.Proxy(uri)
-    print(api.test(name))  # call method normally
+    api.submit("echo hello")
+    print(api.list_jobs())
 
 
 if __name__ == '__main__':

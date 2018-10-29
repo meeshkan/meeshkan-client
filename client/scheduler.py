@@ -20,7 +20,7 @@ def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
 
 class Scheduler(object):
     def __init__(self):
-        self._submitted_jobs = []
+        self.submitted_jobs = []
         self._task_queue = queue.Queue()
         self._stop_thread_event = threading.Event()
         self._queue_reader = threading.Thread(target=read_queue,
@@ -64,10 +64,10 @@ class Scheduler(object):
     def submit_job(self, job: Job):
         self._njobs += 1
         self._task_queue.put(job)  # TODO Blocks if queue full
-        self._submitted_jobs.append(job)
+        self.submitted_jobs.append(job)
 
     def stop_job(self, job_id: int):
-        jobs_with_id = [job for job in self._submitted_jobs if job.id == job_id]
+        jobs_with_id = [job for job in self.submitted_jobs if job.id == job_id]
         if len(jobs_with_id) == 0:
             print('No matching job with id %d found' % job_id)
             return
@@ -76,7 +76,7 @@ class Scheduler(object):
 
     def list_jobs(self):
         print('---Jobs---')
-        for job in self._submitted_jobs:
+        for job in self.submitted_jobs:
             print(job)
         print('----------')
 
