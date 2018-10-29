@@ -1,7 +1,11 @@
 atomicwrites==1.2.1
 attrs==18.2.0
+coverage==4.5.1
 more-itertools==4.3.0
 pluggy==0.8.0
 py==1.7.0
+Pyro4==4.74
 pytest==3.9.2
+pytest-cov==2.6.0
+serpent==1.27
 six==1.11.0
