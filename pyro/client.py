@@ -12,8 +12,8 @@ def main():
 
     name = input("What is your name? ").strip()
 
-    greeting_maker = Pyro4.Proxy(uri)  # get a Pyro proxy to the greeting object
-    print(greeting_maker.get_fortune(name))  # call method normally
+    api = Pyro4.Proxy(uri)
+    print(api.test(name))  # call method normally
 
 
 if __name__ == '__main__':

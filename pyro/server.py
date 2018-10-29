@@ -3,13 +3,6 @@ import os
 import tempfile
 
 
-@Pyro4.expose
-class GreetingMaker(object):
-    def get_fortune(self, name):
-        return "Hello, {0}. Here is your fortune message:\n" \
-               "Behold the warranty -- the bold print giveth and the fine print taketh away.".format(name)
-
-
 class Server(object):
 
     def __init__(self):
@@ -20,6 +13,9 @@ class Server(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
         if self._started_server:  # Wrote the file, free to delete it
             print('Clean-up: deleting', self._tmp_file)
             os.remove(self._tmp_file)
@@ -55,7 +51,8 @@ class Server(object):
 def main():
     with Server() as server:
         if not server.is_running:
-            server.start(GreetingMaker)
+            from .api import Api
+            server.start(Api)
         else:
             uri = server.get_uri
             print('Server is already running at {0}'.format(uri))
