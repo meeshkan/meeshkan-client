@@ -21,10 +21,5 @@ make test
 
 #### Start server
 ```bash
-python -m pyro.server
-```
-
-#### Run client
-```bash
-python -m pyro.client
+python -m client.server
 ```
