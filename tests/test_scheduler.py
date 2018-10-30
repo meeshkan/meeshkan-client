@@ -83,7 +83,7 @@ def test_job_submit():
     with get_scheduler() as scheduler:
         job = get_job(executable=get_executable(target=lambda: 0))
         scheduler.submit_job(job)
-        submitted_jobs = scheduler._submitted_jobs
+        submitted_jobs = scheduler.submitted_jobs
         assert len(submitted_jobs) == 1
         assert submitted_jobs[0] is job
     assert not scheduler._is_running

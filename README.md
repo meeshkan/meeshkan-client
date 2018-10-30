@@ -16,3 +16,15 @@ make init
 ```bash
 make test
 ```
+
+## Pyro server and daemon
+
+#### Start server
+```bash
+python -m client.server
+```
+
+#### CLI
+```bash
+python -m client.client
+```

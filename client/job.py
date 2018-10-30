@@ -50,6 +50,10 @@ class ProcessExecutable(Executable):
         if self.popen is not None:
             self.popen.terminate()
 
+    @staticmethod
+    def from_str(args_str: str):
+        return ProcessExecutable(tuple(args_str.split(' ')))
+
     def __str__(self):
         return ' '.join(self.args)
 
