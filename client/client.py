@@ -2,9 +2,9 @@ import Pyro4
 import logging
 import sys
 import socket
-from api import Api
-from logger import setup_logging
-from scheduler import start_scheduler
+from .api import Api
+from .logger import setup_logging
+from .scheduler import start_scheduler
 
 
 def get_logger():
