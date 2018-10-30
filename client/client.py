@@ -1,9 +1,10 @@
 import Pyro4
 import logging
 import sys
-from .api import Api
-from .logger import setup_logging
-from .scheduler import start_scheduler
+import socket
+from api import Api
+from logger import setup_logging
+from scheduler import start_scheduler
 
 
 def get_logger():
@@ -23,7 +24,9 @@ def main(args):
     Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
     # We get the URI after running the daemon, instantiate a Pyro4 Object, and create the API for it
-    api: Api = Api(Pyro4.Proxy(start_scheduler()))   # TODO part of commandline for port/host?
+    host = socket.gethostname()  # more stable than 'localhost' or '127.0.0.1'
+    port = 7779  # TODO part of commandline for port/host?
+    api: Api = Api(Pyro4.Proxy(start_scheduler(host, port)), host, port)
 
     # TODO Add command-line interface here
     api.submit("echo hello")
