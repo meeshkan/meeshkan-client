@@ -9,10 +9,6 @@ class Api(object):
     def __init__(self, scheduler: Scheduler):
         self.scheduler = scheduler
 
-    # noinspection PyMethodMayBeStatic
-    def test(self, name):
-        return "Hello " + name
-
     def submit(self, script_name):
         executable = ProcessExecutable.from_str(script_name)
         job_id = self.scheduler.get_id()
