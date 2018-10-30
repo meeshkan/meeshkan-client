@@ -2,9 +2,6 @@
 
 Client code for running ML jobs.
 
-### Environment
-Environment variables are read from `.secrets.yaml`. See `.secrets.example.yaml` for an example how to set it up.
-
 ### Running client
 ```bash
 make run
