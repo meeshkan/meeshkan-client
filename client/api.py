@@ -5,6 +5,9 @@ from .job import Job, ProcessExecutable
 
 @Pyro4.expose
 class Api(object):
+    """
+    Exposed by the Pyro server for communications with the CLI.
+    """
 
     def __init__(self, scheduler: Scheduler):
         self.scheduler = scheduler
