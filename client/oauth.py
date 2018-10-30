@@ -1,18 +1,18 @@
 import http.client
 from .logger import setup_logging
-from .config import get_config
+from .config import get_config, get_secrets
 import logging
 import json
 
 logger = logging.getLogger(__name__)
 conf = get_config()
+secrets = get_secrets()
 
 
 def get_token():
-    auth = conf['env']['auth']
-    auth_url = auth['url']
-    client_id = auth['client_id']
-    client_secret = auth['client_secret']
+    auth_url = conf['env']['auth']['url']
+    client_id = secrets['auth']['client_id']
+    client_secret = secrets['auth']['client_secret']
 
     conn = http.client.HTTPSConnection(auth_url)
 

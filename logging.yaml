@@ -30,8 +30,8 @@ handlers:
         encoding: utf8
 
 # loggers:
-#    my_module:
-#        level: ERROR
+#    config:
+#        level: INFO
 #        handlers: [console]
 #        propagate: no
 
