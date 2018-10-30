@@ -25,7 +25,7 @@ def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")  # Singleton
 class Scheduler(object):
-    def __init__(self, daemon):
+    def __init__(self, daemon=None):
         self.submitted_jobs = []
         self._task_queue = queue.Queue()
         self._stop_thread_event = threading.Event()
@@ -98,9 +98,10 @@ class Scheduler(object):
             # Wait for the thread to finish
             self._queue_reader.join()
 
-    def terminate_daemon(self, host, port):
+    def terminate_daemon(self):
         # Kill process ran as daemon # TODO - should this be part of stop method?
-        self.daemon.shutdown()
+        if self.daemon is not None:
+            self.daemon.shutdown()
 
 
 def is_daemon_running(port: int =7779):
