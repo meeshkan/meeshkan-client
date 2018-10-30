@@ -12,14 +12,17 @@ def get_config(path='config.yaml'):
     if not os.path.isfile(path):
         raise FileNotFoundError(f"File {path} not found")
     with open(path, 'rt') as f:
-        config = yaml.safe_load(f.read())
-    return config
+        return yaml.safe_load(f.read())
 
 
 def get_secrets():
     logger.info(f"Reading credentials from {CREDENTIALS_PATH}")
     if not CREDENTIALS_PATH.is_file():
         raise FileNotFoundError(f"Create file {CREDENTIALS_PATH} first.")
-    config = configparser.ConfigParser()
-    config.read(str(CREDENTIALS_PATH))
-    return config
+    conf = configparser.ConfigParser()
+    conf.read(str(CREDENTIALS_PATH))
+    return conf
+
+
+config = get_config()
+secrets = get_secrets()
