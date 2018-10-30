@@ -1,0 +1,3 @@
+env:
+  auth:
+    url: "meeshkan.eu.auth0.com"
