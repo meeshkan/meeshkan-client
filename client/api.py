@@ -1,9 +1,9 @@
 import Pyro4
-from .scheduler import Scheduler
-from .job import Job, ProcessExecutable
+import Pyro4.errors
+from scheduler import Scheduler
+from job import Job, ProcessExecutable
 
 
-@Pyro4.expose
 class Api(object):
     """
     Exposed by the Pyro server for communications with the CLI.
@@ -18,4 +18,10 @@ class Api(object):
         self.scheduler.submit_job(Job(executable, job_id))
 
     def list_jobs(self):
-        return [str(job) for job in  self.scheduler.submitted_jobs]
+        return [str(job) for job in  self.scheduler.jobs]
+
+    def terminate_daemon(self):
+        try:
+            self.scheduler.terminate_daemon()
+        except Pyro4.errors.ConnectionClosedError:  # This is expected
+            print("Daemon shutdown")
