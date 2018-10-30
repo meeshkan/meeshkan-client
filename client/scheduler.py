@@ -7,7 +7,7 @@ import signal  # For terminating the daemon
 from typing import Callable  # For self-documenting typing
 import Pyro4  # For daemon management
 import psutil  # For verifying ports if Errno 98
-from job import Job  # Defines scheduler jobs
+from .job import Job  # Defines scheduler jobs
 
 # Worker thread reading from queue and waiting for processes to finish
 def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
