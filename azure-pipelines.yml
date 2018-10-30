@@ -1,12 +1,12 @@
-resources:
-  containers:
-  - container: my_container
-    image: ubuntu:16.04
+# resources:
+#  containers:
+#   - container: my_container
+#     image: ubuntu:16.04
 
 pool:
   vmImage: 'ubuntu-16.04'
 
-container: my_container
+# container: my_container
 
 steps:
 - task: UsePythonVersion@0
