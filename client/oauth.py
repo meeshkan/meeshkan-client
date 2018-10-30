@@ -1,5 +1,4 @@
 import http.client
-from .logger import setup_logging
 from .config import get_config, get_secrets
 import logging
 import json
@@ -31,9 +30,8 @@ def get_token():
 
 
 def main():
-    setup_logging()
     token = get_token()
-    logger.info(token)
+    logger.info(f"Got token: {json.dumps(token)}")
 
 
 if __name__ == '__main__':

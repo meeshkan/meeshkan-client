@@ -92,6 +92,3 @@ ENV/
 
 # PyCharm stuff
 .idea/
-
-# Secrets
-.secrets.yaml
