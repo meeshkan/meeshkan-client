@@ -42,7 +42,7 @@ class _MockResponse:
         self.status_code = status_code
 
     def json(self):
-        return
+        return self.json_data
 
 
 def _query_payload():
