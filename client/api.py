@@ -1,7 +1,7 @@
 import Pyro4
 import Pyro4.errors
-from .scheduler import Scheduler
-from .job import Job, ProcessExecutable
+from client.scheduler import Scheduler
+from client.job import Job, ProcessExecutable
 
 
 class Api(object):

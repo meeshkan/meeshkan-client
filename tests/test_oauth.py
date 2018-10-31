@@ -1,4 +1,4 @@
-from .context import client
+import client
 from client.oauth import TokenStore, token_source
 from .test_notifiers import _MockResponse
 import pytest

@@ -8,7 +8,7 @@ from typing import Callable  # For self-documenting typing
 import Pyro4  # For daemon management
 import psutil  # For verifying ports if Errno 98
 import socket  # To verify daemon
-from .job import Job  # Defines scheduler jobs
+from client.job import Job  # Defines scheduler jobs
 
 # Worker thread reading from queue and waiting for processes to finish
 def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:

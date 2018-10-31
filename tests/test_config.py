@@ -1,4 +1,4 @@
-from .context import client
+import client
 from client.config import get_secrets, get_config
 from pathlib import Path
 

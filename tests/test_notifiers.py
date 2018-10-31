@@ -1,4 +1,4 @@
-from .context import client
+import client
 from client.notifiers import CloudNotifier, Payload, post_payloads
 from client.oauth import TokenStore
 from client.job import Job, Executable
