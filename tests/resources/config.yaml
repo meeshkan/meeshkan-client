@@ -1,0 +1,4 @@
+auth:
+  url: "meeshkan.eu.auth0.com"
+cloud:
+  url: "http://localhost:4000"

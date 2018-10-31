@@ -15,12 +15,12 @@ def get_config(path='config.yaml'):
         return yaml.safe_load(f.read())
 
 
-def get_secrets():
-    logger.info(f"Reading credentials from {CREDENTIALS_PATH}")
-    if not CREDENTIALS_PATH.is_file():
-        raise FileNotFoundError(f"Create file {CREDENTIALS_PATH} first.")
+def get_secrets(path: Path=CREDENTIALS_PATH):
+    logger.info(f"Reading credentials from {path}")
+    if not path.is_file():
+        raise FileNotFoundError(f"Create file {path} first.")
     conf = configparser.ConfigParser()
-    conf.read(str(CREDENTIALS_PATH))
+    conf.read(str(path))
     return conf
 
 
