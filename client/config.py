@@ -22,7 +22,3 @@ def get_secrets(path: Path=CREDENTIALS_PATH):
     conf = configparser.ConfigParser()
     conf.read(str(path))
     return conf
-
-
-config = get_config()
-secrets = get_secrets()
