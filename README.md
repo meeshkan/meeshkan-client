@@ -28,3 +28,11 @@ python -m client.server
 ```bash
 python -m client.client
 ```
+
+## OAuth
+Create a file `.meeshkan/credentials` with the following format:
+```ini
+[auth]
+client_id=...
+client_secret=...
+```
