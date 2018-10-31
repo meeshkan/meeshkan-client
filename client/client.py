@@ -1,30 +1,41 @@
 import Pyro4
-from .server import Server
+import logging
+import sys
+import socket
 from .api import Api
 from .logger import setup_logging
-import logging
+from .scheduler import start_scheduler
 
 
 def get_logger():
     return logging.getLogger(__name__)
 
 
-def main():
+def main(args):
     setup_logging()
-    server = Server()
     logger = get_logger()
+    # Required for pickling custom classes like Job
+    # default serializer is 'serpent', supporting only literal Python expressions
+    # see e.g.:
+    #    https://github.com/irmen/Serpent
+    #    https://pyro-core.narkive.com/iOV3KTdt/custom-class-serialization-with-serpent
+    Pyro4.config.SERIALIZER = 'pickle'
+    Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
+    Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-    if not server.is_running:
-        raise Exception('Start the server first.')
-
-    uri = server.get_uri
-
-    api: Api = Pyro4.Proxy(uri)
+    # We get the URI after running the daemon, instantiate a Pyro4 Object, and create the API for it
+    host = socket.gethostname()  # more stable than 'localhost' or '127.0.0.1'
+    port = 7779  # TODO part of commandline for port/host?
+    api: Api = Api(Pyro4.Proxy(start_scheduler(host, port)), host, port)
 
     # TODO Add command-line interface here
     api.submit("echo hello")
     logger.info(api.list_jobs())
 
+    # Terminate process
+    if len(args) > 0:
+        api.terminate_daemon()
+
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
