@@ -56,7 +56,7 @@ def post_payloads(cloud_url: str, token_store: TokenStore) -> Callable[[Payload]
     return post_with_retry
 
 
-def build_query_payload(job: Job) -> Payload:
+def _build_query_payload(job: Job) -> Payload:
     query = "{ hello }"
     payload: Payload = {
         "query": query,
@@ -73,7 +73,7 @@ class CloudNotifier(Notifier):
         self._post_payload = post_payload
 
     def notify(self, job: Job) -> None:
-        query_payload: Payload = build_query_payload(job)
+        query_payload: Payload = _build_query_payload(job)
         self._post_payload(query_payload)
         logger.info(f"Posted successfully: {job}")
         return
