@@ -1,6 +1,5 @@
-from .config import config, secrets
+from http import HTTPStatus
 import logging
-import json
 from typing import Callable, NewType
 import requests
 
@@ -21,10 +20,10 @@ def token_source(auth_url: str, client_id: str, client_secret: str) -> FetchToke
 
     def fetch() -> Token:
         resp = requests.post(f"https://{auth_url}/oauth/token", data=payload)
-        if resp.status_code == 200:
+        if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()
             return resp_dict['access_token']
-        elif resp.status_code == 401:
+        elif resp.status_code == HTTPStatus.UNAUTHORIZED:
             raise RuntimeError("Failed requesting authentication. Check your credentials.")
         else:
             logger.error(f"Failed requesting authentication, got response with status {resp.status_code}.")
@@ -45,17 +44,3 @@ class TokenStore(object):
             logger.info("Retrieving new authentication token")
             self._token = self._fetch_token()
         return self._token
-
-
-def main():
-    auth_url = config['auth']['url']
-    client_id = secrets['auth']['client_id']
-    client_secret = secrets['auth']['client_secret']
-    fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
-    token_store = TokenStore(fetch_token=fetch_token)
-    token = token_store.get_token()
-    logger.info(f"Got token: {json.dumps(token)}")
-
-
-if __name__ == '__main__':
-    main()
