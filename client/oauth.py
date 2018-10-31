@@ -1,7 +1,8 @@
 from http import HTTPStatus
 import logging
-from typing import Callable, NewType
 import requests
+from typing import Callable, NewType
+
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,10 @@
-from .job import Job, ProcessExecutable
-from .oauth import TokenStore, token_source, Token
-import logging
-from .config import config, secrets
-from typing import Callable, Dict, NewType
-import requests
+from .job import Job
+from .oauth import TokenStore, Token
 from http import HTTPStatus
+import logging
+import requests
+from typing import Callable, Dict, NewType
+
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,7 @@ def post_payloads(cloud_url: str, token_store: TokenStore) -> Callable[[Payload]
 def _build_query_payload(job: Job) -> Payload:
     query = "{ hello }"
     payload: Payload = {
-        "query": query,
-        # "variables": {
-        #     "id": job.id
-        # }
+        "query": query
     }
     return payload
 
@@ -77,18 +74,3 @@ class CloudNotifier(Notifier):
         self._post_payload(query_payload)
         logger.info(f"Posted successfully: {job}")
         return
-
-
-def main():
-    auth_url = config['auth']['url']
-    client_id = secrets['auth']['client_id']
-    client_secret = secrets['auth']['client_secret']
-    fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
-    token_store = TokenStore(fetch_token=fetch_token)
-    post_payload = post_payloads(cloud_url=config['cloud']['url'], token_store=token_store)
-    notifier = CloudNotifier(post_payload=post_payload)
-    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_id=10))
-
-
-if __name__ == '__main__':
-    main()
