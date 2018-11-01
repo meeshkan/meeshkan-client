@@ -1,7 +1,8 @@
-from .config import get_config, get_secrets
-from .oauth import TokenStore, token_source
-from .notifiers import post_payloads, CloudNotifier
-from .job import Job, ProcessExecutable
+from client.config import get_config, get_secrets
+from client.oauth import TokenStore, token_source
+from client.notifiers import post_payloads, CloudNotifier
+from client.job import Job, ProcessExecutable
+
 import click
 import logging
 
@@ -23,7 +24,7 @@ def test_post():
 
 
 @click.command()
-@click.argument('cmd')
+@click.argument('cmd', type=str)
 def main(cmd):
     if cmd == 'test':
         test_post()
