@@ -6,15 +6,21 @@ from client.config import get_config, get_secrets
 from client.oauth import TokenStore, token_source
 from client.notifiers import post_payloads, CloudNotifier
 from client.job import Job, ProcessExecutable
+from client.logger import setup_logging
 
 
+setup_logging()
 LOGGER = logging.getLogger(__name__)
 
 CONFIG = get_config()
 SECRETS = get_secrets()
 
 
-def test_post():
+def notify():
+    """
+    Test notifying server for finished job. Requires setting credentials and setting URLs in config.yaml.
+    :return:
+    """
     auth_url = CONFIG['auth']['url']
     client_id = SECRETS['auth']['client_id']
     client_secret = SECRETS['auth']['client_secret']
@@ -26,12 +32,10 @@ def test_post():
 
 
 @click.command()
-@click.argument('cmd', type=str)
+@click.argument('cmd', type=click.Choice(['notify']))
 def main(cmd):
-    if cmd == 'test':
-        test_post()
-    else:
-        raise RuntimeError(f"Unknown command {cmd}")
+    if cmd == 'notify':
+        notify()
 
 
 if __name__ == '__main__':
