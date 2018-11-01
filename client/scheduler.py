@@ -1,14 +1,9 @@
 import queue
 import threading
 import time
-from multiprocessing import Process  # For daemon initialization
-import os  # Ditto (for daemonizing the Pyro4 process)
-import errno
 from typing import Callable  # For self-documenting typing
-import Pyro4  # For daemon management
-import psutil  # For verifying ports if Errno 98
-import socket  # To verify daemon
 from client.job import Job  # Defines scheduler jobs
+
 
 # Worker thread reading from queue and waiting for processes to finish
 def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
@@ -22,8 +17,7 @@ def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
             do_work(item)
             q.task_done()
 
-@Pyro4.expose
-@Pyro4.behavior(instance_mode="single")  # Singleton
+
 class Scheduler(object):
     def __init__(self, daemon=None):
         self.submitted_jobs = []
@@ -102,49 +96,3 @@ class Scheduler(object):
         # Kill process ran as daemon # TODO - should this be part of stop method?
         if self.daemon is not None:
             self.daemon.shutdown()
-
-
-def is_daemon_running(port: int =7779):
-    """Checks whether the daemon is running on localhost
-    :return:
-        -1 if the daemon isn't running
-        None if something is running on the specified port but we're unable to verify the PID
-        True if daemon is running
-        False if something else is running on the port
-    """
-    # Assume daemon is running and look for it; find the PID that uses this port
-    connections = psutil.net_connections()
-    pid = -1
-    for conn in connections:
-        if conn.fd != -1:  # Only consider valid connections
-            if conn.laddr.port == port:  # Check laddr
-                pid = conn.pid
-                break
-    if pid == -1 or pid is None:
-        return pid
-    # Verify process via PID
-    proc_name = psutil.Process(pid).name()    # assume python processes are our own...
-    return 'python' in proc_name
-
-def start_scheduler(host: str ='127.0.0.1', port: int =7779):
-    """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
-    obj_name = "Meeshkan.scheduler"
-    def daemonize():  # Makes sure the daemon runs even if the process that called `start_scheduler` terminates
-        pid = os.fork()
-        if pid > 0:  # Close parent process
-            return
-        os.setsid()
-        daemon = Pyro4.Daemon(host=host, port=port)
-        Pyro4.Daemon.serveSimple({Scheduler(daemon): obj_name}, ns=False, daemon=daemon, verbose=False)
-        return
-
-    daemon_status = is_daemon_running(port)
-    if daemon_status == -1:    # host:port is free, boot up the scheduler/daemon
-        p = Process(target=daemonize)
-        p.daemon = True
-        p.start()
-        time.sleep(1)  # Allow Pyro to boot up
-    elif daemon_status is False:
-        raise OSError(errno.EADDRINUSE)  # host:port is not free and is not python process
-    # daemon_status is either True (daemon is running) or None, in which case we assume the process is ours.
-    return f"PYRO:{obj_name}@{host}:{port}"  # URI

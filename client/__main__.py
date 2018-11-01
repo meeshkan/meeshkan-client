@@ -1,12 +1,17 @@
 """ Command-line interface """
 import logging
+import socket
+
 import click
+import Pyro4
 
 from client.config import get_config, get_secrets
 from client.oauth import TokenStore, token_source
 from client.notifiers import post_payloads, CloudNotifier
 from client.job import Job, ProcessExecutable
 from client.logger import setup_logging
+from client.api import Api
+from client.service import Service
 
 
 setup_logging()
@@ -14,6 +19,32 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG = get_config()
 SECRETS = get_secrets()
+
+Pyro4.config.SERIALIZER = 'pickle'
+Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
+Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
+
+
+def start():
+    service = Service()
+    if not service.is_running():
+        service.start()
+
+
+def submit():
+    service = Service()
+    if not service.is_running():
+        raise RuntimeError("Start the service first!")
+    api: Api = Pyro4.Proxy(service.uri)
+    api.submit('script.sh')
+
+
+def stop():
+    service = Service()
+    if not service.is_running():
+        raise RuntimeError("Start the service first!")
+    api: Api = Pyro4.Proxy(service.uri)
+    api.stop()
 
 
 def notify():
@@ -32,10 +63,12 @@ def notify():
 
 
 @click.command()
-@click.argument('cmd', type=click.Choice(['notify']))
+@click.argument('cmd', type=click.Choice(['notify', 'start']))
 def main(cmd):
     if cmd == 'notify':
         notify()
+    elif cmd == 'start':
+        start()
 
 
 if __name__ == '__main__':
