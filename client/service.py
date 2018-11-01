@@ -15,11 +15,10 @@ class Service(object):
     """
     Service for running the Python daemon
     """
-
+    OBJ_NAME = "Meeshkan.scheduler"
     def __init__(self, port: int=7779):
         self.port = port
         self.host = socket.gethostname()
-        self.obj_name = "Meeshkan.scheduler"
 
     def is_running(self):
         with Pyro4.Proxy(self.uri) as p:
@@ -27,6 +26,7 @@ class Service(object):
                 p._pyroBind()
                 return True
             except Pyro4.errors.CommunicationError:
+                # TODO has the underlying assumption that the port is either taken by Pyro or is free
                 return False
 
     def is_running2(self):
@@ -52,13 +52,10 @@ class Service(object):
 
     @property
     def uri(self):
-        return f"PYRO:{self.obj_name}@{self.host}:{self.port}"
+        return f"PYRO:{Service.OBJ_NAME}@{self.host}:{self.port}"
 
     def start(self):
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
-
-        obj_name = "Meeshkan.scheduler"
-
         def daemonize():  # Makes sure the daemon runs even if the process that called `start_scheduler` terminates
             pid = os.fork()
             if pid > 0:  # Close parent process
@@ -66,19 +63,14 @@ class Service(object):
             os.setsid()
             daemon = Pyro4.Daemon(host=self.host, port=self.port)
             api = Api(scheduler=Scheduler(daemon), host=self.host, port=self.port)
-            Pyro4.Daemon.serveSimple({api: obj_name}, ns=False, daemon=daemon, verbose=False)
+            Pyro4.Daemon.serveSimple({api: Service.OBJ_NAME}, ns=False, daemon=daemon, verbose=False)
             return
 
-        # daemon_status = self.is_running()
         is_running = self.is_running()
-
         if is_running:
             raise RuntimeError(f"Running already at {self.uri}")
         p = Process(target=daemonize)
         p.daemon = True
         p.start()
         time.sleep(1)  # Allow Pyro to boot up
-        # elif daemon_status is False:
-         #   raise OSError(errno.EADDRINUSE)  # host:port is not free and is not python process
-        # daemon_status is either True (daemon is running) or None, in which case we assume the process is ours.
-        return self.uri  # URI
+        return self.uri

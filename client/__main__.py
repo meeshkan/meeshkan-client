@@ -26,10 +26,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 
 def start():
-    service = Service()
-    if not service.is_running():
-        service.start()
-
+    return Service().start()
 
 def submit():
     service = Service()

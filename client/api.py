@@ -25,6 +25,6 @@ class Api(object):
         return [str(job) for job in  self.scheduler.jobs]
 
     def stop(self):
-        print("Daemon shutdown")
-        self.scheduler.terminate_daemon()
+        # print("Daemon shutdown")
         self.scheduler.stop()
+        self.scheduler.terminate_daemon()
