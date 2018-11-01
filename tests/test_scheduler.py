@@ -1,4 +1,4 @@
-from .context import client
+import client
 from client.scheduler import Scheduler
 from client.job import Job, JobStatus, Executable
 from concurrent.futures import Future, wait

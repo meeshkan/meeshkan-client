@@ -1,5 +1,5 @@
-from .job import Job
-from .oauth import TokenStore, Token
+from client.job import Job
+from client.oauth import TokenStore, Token
 from http import HTTPStatus
 import logging
 import requests
