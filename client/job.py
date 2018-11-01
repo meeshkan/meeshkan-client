@@ -18,14 +18,14 @@ class Executable(object):
     def __init__(self):
         pass
 
-    def launch_and_wait(self) -> int:
+    def launch_and_wait(self) -> int:  # pylint: disable=no-self-use
         """
         Base launcher
         :return: Return code (0 for success)
         """
         return 0
 
-    def terminate(self):
+    def terminate(self):  # pylint: disable=no-self-use
         """
         Terminate execution
         :return: None
@@ -68,8 +68,8 @@ class Job(object):
         :param job_id: Human-readable integer ID
         """
         self.executable = executable
-        self.id = job_id  # Human-readable integer ID
-        self.uuid = uuid.uuid4()  # Absolutely unique identifier
+        self.id = uuid.uuid4()  # Absolutely unique identifier
+        self.number = job_id  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
         self.stale = False
         self.is_launched = False

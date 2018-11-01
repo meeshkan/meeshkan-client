@@ -21,10 +21,15 @@ def test_cloud_notifier():
     cloud_notifier = CloudNotifier(fake_post)
     cloud_notifier.notify(_get_job())
 
-    expected_payload = {"query": "{ hello }"}
+    expected_payload = {"query": "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"}
 
     assert "query" in posted_payload
+
     assert posted_payload["query"] == expected_payload["query"]
+
+    assert "variables" in posted_payload
+    variables = posted_payload["variables"]
+    assert "in" in variables
 
 
 def test_cloud_notifier_propagates_exception():
@@ -43,6 +48,10 @@ class _MockResponse:
 
     def json(self):
         return self.json_data
+
+    @property
+    def text(self):
+        return "Mock response"
 
 
 def _query_payload():

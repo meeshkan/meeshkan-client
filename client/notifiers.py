@@ -52,14 +52,25 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
                 LOGGER.error('Cannot post to server: unauthorized')
                 raise RuntimeError("Cannot post: Unauthorized")
         if res.status_code != HTTPStatus.OK:
+            LOGGER.error("Error from server", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
+        LOGGER.info(res.text)
     return post_with_retry
 
 
-def _build_query_payload() -> Payload:
-    query = "{ hello }"
+def _build_query_payload(job: Job) -> Payload:
+    mutation = "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"
     payload: Payload = {
-        "query": query
+        "query": mutation,
+        "variables": {
+            "in": {
+                "id": str(job.id),
+                "number": job.number,
+                "created": job.created.isoformat() + "Z",  # Assume it's UTC
+                "description": "description",
+                "message": str(job.status)
+            }
+        }
     }
     return payload
 
@@ -69,7 +80,7 @@ class CloudNotifier(Notifier):
         super().__init__()
         self._post_payload = post_payload
 
-    def notify(self, job: client.job.Job) -> None:
-        query_payload: Payload = _build_query_payload()
+    def notify(self, job: Job) -> None:
+        query_payload: Payload = _build_query_payload(job)
         self._post_payload(query_payload)
         LOGGER.info(f"Posted successfully: %s", str(job))
