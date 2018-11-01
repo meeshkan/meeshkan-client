@@ -21,7 +21,7 @@ class Service(object):
         self.host = socket.gethostname()
         self.obj_name = "Meeshkan.scheduler"
 
-    def is_running2(self):
+    def is_running(self):
         with Pyro4.Proxy(self.uri) as p:
             try:
                 p._pyroBind()
@@ -29,7 +29,7 @@ class Service(object):
             except Pyro4.errors.CommunicationError:
                 return False
 
-    def is_running(self):
+    def is_running2(self):
         """Checks whether the daemon is running on localhost
             :return:
                 -1 if the daemon isn't running
@@ -70,15 +70,14 @@ class Service(object):
             return
 
         # daemon_status = self.is_running()
-        is_running = self.is_running2()
+        is_running = self.is_running()
 
         if is_running:
             raise RuntimeError(f"Running already at {self.uri}")
-        if not is_running:    # host:port is free, boot up the scheduler/daemon
-            p = Process(target=daemonize)
-            p.daemon = True
-            p.start()
-            time.sleep(1)  # Allow Pyro to boot up
+        p = Process(target=daemonize)
+        p.daemon = True
+        p.start()
+        time.sleep(1)  # Allow Pyro to boot up
         # elif daemon_status is False:
          #   raise OSError(errno.EADDRINUSE)  # host:port is not free and is not python process
         # daemon_status is either True (daemon is running) or None, in which case we assume the process is ours.
