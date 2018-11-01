@@ -15,7 +15,7 @@ def token_source(auth_url: str, client_id: str, client_secret: str) -> FetchToke
     payload = {
         'client_id': client_id,
         'client_secret': client_secret,
-        'audience': "https://cloud-api.meeshkan.io",
+        'audience': "https://api.meeshkan.io",
         "grant_type": "client_credentials"
     }
 

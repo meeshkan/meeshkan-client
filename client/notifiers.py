@@ -1,12 +1,15 @@
-from client.job import Job
-from client.oauth import TokenStore, Token
+""" Notifiers for changes in job status"""
 from http import HTTPStatus
 import logging
-import requests
 from typing import Callable, Dict, NewType
 
+import requests
 
-logger = logging.getLogger(__name__)
+from client.job import Job
+from client.oauth import TokenStore, Token
+
+
+LOGGER = logging.getLogger(__name__)
 
 Payload = NewType('Payload', Dict[str, str])
 
@@ -48,15 +51,14 @@ def post_payloads(cloud_url: str, token_store: TokenStore) -> Callable[[Payload]
             token = token_store.get_token(refresh=True)
             res = _post(payload, token)
             if res.status_code == HTTPStatus.UNAUTHORIZED:
-                logger.error('Cannot post to server: unauthorized')
+                LOGGER.error('Cannot post to server: unauthorized')
                 raise RuntimeError("Cannot post: Unauthorized")
         if res.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Post failed with status code {res.status_code}")
-        return
     return post_with_retry
 
 
-def _build_query_payload(job: Job) -> Payload:
+def _build_query_payload() -> Payload:
     query = "{ hello }"
     payload: Payload = {
         "query": query
@@ -70,7 +72,6 @@ class CloudNotifier(Notifier):
         self._post_payload = post_payload
 
     def notify(self, job: Job) -> None:
-        query_payload: Payload = _build_query_payload(job)
+        query_payload: Payload = _build_query_payload()
         self._post_payload(query_payload)
-        logger.info(f"Posted successfully: {job}")
-        return
+        LOGGER.info(f"Posted successfully: %s", str(job))
