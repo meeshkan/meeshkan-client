@@ -1,15 +1,17 @@
 import errno
-from multiprocessing import Process  # For daemon initialization
+from multiprocessing import Process, Event  # For daemon initialization
 import os
+import ctypes
 import psutil  # For verifying ports if Errno 98
 import socket  # To verify daemon
 import time
-
 import Pyro4  # For daemon management
 
-from client.scheduler import Scheduler
-from client.api import Api
+import client.scheduler
+import client.api
 
+
+DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
 
 class Service(object):
     """
@@ -19,51 +21,38 @@ class Service(object):
     def __init__(self, port: int=7779):
         self.port = port
         self.host = socket.gethostname()
+        self.terminate_daemon = Event()
 
-    def is_running(self):
+    def is_running(self) -> bool:
+        """Checks whether the daemon is running on localhost.
+        Assumes the port is either taken by Pyro or is free.
+        Offered as an alternative as `is_running2` requires `sudo` on MacOS systems.
+        """
         with Pyro4.Proxy(self.uri) as p:
             try:
                 p._pyroBind()
                 return True
             except Pyro4.errors.CommunicationError:
-                # TODO has the underlying assumption that the port is either taken by Pyro or is free
                 return False
-
-    def is_running2(self):
-        """Checks whether the daemon is running on localhost
-            :return:
-                -1 if the daemon isn't running
-                None if something is running on the specified port but we're unable to verify the PID
-                True if daemon is running
-                False if something else is running on the port
-        """
-        connections = psutil.net_connections()
-        pid = -1
-        for conn in connections:
-            if conn.fd != -1:  # Only consider valid connections
-                if conn.laddr.port == self.port:  # Check laddr
-                    pid = conn.pid
-                    break
-        if pid == -1 or pid is None:
-            return pid
-        # Verify process via PID
-        proc_name = psutil.Process(pid).name()  # assume python processes are our own...
-        return 'python' in proc_name
 
     @property
     def uri(self):
         return f"PYRO:{Service.OBJ_NAME}@{self.host}:{self.port}"
 
-    def start(self):
+    def start(self) -> str:
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
-        def daemonize():  # Makes sure the daemon runs even if the process that called `start_scheduler` terminates
+        def daemonize():
+            """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
             pid = os.fork()
             if pid > 0:  # Close parent process
                 return
-            os.setsid()
-            daemon = Pyro4.Daemon(host=self.host, port=self.port)
-            api = Api(scheduler=Scheduler(daemon), host=self.host, port=self.port)
-            Pyro4.Daemon.serveSimple({api: Service.OBJ_NAME}, ns=False, daemon=daemon, verbose=False)
+            os.setsid()  # Separate from tty
+            daemon = Pyro4.Daemon(host=self.host, port=self.port)  # Save daemon so we can cleanly shutdown later on
+            api = client.api.Api(scheduler=client.scheduler.Scheduler(), service=self)  # Initialize the API
+            daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
+            daemon.requestLoop(lambda: not self.terminate_daemon.is_set())  # Loop until the event is set
+            time.sleep(0.2)  # Allows data scraping
+            daemon.close()  # Cleanup
             return
 
         is_running = self.is_running()
@@ -72,5 +61,14 @@ class Service(object):
         p = Process(target=daemonize)
         p.daemon = True
         p.start()
-        time.sleep(1)  # Allow Pyro to boot up
+        time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up
         return self.uri
+
+    def stop(self):
+        if self.is_running():
+            self.terminate_daemon.set()  # Flag for requestLoop to terminate
+            with Pyro4.Proxy(self.uri) as p:
+                p._pyroBind()  # triggers checking loopCondition
+            self.terminate_daemon.clear()  # Clear the flag
+            return True
+        return False

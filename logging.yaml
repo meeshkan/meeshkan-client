@@ -11,6 +11,15 @@ handlers:
         formatter: simple
         stream: ext://sys.stdout
 
+    debug_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: DEBUG
+        formatter: simple
+        filename: debug.log
+        maxBytes: 20971520 # 20MB
+        backupCount: 20
+        encoding: utf8
+
     info_file_handler:
         class: logging.handlers.RotatingFileHandler
         level: INFO
@@ -29,12 +38,7 @@ handlers:
         backupCount: 20
         encoding: utf8
 
-# loggers:
-#    config:
-#        level: INFO
-#        handlers: [console]
-#        propagate: no
-
 root:
     level: INFO
-    handlers: [console, info_file_handler, error_file_handler]
+    # When deploying, remove 'console' to avoid IO error with daemon!
+    handlers: [console, debug_file_handler, info_file_handler, error_file_handler]

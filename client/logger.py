@@ -3,10 +3,7 @@ import logging.config
 import yaml
 
 
-def setup_logging(
-    default_path='logging.yaml',
-    default_level=logging.INFO,
-):
+def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
     """Setup logging configuration
     This MUST be called before creating any loggers.
     """
