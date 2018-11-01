@@ -1,14 +1,17 @@
 from enum import Enum
 import subprocess
 from typing import Tuple
+import uuid
+import datetime
 
 
 class JobStatus(Enum):
-    QUEUED = 0
-    RUNNING = 1
-    FINISHED = 2
-    CANCELED = 3
-    FAILED = 4
+    CREATED = 0
+    QUEUED = 1
+    RUNNING = 2
+    FINISHED = 3
+    CANCELED = 4
+    FAILED = 5
 
 
 class Executable(object):
@@ -62,13 +65,15 @@ class Job(object):
     def __init__(self, executable: Executable, job_id: int):
         """
         :param executable: Executable instance
-        :param job_id: Job ID
+        :param job_id: Human-readable integer ID
         """
         self.executable = executable
-        self.id = job_id
+        self.id = job_id  # Human-readable integer ID
+        self.uuid = uuid.uuid4()  # Absolutely unique identifier
+        self.created = datetime.datetime.utcnow()
         self.stale = False
         self.is_launched = False
-        self.status = JobStatus.QUEUED
+        self.status = JobStatus.CREATED
         self.is_processed = False
 
     def launch_and_wait(self) -> int:

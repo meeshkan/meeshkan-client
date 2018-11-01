@@ -64,6 +64,7 @@ class Scheduler(object):
     def submit_job(self, job: client.job.Job):
         self._njobs += 1
         self._task_queue.put(job)  # TODO Blocks if queue full
+        job.status = JobStatus.QUEUED
         self.submitted_jobs.append(job)
 
     def stop_job(self, job_id: int):
