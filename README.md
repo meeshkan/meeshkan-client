@@ -2,31 +2,9 @@
 
 Client code for running ML jobs.
 
-### Running client
+## Command-line interface
 ```bash
-make run
-```
-
-### Install requirements
-```bash
-make init
-```
-
-### Running tests
-```bash
-make test
-```
-
-## Pyro server and daemon
-
-#### Start server
-```bash
-python -m client.server
-```
-
-#### CLI
-```bash
-python -m client.client
+python -m client [--help]
 ```
 
 ## OAuth
@@ -35,4 +13,22 @@ Create a file `.meeshkan/credentials` with the following format:
 [auth]
 client_id=...
 client_secret=...
+```
+
+## Development
+
+### Install requirements
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+### Running tests
+```bash
+pytest
+```
+
+### Running lint
+```bash
+pylint -f msvs client
 ```

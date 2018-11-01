@@ -24,6 +24,10 @@ steps:
     pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=client --cov-report=xml --cov-report=html
   displayName: 'Test with pytest'
 
+- script: |
+    pylint -E -f msvs client
+  displayName: 'Test with pylint'
+
 - task: PublishTestResults@2
   inputs:
     testResultsFiles: '**/test-*.xml'
