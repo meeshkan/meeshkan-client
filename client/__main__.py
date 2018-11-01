@@ -63,12 +63,14 @@ def notify():
 
 
 @click.command()
-@click.argument('cmd', type=click.Choice(['notify', 'start']))
+@click.argument('cmd', type=click.Choice(['notify', 'start', 'stop']))
 def main(cmd):
     if cmd == 'notify':
         notify()
     elif cmd == 'start':
         start()
+    elif cmd == 'stop':
+        stop()
 
 
 if __name__ == '__main__':
