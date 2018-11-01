@@ -4,6 +4,8 @@ from client.scheduler import Scheduler
 from client.job import Job, ProcessExecutable
 
 
+@Pyro4.expose
+@Pyro4.behavior(instance_mode="single")  # Singleton
 class Api(object):
     """
     Exposed by the Pyro server for communications with the CLI.
@@ -22,6 +24,7 @@ class Api(object):
     def list_jobs(self):
         return [str(job) for job in  self.scheduler.jobs]
 
-    def terminate_daemon(self):
+    def stop(self):
         print("Daemon shutdown")
-        self.scheduler.terminate_daemon(self.host, self.port)
+        self.scheduler.terminate_daemon()
+        self.scheduler.stop()
