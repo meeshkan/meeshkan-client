@@ -20,6 +20,7 @@ client_secret=...
 ### Install requirements
 ```bash
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Running tests
