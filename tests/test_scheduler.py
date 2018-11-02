@@ -4,6 +4,7 @@ from concurrent.futures import Future, wait
 import client
 from client.scheduler import Scheduler
 from client.job import Job, JobStatus, Executable
+from client.notifiers import Notifier
 
 
 # Executable that runs the provided `target` function
@@ -104,16 +105,16 @@ def test_notifiers():
 
     finished_jobs = []
 
-    def notify(job0, return_code):
-        finished_jobs.append({'job': job0, 'return_code': return_code})
+    class MockNotifier(Notifier):
+        def notify(self, job0: client.job.Job):
+            finished_jobs.append({'job': job0})
 
     with get_scheduler() as scheduler:
         job = get_job(executable=get_executable(target=resolve))
-        scheduler.register_listener(notify)
+        scheduler.register_listener(MockNotifier())
         scheduler.submit_job(job)
         wait([future], timeout=5)
         assert len(finished_jobs) == 1
-        assert finished_jobs[0]['return_code'] == 0
         assert finished_jobs[0]['job'] is job
 
 

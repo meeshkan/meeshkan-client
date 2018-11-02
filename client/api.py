@@ -16,6 +16,7 @@ class Api(object):
         self.service = service
 
     def __enter__(self):
+        self.scheduler.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

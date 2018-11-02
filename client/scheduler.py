@@ -2,9 +2,10 @@ import logging
 import queue
 import threading
 import time
-from typing import Callable, List  # For self-documenting typing
+from typing import List  # For self-documenting typing
 
 import client.job  # Defines scheduler jobs
+import client.notifiers
 
 
 LOGGER = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class Scheduler(object):
         self._stop_thread_event = threading.Event()
         kwargs = {'q': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
         self._queue_reader = threading.Thread(target=read_queue, kwargs=kwargs)
-        self._listeners = []
+        self._listeners: List[client.notifiers.Notifier] = []
         self._njobs = 0
         self._is_running = True
         self._running_job = None
@@ -39,36 +40,47 @@ class Scheduler(object):
     def jobs(self):  # Needed to access internal list of jobs as object parameters are unexposable, only methods
         return self.submitted_jobs
 
+    def start(self):
+        if not self._queue_reader.is_alive():
+            self._queue_reader.start()
+
     def __enter__(self):
-        self._queue_reader.start()
+        self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def register_listener(self, listener: Callable[[client.job.Job, int], None]):
+    def register_listener(self, listener: client.notifiers.Notifier):
         self._listeners.append(listener)
 
     def _handle_job(self, job: client.job.Job) -> None:
-        if not job.stale:
+        LOGGER.debug("Handling job: %s", job)
+        if job.stale:
+            return
+
+        try:
+            self._running_job = job
+            job.launch_and_wait()
+            self._running_job = None
+        except:
+            LOGGER.exception("Running job failed")
+
+        for notifier in self._listeners:
             try:
-                self._running_job = job
-                return_code = job.launch_and_wait()
-                self._running_job = None
-                for notify in self._listeners:
-                    notify(job, return_code)
-            except Exception as e:    # TODO Notify failure, narrow exception type
-                pass
-        else:
-            pass
+                notifier.notify(job)
+            except:
+                LOGGER.exception("Notifier failed")
+
+        LOGGER.debug("Finished handling job: %s", job)
 
     def get_number(self):
         return self._njobs
 
     def submit_job(self, job: client.job.Job):
         self._njobs += 1
-        self._task_queue.put(job)  # TODO Blocks if queue full
         job.status = client.job.JobStatus.QUEUED
+        self._task_queue.put(job)  # TODO Blocks if queue full
         self.submitted_jobs.append(job)
         LOGGER.debug("Job submitted: %s", job)
 
