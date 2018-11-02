@@ -15,8 +15,13 @@ class Api(object):
         self.scheduler = scheduler
         self.service = service
 
-    def submit(self, script_name):
-        executable = client.job.ProcessExecutable.from_str(script_name)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+
+    def submit(self, executable):
         job_number = self.scheduler.get_number()
         self.scheduler.submit_job(client.job.Job(executable, job_number=job_number))
 
@@ -25,4 +30,5 @@ class Api(object):
 
     def stop(self):
         self.scheduler.stop()
-        self.service.stop()
+        if self.service is not None:
+            self.service.stop()

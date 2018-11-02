@@ -1,9 +1,13 @@
+import logging
 import queue
 import threading
 import time
 from typing import Callable, List  # For self-documenting typing
 
 import client.job  # Defines scheduler jobs
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 # Worker thread reading from queue and waiting for processes to finish
@@ -66,6 +70,7 @@ class Scheduler(object):
         self._task_queue.put(job)  # TODO Blocks if queue full
         job.status = client.job.JobStatus.QUEUED
         self.submitted_jobs.append(job)
+        LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: int):
         jobs_with_id: List[client.job.Job] = [job for job in self.jobs if job.id == job_id]
