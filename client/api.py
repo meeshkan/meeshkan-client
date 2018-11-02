@@ -19,7 +19,7 @@ class Api(object):
     def submit(self, script_name):
         executable = client.job.ProcessExecutable.from_str(script_name)
         job_id = self.scheduler.get_id()
-        self.scheduler.submit_job(Job(executable, job_id))
+        self.scheduler.submit_job(client.job.Job(executable, job_id))
 
     def list_jobs(self):
         return [str(job) for job in  self.scheduler.jobs]
