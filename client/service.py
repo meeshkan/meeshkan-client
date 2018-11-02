@@ -41,6 +41,8 @@ class Service(object):
     def uri(self):
         return f"PYRO:{Service.OBJ_NAME}@{self.host}:{self.port}"
 
+    # Need single quotes here for type annotation, see
+    # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
     def start(self, build_api: Callable[['Service'], 'client.api.Api']) -> str:
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
         def daemonize():
