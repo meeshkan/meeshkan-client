@@ -66,10 +66,11 @@ def daemon_status():
         print(f"URI for Daemon is {service.uri}")
 
 @cli.command()
-def submit():
+@click.argument('job', nargs=-1)
+def submit(job):
     """Submits a new job to the daemon."""
     api: Api = __get_api()
-    api.submit('script.sh')
+    api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
 
 @cli.command()
 def stop():
