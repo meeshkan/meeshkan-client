@@ -1,6 +1,5 @@
 """ Command-line interface """
 import logging
-import socket
 
 import click
 import Pyro4
@@ -27,6 +26,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 def start():
     return Service().start()
+
 
 def submit():
     service = Service()
@@ -71,5 +71,4 @@ def main(cmd):
 
 
 if __name__ == '__main__':
-    # pylint: disable=no-value-for-parameter
-    main()
+    main()  # pylint: disable=no-value-for-parameter

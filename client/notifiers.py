@@ -58,7 +58,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
     return post_with_retry
 
 
-def _build_query_payload(job: Job) -> Payload:
+def _build_query_payload(job: client.job.Job) -> Payload:
     mutation = "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"
     payload: Payload = {
         "query": mutation,
@@ -81,7 +81,7 @@ class CloudNotifier(Notifier):
         super().__init__()
         self._post_payload = post_payload
 
-    def notify(self, job: Job) -> None:
+    def notify(self, job: client.job.Job) -> None:
         query_payload: Payload = _build_query_payload(job)
         self._post_payload(query_payload)
         LOGGER.info(f"Posted successfully: %s", str(job))
