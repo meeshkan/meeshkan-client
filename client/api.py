@@ -21,8 +21,7 @@ class Api(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def submit(self, script_name):
-        executable = client.job.ProcessExecutable.from_str(script_name)
+    def submit(self, executable):
         job_number = self.scheduler.get_number()
         self.scheduler.submit_job(client.job.Job(executable, job_number=job_number))
 
