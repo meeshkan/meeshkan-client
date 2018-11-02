@@ -54,23 +54,32 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
-        LOGGER.info(res.text)
+        LOGGER.debug("Got server response: %s", res.text)
     return post_with_retry
 
 
 def _build_query_payload(job: client.job.Job) -> Payload:
+    """
+    Build GraphQL query payload to be sent to server.
+    Schema of job_input MUST match with the server schema
+    https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
+    :param job:
+    :return:
+    """
     mutation = "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"
+
+    job_input = {
+                    "id": str(job.id),
+                    "name": "name",
+                    "number": job.number,
+                    "created": job.created.isoformat() + "Z",  # Assume it's UTC
+                    "description": "description",
+                    "message": str(job.status)
+                }
     payload: Payload = {
         "query": mutation,
         "variables": {
-            "in": {
-                "id": str(job.id),
-                "name": "name",
-                "number": job.number,
-                "created": job.created.isoformat() + "Z",  # Assume it's UTC
-                "description": "description",
-                "message": str(job.status)
-            }
+            "in": job_input
         }
     }
     return payload
