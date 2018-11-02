@@ -65,6 +65,7 @@ def _build_query_payload(job: Job) -> Payload:
         "variables": {
             "in": {
                 "id": str(job.id),
+                "name": "name",
                 "number": job.number,
                 "created": job.created.isoformat() + "Z",  # Assume it's UTC
                 "description": "description",
