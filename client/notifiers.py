@@ -35,6 +35,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
     :raises RuntimeError: if server returns a code other than 200
     :return: Function for posting payload
     """
+
     def _post(payload: Payload, token: client.oauth.Token) -> requests.Response:
         headers = {'Authorization': f"Bearer {token}"}
         return requests.post(f"{cloud_url}", json=payload, headers=headers)
@@ -55,6 +56,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
         LOGGER.debug("Got server response: %s", res.text)
+
     return post_with_retry
 
 
@@ -69,13 +71,13 @@ def _build_query_payload(job: client.job.Job) -> Payload:
     mutation = "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"
 
     job_input = {
-                    "id": str(job.id),
-                    "name": "name",
-                    "number": job.number,
-                    "created": job.created.isoformat() + "Z",  # Assume it's UTC
-                    "description": "description",
-                    "message": str(job.status)
-                }
+        "id": str(job.id),
+        "name": "name",
+        "number": job.number,
+        "created": job.created.isoformat() + "Z",  # Assume it's UTC
+        "description": "description",
+        "message": str(job.status)
+    }
     payload: Payload = {
         "query": mutation,
         "variables": {
