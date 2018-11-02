@@ -5,6 +5,8 @@ import sys
 import tarfile
 import tempfile
 import os
+import random
+import requests
 
 import click
 import Pyro4
@@ -117,8 +119,16 @@ def sorry():
 
 
 @cli.command()
-def horoscope():
-    raise NotImplementedError()
+def im_bored():
+    sources = [r'http://smacie.com/randomizer/family_guy/stewie.txt',
+               r'http://smacie.com/randomizer/simpsons/bart.txt',
+               r'http://smacie.com/randomizer/simpsons/homer.txt',
+               r'http://smacie.com/randomizer/southpark/cartman.txt']
+    source = sources[random.randint(0, len(sources))]
+    author = os.path.splitext(os.path.basename(source))[0].capitalize()
+    res = requests.get(source).text.split('\n')
+    print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))
+
 
 @cli.command()
 def notify_test():
