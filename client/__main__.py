@@ -4,6 +4,7 @@ import sys
 import tarfile
 import tempfile
 import os
+from typing import Callable
 import random
 import requests
 
@@ -17,7 +18,7 @@ from client.job import Job, ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
-
+from client.scheduler import Scheduler
 
 setup_logging()
 LOGGER = logging.getLogger(__name__)
@@ -44,6 +45,13 @@ def __get_api() -> Api:
     api: Api = Pyro4.Proxy(service.uri)
     return api
 
+
+def __bootstrap_api() -> Callable[[Service], Api]:
+    # Build all dependencies except for `Service` instance (attached when daemonizing)
+    scheduler = Scheduler()
+    return lambda service: Api(scheduler=scheduler, service=service)
+
+
 @click.group()
 @click.option("--debug", is_flag=True)
 def cli(debug):
@@ -54,7 +62,7 @@ def cli(debug):
 @cli.command()
 def start():
     """Initializes the scheduler daemon."""
-    return Service().start()
+    return Service().start(build_api=__bootstrap_api())
 
 @cli.command(name='status')
 def daemon_status():
@@ -78,6 +86,7 @@ def stop():
     """Stops the scheduler daemon."""
     api: Api = __get_api()
     api.stop()
+    LOGGER.info("Service stopped.")
 
 @cli.command(name='list')
 def list_jobs():
