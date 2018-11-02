@@ -2,6 +2,9 @@
 import logging
 import socket
 import sys
+import tarfile
+import tempfile
+import os
 
 import click
 import Pyro4
@@ -102,7 +105,16 @@ def sorry():
     """Garbage collection - collect logs and email to Meeshkan HQ.
     Sorry for any inconvinence!
     """
-    raise NotImplementedError()
+    fname = os.path.abspath("{}.tar.gz".format(next(tempfile._get_candidate_names())))
+    with tarfile.open(fname, mode='w:gz') as tar:
+        for handler in logging.root.handlers:  # Collect logging files
+            try:
+                tar.add(handler.baseFilename)
+            except AttributeError:
+                continue
+    # TODO - send fname to Meeshkan!
+    os.remove(fname)
+
 
 @cli.command()
 def horoscope():
