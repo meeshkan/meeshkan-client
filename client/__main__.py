@@ -4,6 +4,7 @@ import sys
 import tarfile
 import tempfile
 import os
+from typing import Callable
 import random
 import requests
 
@@ -37,22 +38,18 @@ def __get_auth() -> (dict, dict):
         return CONFIG, SECRETS
 
 
-def __bootstrap_api():
-    # Build all dependencies
-    scheduler = Scheduler()
-    return lambda service: Api(scheduler=scheduler, service=service)
-
-
-def start():
-    return Service().start(build_api=__bootstrap_api())
-
-
 def __get_api() -> Api:
     service = Service()
     if not service.is_running():
         raise RuntimeError("Start the service first!")
     api: Api = Pyro4.Proxy(service.uri)
     return api
+
+
+def __bootstrap_api() -> Callable[[Service], Api]:
+    # Build all dependencies except for `Service` instance (attached when daemonizing)
+    scheduler = Scheduler()
+    return lambda service: Api(scheduler=scheduler, service=service)
 
 
 @click.group()
@@ -82,7 +79,6 @@ def daemon_status():
 def submit(job):
     """Submits a new job to the daemon."""
     api: Api = __get_api()
-    LOGGER.info(job)
     api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
 
 @cli.command()
