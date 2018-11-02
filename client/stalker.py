@@ -6,7 +6,8 @@ import pickle
 
 class PipedProcess(object):
     """Opens a temporary named pipe to transmit information between process A and process B"""
-
+    PICKLE_DOWN = pickle.dumps  # Allows a way to override these for other serialization modules!
+    PICKLE_UP = pickle.load
     def __init__(self, pid: int, reader: bool =False):
         """Prepares the infrastructure for one-way information "pulling"
 
@@ -25,7 +26,7 @@ class PipedProcess(object):
         if self.is_reader:  # The reader-end of the pipe has no access to write!
             return False
         try:
-            self.f.write(pickle.dumps(contents))
+            self.f.write(self.PICKLE_DOWN(contents))
             self.f.flush()
         except (OSError, TypeError):
             return False
@@ -38,7 +39,7 @@ class PipedProcess(object):
         """
         if not self.is_reader:  # The writer-end of the pipe has no access to read!
             return
-        return pickle.load(self.f)
+        return self.PICKLE_UP(self.f)
 
     def close(self):
         """Closes the FIFO pipe. When the writer thread closes the pipe, the pipe is removed."""
@@ -53,6 +54,7 @@ def __fetch_contents(_, frame):
     dictionaries = [frame.f_globals, frame.f_locals]
     # Full options for frame: https://docs.python.org/3/library/inspect.html#types-and-members
     # f_back, f_builtins, f_code, f_globals, f_lasti, f_llineno, f_locals, f_trace
+    # Also see https://docs.python.org/3/reference/datamodel.html#frame-objects
     for d in dictionaries:  # Iterate over dictionaries and only keep the pickleable data
         for k, v in d.items():
             try:
