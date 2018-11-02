@@ -1,7 +1,7 @@
 import queue
 import threading
 import time
-from typing import Callable  # For self-documenting typing
+from typing import Callable, List  # For self-documenting typing
 
 import client.job  # Defines scheduler jobs
 
@@ -58,17 +58,18 @@ class Scheduler(object):
         else:
             pass
 
-    def get_id(self):
+    def get_number(self):
         return self._njobs
 
     def submit_job(self, job: client.job.Job):
         self._njobs += 1
         self._task_queue.put(job)  # TODO Blocks if queue full
+        job.status = client.job.JobStatus.QUEUED
         self.submitted_jobs.append(job)
 
     def stop_job(self, job_id: int):
-        jobs_with_id = [job for job in self.jobs if job.id == job_id]
-        if len(jobs_with_id) == 0:
+        jobs_with_id: List[client.job.Job] = [job for job in self.jobs if job.id == job_id]
+        if not jobs_with_id:
             return
         job = jobs_with_id[0]
         job.cancel()

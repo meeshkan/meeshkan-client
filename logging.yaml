@@ -39,6 +39,6 @@ handlers:
         encoding: utf8
 
 root:
-    level: INFO
+    level: DEBUG
     # When deploying, remove 'console' to avoid IO error with daemon!
     handlers: [console, debug_file_handler, info_file_handler, error_file_handler]

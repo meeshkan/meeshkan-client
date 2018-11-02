@@ -1,28 +1,31 @@
 from enum import Enum
 import subprocess
 from typing import Tuple
+import uuid
+import datetime
 
 
 class JobStatus(Enum):
-    QUEUED = 0
-    RUNNING = 1
-    FINISHED = 2
-    CANCELED = 3
-    FAILED = 4
+    CREATED = 0
+    QUEUED = 1
+    RUNNING = 2
+    FINISHED = 3
+    CANCELED = 4
+    FAILED = 5
 
 
 class Executable(object):
     def __init__(self):
         pass
 
-    def launch_and_wait(self) -> int:
+    def launch_and_wait(self) -> int:  # pylint: disable=no-self-use
         """
         Base launcher
         :return: Return code (0 for success)
         """
         return 0
 
-    def terminate(self):
+    def terminate(self):  # pylint: disable=no-self-use
         """
         Terminate execution
         :return: None
@@ -59,16 +62,18 @@ class ProcessExecutable(Executable):
 
 
 class Job(object):
-    def __init__(self, executable: Executable, job_id: int):
+    def __init__(self, executable: Executable, job_number: int):
         """
         :param executable: Executable instance
-        :param job_id: Job ID
+        :param job_number: Like PID, used for interacting with the job from the CLI
         """
         self.executable = executable
-        self.id = job_id
+        self.id = uuid.uuid4()  # Absolutely unique identifier
+        self.number = job_number  # Human-readable integer ID
+        self.created = datetime.datetime.utcnow()
         self.stale = False
         self.is_launched = False
-        self.status = JobStatus.QUEUED
+        self.status = JobStatus.CREATED
         self.is_processed = False
 
     def launch_and_wait(self) -> int:
@@ -95,7 +100,7 @@ class Job(object):
         self.executable.terminate()
 
     def __str__(self):
-        return "Job: %s, id %d, status %s" % (self.executable, self.id, self.status.name)
+        return f"Job: {self.executable}, number {self.number}, id {self.id}, status {self.status.name}"
 
     def mark_stale(self):
         """

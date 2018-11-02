@@ -1,6 +1,5 @@
 """ Command-line interface """
 import logging
-import socket
 
 import click
 import Pyro4
@@ -27,6 +26,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 def start():
     return Service().start()
+
 
 def submit():
     service = Service()
@@ -56,7 +56,7 @@ def notify():
     token_store = TokenStore(fetch_token=fetch_token)
     post_payload = post_payloads(cloud_url=CONFIG['cloud']['url'], token_store=token_store)
     notifier = CloudNotifier(post_payload=post_payload)
-    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_id=10))
+    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_number=10))
 
 
 @click.command()
@@ -71,5 +71,4 @@ def main(cmd):
 
 
 if __name__ == '__main__':
-    # pylint: disable=no-value-for-parameter
-    main()
+    main()  # pylint: disable=no-value-for-parameter
