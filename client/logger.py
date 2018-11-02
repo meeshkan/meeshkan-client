@@ -1,11 +1,13 @@
 import os
 import logging
 import logging.config
-import logging.handlers
 import yaml
 
 
-def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
+LOGGER = logging.getLogger(__name__)
+
+
+def setup_logging(default_path='logging.yaml'):
     """Setup logging configuration
     This MUST be called before creating any loggers.
     """
@@ -19,8 +21,8 @@ def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
 
 
 def remove_non_file_handlers():
+    LOGGER.info("Deleting non-file handlers from logging")
     log = logging.getLogger()  # Root logger
-    log.info("Deleting stream handlers from logging")
     for handler in log.handlers.copy():
         if not isinstance(handler, logging.FileHandler):
             log.handlers.remove(handler)
