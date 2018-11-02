@@ -48,7 +48,17 @@ def __get_api() -> Api:
 
 def __bootstrap_api() -> Callable[[Service], Api]:
     # Build all dependencies except for `Service` instance (attached when daemonizing)
+    config, secrets = __get_auth()
+    auth_url = config['auth']['url']
+    client_id = secrets['auth']['client_id']
+    client_secret = secrets['auth']['client_secret']
+
+    fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
+    token_store = TokenStore(fetch_token=fetch_token)
+    post_payload = post_payloads(cloud_url=config['cloud']['url'], token_store=token_store)
+    notifier = CloudNotifier(post_payload=post_payload)
     scheduler = Scheduler()
+    scheduler.register_listener(notifier)
     return lambda service: Api(scheduler=scheduler, service=service)
 
 
@@ -78,6 +88,9 @@ def daemon_status():
 @click.argument('job', nargs=-1)
 def submit(job):
     """Submits a new job to the daemon."""
+    if not job:
+        print("CLI error: Specify job.")
+        return
     api: Api = __get_api()
     api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
 
@@ -91,7 +104,8 @@ def stop():
 @cli.command(name='list')
 def list_jobs():
     """Lists the job queue and status for each job."""
-    raise NotImplementedError()
+    api: Api = __get_api()
+    print(api.list_jobs())
 
 @cli.command()
 def cancel():
