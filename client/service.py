@@ -48,7 +48,7 @@ class Service(object):
             pid = os.fork()
             if pid > 0:  # Close parent process
                 return
-            client.logger.remove_stream_handlers()
+            client.logger.remove_non_file_handlers()
             os.setsid()  # Separate from tty
             with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
                 daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
