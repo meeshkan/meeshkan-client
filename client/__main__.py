@@ -1,6 +1,5 @@
 """ Command-line interface """
 import logging
-import socket
 import sys
 import tarfile
 import tempfile
@@ -27,6 +26,7 @@ Pyro4.config.SERIALIZER = 'pickle'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
+
 def __get_auth() -> (dict, dict):
     global CONFIG, SECRETS
     try:
@@ -35,6 +35,7 @@ def __get_auth() -> (dict, dict):
         CONFIG = get_config()
         SECRETS = get_secrets()
         return CONFIG, SECRETS
+
 
 def __get_api() -> Api:
     service = Service()
@@ -144,8 +145,8 @@ def notify_test():
     token_store = TokenStore(fetch_token=fetch_token)
     post_payload = post_payloads(cloud_url=CONFIG['cloud']['url'], token_store=token_store)
     notifier = CloudNotifier(post_payload=post_payload)
-    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_id=10))
+    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_number=10))
+
 
 if __name__ == '__main__':
-    # pylint: disable=no-value-for-parameter
-    cli()
+    cli()  # pylint: disable=no-value-for-parameter

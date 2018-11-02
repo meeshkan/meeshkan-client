@@ -35,6 +35,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
     :raises RuntimeError: if server returns a code other than 200
     :return: Function for posting payload
     """
+
     def _post(payload: Payload, token: client.oauth.Token) -> requests.Response:
         headers = {'Authorization': f"Bearer {token}"}
         return requests.post(f"{cloud_url}", json=payload, headers=headers)
@@ -52,14 +53,36 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
                 LOGGER.error('Cannot post to server: unauthorized')
                 raise RuntimeError("Cannot post: Unauthorized")
         if res.status_code != HTTPStatus.OK:
+            LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
+        LOGGER.debug("Got server response: %s", res.text)
+
     return post_with_retry
 
 
-def _build_query_payload() -> Payload:
-    query = "{ hello }"
+def _build_query_payload(job: client.job.Job) -> Payload:
+    """
+    Build GraphQL query payload to be sent to server.
+    Schema of job_input MUST match with the server schema
+    https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
+    :param job:
+    :return:
+    """
+    mutation = "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"
+
+    job_input = {
+        "id": str(job.id),
+        "name": "name",
+        "number": job.number,
+        "created": job.created.isoformat() + "Z",  # Assume it's UTC
+        "description": "description",
+        "message": str(job.status)
+    }
     payload: Payload = {
-        "query": query
+        "query": mutation,
+        "variables": {
+            "in": job_input
+        }
     }
     return payload
 
@@ -70,6 +93,6 @@ class CloudNotifier(Notifier):
         self._post_payload = post_payload
 
     def notify(self, job: client.job.Job) -> None:
-        query_payload: Payload = _build_query_payload()
+        query_payload: Payload = _build_query_payload(job)
         self._post_payload(query_payload)
         LOGGER.info(f"Posted successfully: %s", str(job))

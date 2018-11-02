@@ -1,4 +1,5 @@
 auth:
   url: "meeshkan.eu.auth0.com"
 cloud:
-  url: "http://api.meeshkan.io"
+  url: "https://api.meeshkan.io"
+  # url: "http://localhost:4000"

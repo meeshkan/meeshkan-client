@@ -1,30 +1,36 @@
-import client
+from unittest import mock
+
+import pytest
+
 from client.notifiers import CloudNotifier, Payload, post_payloads
 from client.oauth import TokenStore
 from client.job import Job, Executable
-import pytest
-from unittest import mock
 
 
 def _get_job():
-    return Job(Executable(), job_id=0)
+    return Job(Executable(), job_number=0)
 
 
 def test_cloud_notifier():
-    posted_payload = None
+    posted_payload = {}
 
     def fake_post(payload):
         nonlocal posted_payload
         posted_payload = payload
 
-    assert posted_payload is None
+    assert posted_payload == {}
     cloud_notifier = CloudNotifier(fake_post)
     cloud_notifier.notify(_get_job())
 
-    expected_payload = {"query": "{ hello }"}
+    expected_payload = {"query": "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"}
 
     assert "query" in posted_payload
+
     assert posted_payload["query"] == expected_payload["query"]
+
+    assert "variables" in posted_payload
+    variables = posted_payload["variables"]
+    assert "in" in variables
 
 
 def test_cloud_notifier_propagates_exception():
@@ -43,6 +49,10 @@ class _MockResponse:
 
     def json(self):
         return self.json_data
+
+    @property
+    def text(self):
+        return "Mock response"
 
 
 def _query_payload():
