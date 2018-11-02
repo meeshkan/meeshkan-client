@@ -56,7 +56,11 @@ def __bootstrap_api() -> Callable[[Service], Api]:
     fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
     token_store = TokenStore(fetch_token=fetch_token)
     post_payload = post_payloads(cloud_url=config['cloud']['url'], token_store=token_store)
-    notifier = CloudNotifier(post_payload=post_payload)
+    notifier: CloudNotifier = CloudNotifier(post_payload=post_payload)
+    try:
+        notifier.notify_service_start()
+    except:
+        raise RuntimeError("Failed connecting to the server. Check your credentials.")
     scheduler = Scheduler()
     scheduler.register_listener(notifier)
     return lambda service: Api(scheduler=scheduler, service=service)

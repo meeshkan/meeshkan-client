@@ -6,6 +6,7 @@ import requests
 
 import client.job
 import client.oauth
+from client.version import __version__ as version
 
 LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
     return post_with_retry
 
 
-def _build_query_payload(job: client.job.Job) -> Payload:
+def _build_job_notify_payload(job: client.job.Job) -> Payload:
     """
     Build GraphQL query payload to be sent to server.
     Schema of job_input MUST match with the server schema
@@ -87,12 +88,36 @@ def _build_query_payload(job: client.job.Job) -> Payload:
     return payload
 
 
+def _build_service_start_payload() -> Payload:
+    """
+    Build GraphQL query payload to be sent to server when service is started
+    Schema of job_input MUST match with the server schema
+    https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
+    :return:
+    """
+    mutation = "mutation NotifyServiceStart($in: ServiceInput!) { notifyServiceStart(input: $in) }"
+
+    input_dict = {
+        "version": version
+    }
+    payload: Payload = {
+        "query": mutation,
+        "variables": {
+            "in": input_dict
+        }
+    }
+    return payload
+
+
 class CloudNotifier(Notifier):
     def __init__(self, post_payload: Callable[[Payload], None]):
         super().__init__()
         self._post_payload = post_payload
 
     def notify(self, job: client.job.Job) -> None:
-        query_payload: Payload = _build_query_payload(job)
+        query_payload: Payload = _build_job_notify_payload(job)
         self._post_payload(query_payload)
         LOGGER.info(f"Posted successfully: %s", str(job))
+
+    def notify_service_start(self):
+        self._post_payload(_build_service_start_payload())
