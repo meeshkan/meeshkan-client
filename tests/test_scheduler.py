@@ -1,8 +1,9 @@
+import time
+from concurrent.futures import Future, wait
+
 import client
 from client.scheduler import Scheduler
 from client.job import Job, JobStatus, Executable
-from concurrent.futures import Future, wait
-import time
 
 
 # Executable that runs the provided `target` function
@@ -11,7 +12,6 @@ class TargetExecutable(Executable):
         super().__init__()
         self._target = target
         self.on_terminate = on_terminate
-        pass
 
     def launch_and_wait(self):
         return self._target()
@@ -19,7 +19,6 @@ class TargetExecutable(Executable):
     def terminate(self):
         if self.on_terminate is not None:
             self.on_terminate()
-        return
 
 
 # Executable that blocks until future is resolved
@@ -27,7 +26,6 @@ class FutureWaitingExecutable(Executable):
     def __init__(self, future):
         super().__init__()
         self._future = future
-        pass
 
     def launch_and_wait(self):
         results = wait([self._future])
@@ -36,7 +34,6 @@ class FutureWaitingExecutable(Executable):
 
     def terminate(self):
         self._future.set_result(-15)
-        return
 
 
 def get_scheduler():
@@ -54,8 +51,8 @@ def get_executable(target, on_terminate=None):
     return TargetExecutable(target=target, on_terminate=on_terminate)
 
 
-def get_job(executable, job_id=0):
-    return Job(executable=executable, job_id=job_id)
+def get_job(executable, job_number=0):
+    return Job(executable=executable, job_number=job_number)
 
 
 def get_future_and_resolve(value=True):
@@ -76,7 +73,6 @@ def wait_for_true(func, timeout=10):
         slept += time_to_sleep
         if slept > timeout:
             raise Exception("Wait timeouted")
-    return
 
 
 def test_job_submit():
@@ -94,7 +90,7 @@ def test_scheduling():
     future, resolve = get_future_and_resolve(value=resolve_value)
 
     with get_scheduler() as scheduler:
-        job = get_job(executable=get_executable(target=resolve), job_id=0)
+        job = get_job(executable=get_executable(target=resolve), job_number=0)
         scheduler.submit_job(job)
         results = wait([future], timeout=5)
         assert len(results.done) == 1
@@ -112,7 +108,7 @@ def test_notifiers():
         finished_jobs.append({'job': job0, 'return_code': return_code})
 
     with get_scheduler() as scheduler:
-        job = get_job(executable=get_executable(target=resolve), job_id=0)
+        job = get_job(executable=get_executable(target=resolve))
         scheduler.register_listener(notify)
         scheduler.submit_job(job)
         wait([future], timeout=5)
@@ -123,7 +119,7 @@ def test_notifiers():
 
 def test_terminating_job():
     with get_scheduler() as scheduler:
-        job = get_job(executable=FutureWaitingExecutable(future=Future()), job_id=0)
+        job = get_job(executable=FutureWaitingExecutable(future=Future()))
         scheduler.submit_job(job)
         # Block until job launched
         wait_for_true(lambda: job.is_launched)
@@ -136,8 +132,8 @@ def test_canceling_job():
     future1 = Future()
     future2 = Future()
     with get_scheduler() as scheduler:
-        job1 = get_job(executable=FutureWaitingExecutable(future=future1), job_id=0)
-        job2 = get_job(executable=FutureWaitingExecutable(future=future2), job_id=1)
+        job1 = get_job(executable=FutureWaitingExecutable(future=future1))
+        job2 = get_job(executable=FutureWaitingExecutable(future=future2), job_number=1)
         scheduler.submit_job(job1)
         scheduler.submit_job(job2)
         # Cancel job2, should never run and therefore should be never have to be released
@@ -158,7 +154,7 @@ def test_canceling_job():
 def test_stopping_scheduler():
     future = Future()
     with get_scheduler() as scheduler:
-        job = get_job(executable=FutureWaitingExecutable(future=future), job_id=0)
+        job = get_job(executable=FutureWaitingExecutable(future=future))
         scheduler.submit_job(job)
         # Wait until processing has started
         wait_for_true(lambda: scheduler._task_queue.empty())

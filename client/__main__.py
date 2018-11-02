@@ -56,7 +56,7 @@ def notify():
     token_store = TokenStore(fetch_token=fetch_token)
     post_payload = post_payloads(cloud_url=CONFIG['cloud']['url'], token_store=token_store)
     notifier = CloudNotifier(post_payload=post_payload)
-    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_id=10))
+    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_number=10))
 
 
 @click.command()

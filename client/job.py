@@ -62,14 +62,14 @@ class ProcessExecutable(Executable):
 
 
 class Job(object):
-    def __init__(self, executable: Executable, job_id: int):
+    def __init__(self, executable: Executable, job_number: int):
         """
         :param executable: Executable instance
-        :param job_id: Human-readable integer ID
+        :param job_number: Like PID, used for interacting with the job from the CLI
         """
         self.executable = executable
         self.id = uuid.uuid4()  # Absolutely unique identifier
-        self.number = job_id  # Human-readable integer ID
+        self.number = job_number  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
         self.stale = False
         self.is_launched = False
@@ -100,7 +100,7 @@ class Job(object):
         self.executable.terminate()
 
     def __str__(self):
-        return "Job: %s, id %d, status %s" % (self.executable, self.id, self.status.name)
+        return f"Job: {self.executable}, number {self.number}, id {self.id}, status {self.status.name}"
 
     def mark_stale(self):
         """
