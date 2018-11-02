@@ -2,7 +2,6 @@ from http import HTTPStatus
 import logging
 import requests
 from typing import Callable, NewType
-import base64
 
 logger = logging.getLogger(__name__)
 

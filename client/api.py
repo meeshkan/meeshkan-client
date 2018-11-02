@@ -1,7 +1,6 @@
 import Pyro4
 import Pyro4.errors
 
-# from client import scheduler, service, job
 import client.scheduler
 import client.job
 import client.service
