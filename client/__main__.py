@@ -11,7 +11,7 @@ from client.job import Job, ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
-
+from client.scheduler import Scheduler
 
 setup_logging()
 LOGGER = logging.getLogger(__name__)
@@ -24,8 +24,13 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 
+def _bootstrap_api():
+    scheduler = Scheduler()
+    return lambda service: Api(scheduler=scheduler, service=service)
+
+
 def start():
-    return Service().start()
+    return Service().start(build_api=_bootstrap_api())
 
 
 def submit():
@@ -33,15 +38,17 @@ def submit():
     if not service.is_running():
         raise RuntimeError("Start the service first!")
     api: Api = Pyro4.Proxy(service.uri)
-    api.submit('script.sh')
+    api.submit('echo Hello')
 
 
 def stop():
     service = Service()
     if not service.is_running():
         raise RuntimeError("Start the service first!")
+    LOGGER.info("Stopping service...")
     api: Api = Pyro4.Proxy(service.uri)
     api.stop()
+    LOGGER.info("Service stopped.")
 
 
 def notify():
@@ -60,7 +67,7 @@ def notify():
 
 
 @click.command()
-@click.argument('cmd', type=click.Choice(['notify', 'start', 'stop']))
+@click.argument('cmd', type=click.Choice(['notify', 'start', 'stop', 'submit']))
 def main(cmd):
     if cmd == 'notify':
         notify()
@@ -68,6 +75,8 @@ def main(cmd):
         start()
     elif cmd == 'stop':
         stop()
+    elif cmd == 'submit':
+        submit()
 
 
 if __name__ == '__main__':

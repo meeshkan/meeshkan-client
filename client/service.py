@@ -1,23 +1,25 @@
-import errno
+import logging
 from multiprocessing import Process, Event  # For daemon initialization
 import os
-import ctypes
-import psutil  # For verifying ports if Errno 98
+from typing import Callable
 import socket  # To verify daemon
 import time
+
 import Pyro4  # For daemon management
 
-import client.scheduler
-import client.api
+import client.api  # For type checking
+import client.logger
 
-
+LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
+
 
 class Service(object):
     """
     Service for running the Python daemon
     """
     OBJ_NAME = "Meeshkan.scheduler"
+
     def __init__(self, port: int=7779):
         self.port = port
         self.host = socket.gethostname()
@@ -39,29 +41,31 @@ class Service(object):
     def uri(self):
         return f"PYRO:{Service.OBJ_NAME}@{self.host}:{self.port}"
 
-    def start(self) -> str:
+    def start(self, build_api: Callable[['Service'], 'client.api.Api']) -> str:
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
         def daemonize():
             """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
             pid = os.fork()
             if pid > 0:  # Close parent process
                 return
+            client.logger.remove_stream_handlers()
             os.setsid()  # Separate from tty
-            daemon = Pyro4.Daemon(host=self.host, port=self.port)  # Save daemon so we can cleanly shutdown later on
-            api = client.api.Api(scheduler=client.scheduler.Scheduler(), service=self)  # Initialize the API
-            daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
-            daemon.requestLoop(lambda: not self.terminate_daemon.is_set())  # Loop until the event is set
-            time.sleep(0.2)  # Allows data scraping
-            daemon.close()  # Cleanup
+            with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
+                daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
+                daemon.requestLoop(lambda: not self.terminate_daemon.is_set())  # Loop until the event is set
+                time.sleep(0.2)  # Allows data scraping
+
             return
 
         is_running = self.is_running()
         if is_running:
             raise RuntimeError(f"Running already at {self.uri}")
+        LOGGER.info("Starting service...")
         p = Process(target=daemonize)
         p.daemon = True
         p.start()
         time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up
+        LOGGER.info("Service started.")
         return self.uri
 
     def stop(self):
