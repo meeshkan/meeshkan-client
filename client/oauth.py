@@ -3,7 +3,6 @@ import logging
 import requests
 from typing import Callable, NewType
 
-
 logger = logging.getLogger(__name__)
 
 Token = NewType("Token", str)

@@ -2,12 +2,10 @@
 from http import HTTPStatus
 import logging
 from typing import Callable, Dict, NewType
-
 import requests
 
-from client.job import Job
-from client.oauth import TokenStore, Token
-
+import client.job
+import client.oauth
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +17,7 @@ class Notifier(object):
     def __init__(self):
         pass
 
-    def notify(self, job: Job) -> None:
+    def notify(self, job: client.job.Job) -> None:
         """
         Notifies job status. Raises exception for failure.
         :param job:
@@ -28,7 +26,7 @@ class Notifier(object):
         pass
 
 
-def post_payloads(cloud_url: str, token_store: TokenStore) -> Callable[[Payload], None]:
+def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Callable[[Payload], None]:
     """
     Return a function posting payloads to given URL, authenticating with token from token_store.
     Contains retry logic when authorization fails. Raises RuntimeError if server returns other than 200.
@@ -37,7 +35,7 @@ def post_payloads(cloud_url: str, token_store: TokenStore) -> Callable[[Payload]
     :raises RuntimeError: if server returns a code other than 200
     :return: Function for posting payload
     """
-    def _post(payload: Payload, token: Token) -> requests.Response:
+    def _post(payload: Payload, token: client.oauth.Token) -> requests.Response:
         headers = {'Authorization': f"Bearer {token}"}
         return requests.post(f"{cloud_url}", json=payload, headers=headers)
 
@@ -71,7 +69,7 @@ class CloudNotifier(Notifier):
         super().__init__()
         self._post_payload = post_payload
 
-    def notify(self, job: Job) -> None:
+    def notify(self, job: client.job.Job) -> None:
         query_payload: Payload = _build_query_payload()
         self._post_payload(query_payload)
         LOGGER.info(f"Posted successfully: %s", str(job))
