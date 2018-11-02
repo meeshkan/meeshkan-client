@@ -75,7 +75,7 @@ def test_token_source():
         payload = kwargs['data']
         assert payload['client_id'] == _client_id()
         assert payload['client_secret'] == _client_secret()
-        assert payload['audience'] == "https://cloud-api.meeshkan.io"
+        assert payload['audience'] == "https://api.meeshkan.io"
         assert payload['grant_type'] == "client_credentials"
         return _MockResponse(_token_response(), 200)
 
