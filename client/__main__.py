@@ -155,21 +155,5 @@ def im_bored():
     print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))
 
 
-@cli.command()
-def notify_test():
-    """Test notifying server for finished job.
-    Requires setting credentials and setting URLs in config.yaml.
-    """
-    config, secrets = __get_auth()
-    auth_url = config['auth']['url']
-    client_id = secrets['auth']['client_id']
-    client_secret = secrets['auth']['client_secret']
-    fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
-    token_store = TokenStore(fetch_token=fetch_token)
-    post_payload = post_payloads(cloud_url=CONFIG['cloud']['url'], token_store=token_store)
-    notifier = CloudNotifier(post_payload=post_payload)
-    notifier.notify(Job(ProcessExecutable.from_str("echo hello"), job_number=10))
-
-
 if __name__ == '__main__':
     cli()  # pylint: disable=no-value-for-parameter
