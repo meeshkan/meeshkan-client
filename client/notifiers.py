@@ -52,7 +52,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
                 LOGGER.error('Cannot post to server: unauthorized')
                 raise RuntimeError("Cannot post: Unauthorized")
         if res.status_code != HTTPStatus.OK:
-            LOGGER.error("Error from server", res.text)
+            LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
         LOGGER.info(res.text)
     return post_with_retry
