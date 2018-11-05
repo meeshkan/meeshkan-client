@@ -11,7 +11,7 @@ import requests
 import click
 import Pyro4
 
-from client.config import get_config, get_secrets
+import client.config
 from client.oauth import TokenStore, token_source
 from client.notifiers import post_payloads, CloudNotifier
 from client.job import Job, ProcessExecutable
@@ -30,13 +30,8 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 
 def __get_auth() -> (dict, dict):
-    global CONFIG, SECRETS
-    try:
-        return CONFIG, SECRETS
-    except NameError:
-        CONFIG = get_config()
-        SECRETS = get_secrets()
-        return CONFIG, SECRETS
+    client.config.init()
+    return client.config.CONFIG, client.config.SECRETS
 
 
 def __get_api() -> Api:
@@ -48,9 +43,8 @@ def __get_api() -> Api:
     return api
 
 
-def __bootstrap_api() -> Callable[[Service], Api]:
+def __bootstrap_api(config, secrets) -> Callable[[Service], Api]:
     # Build all dependencies except for `Service` instance (attached when daemonizing)
-    config, secrets = __get_auth()
     auth_url = config['auth']['url']
     cloud_url = config['cloud']['url']
     client_id = secrets['auth']['client_id']
@@ -75,12 +69,14 @@ def __bootstrap_api() -> Callable[[Service], Api]:
 def cli(debug):
     if not debug:
         sys.tracebacklimit = 0
-    pass
+
 
 @cli.command()
 def start():
     """Initializes the scheduler daemon."""
-    return Service().start(build_api=__bootstrap_api())
+    config, secrets = __get_auth()
+    return Service().start(build_api=__bootstrap_api(config, secrets))
+
 
 @cli.command(name='status')
 def daemon_status():
