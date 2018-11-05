@@ -14,7 +14,7 @@ import Pyro4
 import client.config
 from client.oauth import TokenStore, token_source
 from client.notifiers import post_payloads, CloudNotifier
-from client.job import Job, ProcessExecutable
+from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
@@ -43,12 +43,13 @@ def __get_api() -> Api:
     return api
 
 
-def __bootstrap_api(config, secrets) -> Callable[[Service], Api]:
+def __bootstrap_api(config: client.config.Configuration, secrets: client.config.Credentials) \
+        -> Callable[[Service], Api]:
     # Build all dependencies except for `Service` instance (attached when daemonizing)
-    auth_url = config['auth']['url']
-    cloud_url = config['cloud']['url']
-    client_id = secrets['auth']['client_id']
-    client_secret = secrets['auth']['client_secret']
+    auth_url = config.auth_url
+    cloud_url = config.cloud_url
+    client_id = secrets.client_id
+    client_secret = secrets.client_secret
 
     fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
     token_store = TokenStore(fetch_token=fetch_token)
