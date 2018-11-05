@@ -46,12 +46,13 @@ class Credentials:
 
 
 CONFIG: Union[Configuration, None] = None
-SECRETS: Union[Credentials, None] = None
+CREDENTIALS: Union[Credentials, None] = None
 
 
 def init(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_PATH):
-    global CONFIG, SECRETS  # pylint:disable=global-statement
+    global CONFIG, CREDENTIALS  # pylint:disable=global-statement
     if CONFIG is None:
         CONFIG = Configuration.from_yaml(config_path)
-    if SECRETS is None:
-        SECRETS = Credentials.from_isi(credentials_path)
+    if CREDENTIALS is None:
+        CREDENTIALS = Credentials.from_isi(credentials_path)
+    return CONFIG, CREDENTIALS
