@@ -95,7 +95,7 @@ def _build_service_start_payload() -> Payload:
     https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
     :return:
     """
-    mutation = "mutation NotifyServiceStart($in: ServiceInput!) { notifyServiceStart(input: $in) }"
+    mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
 
     input_dict = {
         "version": version
