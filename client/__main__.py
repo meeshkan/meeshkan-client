@@ -6,14 +6,14 @@ import tempfile
 import os
 from typing import Callable
 import random
-import requests
 
 import click
 import Pyro4
+import requests
 
 import client.config
-from client.oauth import TokenStore, token_source
-from client.notifiers import post_payloads, CloudNotifier
+from client.oauth import TokenStore, TokenSource
+from client.notifiers import CloudNotifier, CloudClient
 from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
@@ -51,18 +51,39 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
     client_id = credentials.client_id
     client_secret = credentials.client_secret
 
-    fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
+    def build_session():
+        return requests.Session()
+
+    token_source = TokenSource(auth_url=auth_url,
+                               client_id=client_id,
+                               client_secret=client_secret,
+                               build_session=build_session)
+    fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
-    post_payload = post_payloads(cloud_url=cloud_url, token_store=token_store)
+
+    cloud_client = CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
+    post_payload = cloud_client.post_payload
+
     notifier: CloudNotifier = CloudNotifier(post_payload=post_payload)
+
     try:
         notifier.notify_service_start()
     except Unauthorized as ex:
         print(ex.message)
+        token_source.close()
+        cloud_client.close()
         sys.exit(1)
+
     scheduler = Scheduler()
     scheduler.register_listener(notifier)
-    return lambda service: Api(scheduler=scheduler, service=service)
+
+    def build_api(service: Service) -> Api:
+        api = Api(scheduler=scheduler, service=service)
+        api.add_stop_callback(token_source.close)
+        api.add_stop_callback(cloud_client.close)
+        return api
+
+    return build_api
 
 
 @click.group()
@@ -75,8 +96,12 @@ def cli(debug):
 @cli.command()
 def start():
     """Initializes the scheduler daemon."""
+    service = Service()
+    if service.is_running():
+        print("Service is already running.")
+        sys.exit(1)
     config, credentials = __get_auth()
-    return Service().start(build_api=__bootstrap_api(config, credentials))
+    return service.start(build_api=__bootstrap_api(config, credentials))
 
 
 @cli.command(name='status')
@@ -89,6 +114,7 @@ def daemon_status():
     if is_running:
         print(f"URI for Daemon is {service.uri}")
 
+
 @cli.command()
 @click.argument('job', nargs=-1)
 def submit(job):
@@ -98,6 +124,8 @@ def submit(job):
         return
     api: Api = __get_api()
     api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
+    print("Job submitted successfully.")
+
 
 @cli.command()
 def stop():

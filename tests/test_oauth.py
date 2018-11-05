@@ -1,8 +1,11 @@
-import client
-from client.oauth import TokenStore, token_source
-from .test_notifiers import _MockResponse
-import pytest
+from typing import Any
 from unittest import mock
+
+import pytest
+import requests
+
+from client.oauth import TokenStore, TokenSource
+from .test_notifiers import _MockResponse
 
 
 def _token_store():
@@ -63,13 +66,9 @@ def _token_response():
 
 def test_token_source():
 
-    fetch_token = token_source(auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret())
-
-    mock_calls = 0
+    session: requests.Session = mock.Mock(spec=requests.Session)
 
     def mocked_requests_post(*args, **kwargs):
-        nonlocal mock_calls
-        mock_calls += 1
         url = args[0]
         assert url == f"https://{_auth_url()}/oauth/token"
         payload = kwargs['data']
@@ -79,25 +78,33 @@ def test_token_source():
         assert payload['grant_type'] == "client_credentials"
         return _MockResponse(_token_response(), 200)
 
-    with mock.patch('requests.post', side_effect=mocked_requests_post):
-        token = fetch_token()
+    session.post = mock.MagicMock()
+    session.post.side_effect = mocked_requests_post
+
+    with TokenSource(
+         auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret(), build_session=lambda: session)\
+            as token_source:
+        token = token_source.fetch_token()
         assert token == _token_response()['access_token']
 
-    assert mock_calls == 1
+    assert session.post.call_count == 1
 
 
 def test_token_source_raises_error_for_non_200():
 
-    fetch_token = token_source(auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret())
-
-    mock_calls = 0
+    session: Any = mock.Mock(spec=requests.Session)
 
     def mocked_requests_post(*args, **kwargs):
-        nonlocal mock_calls
-        mock_calls += 1
         return _MockResponse(_token_response(), 201)
 
-    with pytest.raises(RuntimeError), mock.patch('requests.post', side_effect=mocked_requests_post):
-        fetch_token()
+    session.post = mock.MagicMock()
+    session.post.side_effect = mocked_requests_post
 
-    assert mock_calls == 1
+    with pytest.raises(RuntimeError), \
+        TokenSource(auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret(),
+                    build_session=lambda: session) as token_source:
+        token_source.fetch_token()
+
+    session.post.assert_called()
+
+    assert session.post.call_count == 1

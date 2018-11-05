@@ -29,33 +29,44 @@ class Notifier(object):
         pass
 
 
-def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Callable[[Payload], None]:
+class CloudClient:
     """
-    Return a function posting payloads to given URL, authenticating with token from token_store.
-    Contains retry logic when authorization fails. Raises RuntimeError if server returns other than 200.
-    :param cloud_url: URL where to post
-    :param token_store: TokenStore instance
-    :raises RuntimeError: if server returns a code other than 200
-    :return: Function for posting payload
-    """
+        Use for posting payloads to given URL, authenticating with token from token_store.
+        Contains retry logic when authorization fails. Raises RuntimeError if server returns other than 200.
+        :param cloud_url: URL where to post
+        :param token_store: TokenStore instance
+        :param build_session: Factory for building sessions (closed with client.close())
+        :raises Unauthorized: if server returns 401
+        :raises RuntimeError: If server returns code other than 200 or 401
+        """
+    def __init__(self, cloud_url: str, token_store: client.oauth.TokenStore,
+                 build_session: Callable[[], requests.Session]):
+        self._cloud_url = cloud_url
+        self._token_store = token_store
+        self._session = build_session()
 
-    def _post(payload: Payload, token: client.oauth.Token) -> requests.Response:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def _post(self, payload: Payload, token: client.oauth.Token) -> requests.Response:
         headers = {'Authorization': f"Bearer {token}"}
-        with requests.post(f"{cloud_url}", json=payload, headers=headers, timeout=5) as resp:
-            return resp
+        return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
-    def post_with_retry(payload: Payload) -> None:
+    def post_payload(self, payload: Payload) -> None:
         """
         Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry (once).
         :param payload:
         :raises client.exceptions.Unauthorized if received 401 twice.
         :return:
         """
-        token = token_store.get_token()
-        res = _post(payload, token)
+        token = self._token_store.get_token()
+        res = self._post(payload, token)
         if res.status_code == HTTPStatus.UNAUTHORIZED:  # Unauthorized, try a new token
-            token = token_store.get_token(refresh=True)
-            res = _post(payload, token)
+            token = self._token_store.get_token(refresh=True)
+            res = self._post(payload, token)
             if res.status_code == HTTPStatus.UNAUTHORIZED:
                 LOGGER.error('Cannot post to server: unauthorized')
                 raise client.exceptions.Unauthorized()
@@ -64,7 +75,9 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
             raise RuntimeError(f"Post failed with status code {res.status_code}")
         LOGGER.debug("Got server response: %s", res.text)
 
-    return post_with_retry
+    def close(self):
+        LOGGER.debug("Closing CloudClient session")
+        self._session.close()
 
 
 def _build_job_notify_payload(job: client.job.Job) -> Payload:

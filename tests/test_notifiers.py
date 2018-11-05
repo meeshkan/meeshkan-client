@@ -1,8 +1,9 @@
 from unittest import mock
+from typing import Any
 
 import pytest
 
-from client.notifiers import CloudNotifier, Payload, post_payloads
+from client.notifiers import CloudNotifier, Payload, CloudClient
 from client.oauth import TokenStore
 from client.job import Job, Executable
 from client.exceptions import Unauthorized
@@ -87,15 +88,16 @@ def _token_store():
     return TokenStore(fetch_token=fetch_token)
 
 
-def test_post_payloads():
-    post = post_payloads(cloud_url=_cloud_url(), token_store=_token_store())
-    payload: Payload = _query_payload()
+def _build_session(side_effect):
+    session: Any = mock.Mock()
+    session.post = mock.MagicMock()
+    session.post.side_effect = side_effect
+    return session
 
-    mock_calls = 0
+
+def test_post_payloads():
 
     def mocked_requests_post(*args, **kwargs):
-        nonlocal mock_calls
-        mock_calls += 1
         url = args[0]
         headers = kwargs["headers"]
         content = kwargs["json"]
@@ -104,10 +106,16 @@ def test_post_payloads():
         assert 'query' in content
         return _MockResponse(None, 200)
 
-    with mock.patch('requests.post', side_effect=mocked_requests_post):
+    session = _build_session(side_effect=mocked_requests_post)
+
+    cloud_client = CloudClient(cloud_url=_cloud_url(), token_store=_token_store(), build_session=lambda: session)
+    post = cloud_client.post_payload
+    payload: Payload = _query_payload()
+
+    with cloud_client:
         post(payload)
 
-    assert mock_calls == 1
+    assert session.post.call_count == 1
 
 
 def test_post_payloads_unauthorized_retry():
@@ -115,8 +123,6 @@ def test_post_payloads_unauthorized_retry():
     Test authorization retry logic. If post returns 401, poster should retry with a new token.
     :return:
     """
-    post = post_payloads(cloud_url=_cloud_url(), token_store=_token_store())
-    payload: Payload = _query_payload()
 
     mock_calls = 0
 
@@ -129,10 +135,15 @@ def test_post_payloads_unauthorized_retry():
         assert headers['Authorization'] == f"Bearer {mock_calls}"
         return _MockResponse(None, 401) if mock_calls == 1 else _MockResponse(None, 200)
 
-    with mock.patch('requests.post', side_effect=mocked_requests_post):
+    session = _build_session(side_effect=mocked_requests_post)
+    cloud_client = CloudClient(cloud_url=_cloud_url(), token_store=_token_store(), build_session=lambda: session)
+    post = cloud_client.post_payload
+    payload: Payload = _query_payload()
+
+    with cloud_client:
         post(payload)
 
-    assert mock_calls == 2  # One failed post and a successful retry
+    assert session.post.call_count == 2  # One failed post and a successful retry
 
 
 def test_post_payloads_raises_error_for_multiple_401s():
@@ -140,17 +151,16 @@ def test_post_payloads_raises_error_for_multiple_401s():
     Test authorization retry logic. If post returns 401, poster should retry with a new token.
     :return:
     """
-    post = post_payloads(cloud_url=_cloud_url(), token_store=_token_store())
-    payload: Payload = _query_payload()
 
-    mock_calls = 0
-
-    def mocked_requests_post(*args, **kwargs):
-        nonlocal mock_calls
-        mock_calls += 1
+    def mocked_requests_post(*args, **kwargs):  # pylint:disable=unused-argument
         return _MockResponse(None, 401)
 
-    with mock.patch('requests.post', side_effect=mocked_requests_post), pytest.raises(Unauthorized):
+    session = _build_session(side_effect=mocked_requests_post)
+    cloud_client = CloudClient(cloud_url=_cloud_url(), token_store=_token_store(), build_session=lambda: session)
+    post = cloud_client.post_payload
+    payload: Payload = _query_payload()
+
+    with cloud_client, pytest.raises(Unauthorized):
         post(payload)
 
-    assert mock_calls == 2  # Two (failed) calls
+    assert session.post.call_count == 2
