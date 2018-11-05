@@ -22,15 +22,16 @@ def token_source(auth_url: str, client_id: str, client_secret: str) -> FetchToke
     }
 
     def fetch() -> Token:
-        resp = requests.post(f"https://{auth_url}/oauth/token", data=payload)
-        if resp.status_code == HTTPStatus.OK:
-            resp_dict = resp.json()
-            return resp_dict['access_token']
-        elif resp.status_code == HTTPStatus.UNAUTHORIZED:
-            raise client.exceptions.Unauthorized()
-        else:
-            LOGGER.error(f"Failed requesting authentication: status {resp.status_code}, text: {resp.text}.")
-            raise RuntimeError("Failed requesting authentication.")
+        LOGGER.debug("Requesting token with payload %s", payload)
+        with requests.post(f"https://{auth_url}/oauth/token", data=payload, timeout=5) as resp:
+            if resp.status_code == HTTPStatus.OK:
+                resp_dict = resp.json()
+                return resp_dict['access_token']
+            elif resp.status_code == HTTPStatus.UNAUTHORIZED:
+                raise client.exceptions.Unauthorized()
+            else:
+                LOGGER.error(f"Failed requesting authentication: status {resp.status_code}, text: {resp.text}.")
+                raise RuntimeError("Failed requesting authentication.")
     return fetch
 
 

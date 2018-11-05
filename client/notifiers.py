@@ -41,7 +41,8 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
 
     def _post(payload: Payload, token: client.oauth.Token) -> requests.Response:
         headers = {'Authorization': f"Bearer {token}"}
-        return requests.post(f"{cloud_url}", json=payload, headers=headers)
+        with requests.post(f"{cloud_url}", json=payload, headers=headers, timeout=5) as resp:
+            return resp
 
     def post_with_retry(payload: Payload) -> None:
         """
