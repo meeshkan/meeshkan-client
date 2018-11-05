@@ -19,6 +19,7 @@ from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
 from client.scheduler import Scheduler
+from client.exceptions import Unauthorized
 
 setup_logging()
 LOGGER = logging.getLogger(__name__)
@@ -41,7 +42,8 @@ def __get_auth() -> (dict, dict):
 def __get_api() -> Api:
     service = Service()
     if not service.is_running():
-        raise RuntimeError("Start the service first!")
+        print("Start the service first.")
+        sys.exit(1)
     api: Api = Pyro4.Proxy(service.uri)
     return api
 
@@ -50,17 +52,19 @@ def __bootstrap_api() -> Callable[[Service], Api]:
     # Build all dependencies except for `Service` instance (attached when daemonizing)
     config, secrets = __get_auth()
     auth_url = config['auth']['url']
+    cloud_url = config['cloud']['url']
     client_id = secrets['auth']['client_id']
     client_secret = secrets['auth']['client_secret']
 
     fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
     token_store = TokenStore(fetch_token=fetch_token)
-    post_payload = post_payloads(cloud_url=config['cloud']['url'], token_store=token_store)
+    post_payload = post_payloads(cloud_url=cloud_url, token_store=token_store)
     notifier: CloudNotifier = CloudNotifier(post_payload=post_payload)
     try:
         notifier.notify_service_start()
-    except:
-        raise RuntimeError("Failed connecting to the server. Check your credentials.")
+    except Unauthorized as ex:
+        print(ex.message)
+        sys.exit(1)
     scheduler = Scheduler()
     scheduler.register_listener(notifier)
     return lambda service: Api(scheduler=scheduler, service=service)

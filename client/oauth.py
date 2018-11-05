@@ -1,9 +1,12 @@
 from http import HTTPStatus
 import logging
-import requests
 from typing import Callable, NewType
 
-logger = logging.getLogger(__name__)
+import requests
+
+import client.exceptions
+
+LOGGER = logging.getLogger(__name__)
 
 Token = NewType("Token", str)
 FetchToken = NewType("FetchToken", Callable[[], Token])
@@ -24,9 +27,9 @@ def token_source(auth_url: str, client_id: str, client_secret: str) -> FetchToke
             resp_dict = resp.json()
             return resp_dict['access_token']
         elif resp.status_code == HTTPStatus.UNAUTHORIZED:
-            raise RuntimeError("Failed requesting authentication. Check your credentials.")
+            raise client.exceptions.Unauthorized()
         else:
-            logger.error(f"Failed requesting authentication, got response with status {resp.status_code}.")
+            LOGGER.error(f"Failed requesting authentication: status {resp.status_code}, text: {resp.text}.")
             raise RuntimeError("Failed requesting authentication.")
     return fetch
 
@@ -41,6 +44,6 @@ class TokenStore(object):
 
     def get_token(self, refresh=False):
         if refresh or self._token is None:
-            logger.info("Retrieving new authentication token")
+            LOGGER.info("Retrieving new authentication token")
             self._token = self._fetch_token()
         return self._token

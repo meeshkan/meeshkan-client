@@ -6,6 +6,8 @@ import requests
 
 import client.job
 import client.oauth
+import client.exceptions
+
 from client.version import __version__ as version
 
 LOGGER = logging.getLogger(__name__)
@@ -44,6 +46,9 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
     def post_with_retry(payload: Payload) -> None:
         """
         Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry (once).
+        :param payload:
+        :raises client.exceptions.Unauthorized if received 401 twice.
+        :return:
         """
         token = token_store.get_token()
         res = _post(payload, token)
@@ -52,7 +57,7 @@ def post_payloads(cloud_url: str, token_store: client.oauth.TokenStore) -> Calla
             res = _post(payload, token)
             if res.status_code == HTTPStatus.UNAUTHORIZED:
                 LOGGER.error('Cannot post to server: unauthorized')
-                raise RuntimeError("Cannot post: Unauthorized")
+                raise client.exceptions.Unauthorized()
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
