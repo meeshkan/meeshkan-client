@@ -22,6 +22,7 @@ def init(config_path=CONFIG_PATH, credentials_path=CREDENTIALS_PATH):
 
 
 def get_config(path: Path = CONFIG_PATH):
+    LOGGER.debug(f"Reading configuration from %s", path)
     if not path.is_file():
         raise FileNotFoundError(f"File {path} not found")
     with path.open('r') as f:
@@ -29,7 +30,7 @@ def get_config(path: Path = CONFIG_PATH):
 
 
 def get_secrets(path: Path = CREDENTIALS_PATH):
-    LOGGER.info(f"Reading credentials from {path}")
+    LOGGER.debug(f"Reading credentials from %s", path)
     if not path.is_file():
         raise FileNotFoundError(f"Create file {path} first.")
     conf = configparser.ConfigParser()

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import client
 import client.config
-from client.config import get_secrets, get_config, init
+from client.config import init
 
 
 def test_config_init():
