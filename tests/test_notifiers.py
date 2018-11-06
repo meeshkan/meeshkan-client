@@ -5,6 +5,7 @@ import pytest
 from client.notifiers import CloudNotifier, Payload, post_payloads
 from client.oauth import TokenStore
 from client.job import Job, Executable
+from client.exceptions import Unauthorized
 
 
 def _get_job():
@@ -53,6 +54,12 @@ class _MockResponse:
     @property
     def text(self):
         return "Mock response"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 
 def _query_payload():
@@ -143,7 +150,7 @@ def test_post_payloads_raises_error_for_multiple_401s():
         mock_calls += 1
         return _MockResponse(None, 401)
 
-    with mock.patch('requests.post', side_effect=mocked_requests_post), pytest.raises(RuntimeError):
+    with mock.patch('requests.post', side_effect=mocked_requests_post), pytest.raises(Unauthorized):
         post(payload)
 
     assert mock_calls == 2  # Two (failed) calls
