@@ -68,4 +68,3 @@ class CloudNotifier(Notifier):
         query_payload: client.cloud.Payload = _build_job_notify_payload(job)
         self._post_payload(query_payload)
         LOGGER.info(f"Posted successfully: %s", str(job))
-
