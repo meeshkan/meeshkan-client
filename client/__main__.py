@@ -112,10 +112,9 @@ def start():
     except Unauthorized as ex:
         print(ex.message)
         sys.exit(1)
-    except:
+    except:  # pylint: disable=bare-except
         print("Starting service failed.")
-        raise
-        # sys.exit(1)
+        sys.exit(1)
 
 
 @cli.command(name='status')
