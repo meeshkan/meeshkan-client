@@ -14,7 +14,7 @@ import requests
 import client.config
 from client.oauth import TokenStore, TokenSource
 from client.notifiers import CloudNotifier, LoggingNotifier
-from client.cloud import CloudClient
+import client.cloud
 from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
@@ -62,20 +62,17 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
     fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
 
-    cloud_client: CloudClient = CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
+    cloud_client: client.cloud.CloudClient = client.cloud.CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
 
     stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
 
     def notify_service_start():
         try:
             cloud_client.notify_service_start()
-        except Unauthorized as ex:
-            print(ex.message)
-            raise Exception from ex
-        except:  # pylint: disable=bare-except
+        except Exception as ex:
             for stop_cb in stop_callbacks:
                 stop_cb()
-            sys.exit(1)
+            raise ex
 
     notify_service_start()
 
@@ -110,7 +107,15 @@ def start():
         print("Service is already running.")
         sys.exit(1)
     config, credentials = __get_auth()
-    return service.start(build_api=__bootstrap_api(config, credentials))
+    try:
+        return service.start(build_api=__bootstrap_api(config, credentials))
+    except Unauthorized as ex:
+        print(ex.message)
+        sys.exit(1)
+    except:
+        print("Starting service failed.")
+        raise
+        # sys.exit(1)
 
 
 @cli.command(name='status')
