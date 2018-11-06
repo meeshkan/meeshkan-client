@@ -13,7 +13,7 @@ def test_start():
     client.config.init(config_path=CONFIG_PATH, credentials_path=CREDENTIALS_PATH)
 
     # Patch TokenSource and CloudClient
-    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('client.__main__.CloudClient', autospec=True) as mock_cloud_client:
         mock_cloud_client.return_value.notify_service_start.return_value = None
         runner = CliRunner()
         start_result = runner.invoke(main.cli, ['start'], catch_exceptions=False)

@@ -14,7 +14,7 @@ import requests
 import client.config
 from client.oauth import TokenStore, TokenSource
 from client.notifiers import CloudNotifier, LoggingNotifier
-import client.cloud
+from client.cloud import CloudClient
 from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
@@ -62,7 +62,7 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
     fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
 
-    cloud_client: client.cloud.CloudClient = client.cloud.CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
+    cloud_client: CloudClient = CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
 
     stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
 
