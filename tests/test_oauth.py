@@ -5,7 +5,7 @@ import pytest
 import requests
 
 from client.oauth import TokenStore, TokenSource
-from .test_notifiers import _MockResponse
+from .utils import MockResponse
 
 
 def _token_store():
@@ -76,7 +76,7 @@ def test_token_source():
         assert payload['client_secret'] == _client_secret()
         assert payload['audience'] == "https://api.meeshkan.io"
         assert payload['grant_type'] == "client_credentials"
-        return _MockResponse(_token_response(), 200)
+        return MockResponse(_token_response(), 200)
 
     session.post = mock.MagicMock()
     session.post.side_effect = mocked_requests_post
@@ -95,7 +95,7 @@ def test_token_source_raises_error_for_non_200():
     session: Any = mock.Mock(spec=requests.Session)
 
     def mocked_requests_post(*args, **kwargs):
-        return _MockResponse(_token_response(), 201)
+        return MockResponse(_token_response(), 201)
 
     session.post = mock.MagicMock()
     session.post.side_effect = mocked_requests_post

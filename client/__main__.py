@@ -4,7 +4,7 @@ import sys
 import tarfile
 import tempfile
 import os
-from typing import Callable
+from typing import Callable, List
 import random
 
 import click
@@ -13,7 +13,8 @@ import requests
 
 import client.config
 from client.oauth import TokenStore, TokenSource
-from client.notifiers import CloudNotifier, CloudClient
+from client.notifiers import CloudNotifier
+from client.cloud import CloudClient
 from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
@@ -61,26 +62,32 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
     fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
 
-    cloud_client = CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
-    post_payload = cloud_client.post_payload
+    cloud_client: CloudClient = CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
 
-    notifier: CloudNotifier = CloudNotifier(post_payload=post_payload)
+    stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
 
-    try:
-        notifier.notify_service_start()
-    except Unauthorized as ex:
-        print(ex.message)
-        token_source.close()
-        cloud_client.close()
-        sys.exit(1)
+    def notify_service_start():
+        try:
+            cloud_client.notify_service_start()
+        except Unauthorized as ex:
+            print(ex.message)
+            raise Exception from ex
+        except:  # pylint: disable=bare-except
+            for stop_cb in stop_callbacks:
+                stop_cb()
+            sys.exit(1)
+
+    notify_service_start()
+
+    notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
 
     scheduler = Scheduler()
     scheduler.register_listener(notifier)
 
     def build_api(service: Service) -> Api:
         api = Api(scheduler=scheduler, service=service)
-        api.add_stop_callback(token_source.close)
-        api.add_stop_callback(cloud_client.close)
+        for stop_callback in stop_callbacks:
+            api.add_stop_callback(stop_callback)
         return api
 
     return build_api
