@@ -13,7 +13,7 @@ import requests
 
 import client.config
 from client.oauth import TokenStore, TokenSource
-from client.notifiers import CloudNotifier
+from client.notifiers import CloudNotifier, LoggingNotifier
 from client.cloud import CloudClient
 from client.job import ProcessExecutable
 from client.logger import setup_logging
@@ -79,10 +79,12 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
 
     notify_service_start()
 
-    notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
+    cloud_notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
+    logging_notifier: LoggingNotifier = LoggingNotifier()
 
     scheduler = Scheduler()
-    scheduler.register_listener(notifier)
+    scheduler.register_listener(logging_notifier)
+    scheduler.register_listener(cloud_notifier)
 
     def build_api(service: Service) -> Api:
         api = Api(scheduler=scheduler, service=service)

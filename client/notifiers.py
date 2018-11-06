@@ -51,6 +51,14 @@ def _build_job_notify_payload(job: client.job.Job) -> client.cloud.Payload:
     return payload
 
 
+class LoggingNotifier(Notifier):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, job: client.job.Job) -> None:
+        LOGGER.debug("%s: Notified for job %s", self.__class__.__name__,  job)
+
+
 class CloudNotifier(Notifier):
     def __init__(self, post_payload: Callable[[client.cloud.Payload], None]):
         super().__init__()
