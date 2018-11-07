@@ -47,7 +47,7 @@ class ProcessExecutable(Executable):
                If the directory does not exist, it is created.
         """
         super().__init__()
-        self.args = args
+        self.args: Tuple[str, ...] = args
         self.popen: subprocess.Popen = None
         self.output_path = output_path
 

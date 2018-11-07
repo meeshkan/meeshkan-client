@@ -80,7 +80,7 @@ class Scheduler(object):
 
         LOGGER.debug("Finished handling job: %s", job)
 
-    def create_job(self, args: Tuple[str]):
+    def create_job(self, args: Tuple[str, ...]):
         job_number = self._njobs
         job_uuid = uuid.uuid4()
         output_path = client.config.JOBS_DIR.joinpath(str(job_uuid))
