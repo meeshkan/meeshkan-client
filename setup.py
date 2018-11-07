@@ -15,8 +15,10 @@ REQUIRES_PYTHON = '>=3.5.0'
 REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML']
 
 # Optional packages
-EXTRAS = {}
+EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
 
+# Additional files to be distributed
+PKG_DATA = ['*.yaml']
 SRC_DIR = 'client'
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -26,20 +28,15 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = '\n' + f.read()
 
 # Load the package's __version__.py module as a dictionary.
-about = {}
+about = dict()
 with open(os.path.join(here, SRC_DIR, '__version__.py')) as f:
     exec(f.read(), about)
 
 class UploadCommand(Command):
     """Support setup.py upload."""
 
-    description = 'Build and publish the package.'
+    description = "Build and publish the package."
     user_options = []
-
-    @staticmethod
-    def status(s):
-        """Prints things in bold."""
-        print('\033[1m{0}\033[0m'.format(s))
 
     def initialize_options(self):
         pass
@@ -47,25 +44,31 @@ class UploadCommand(Command):
     def finalize_options(self):
         pass
 
+    @staticmethod
+    def status(s):
+        """Prints things in bold."""
+        print('\033[1m{0}\033[0m'.format(s))
+
     def run(self):
+        # bc = BuildCommand()
+        # bc.run()
         try:
-            self.status('Removing previous builds…')
+            self.status("Removing previous builds...")
             rmtree(os.path.join(here, 'dist'))
         except OSError:
             pass
 
-        self.status('Building Source and Wheel (universal) distribution…')
-        os.system('{0} setup.py sdist bdist_wheel --universal'.format(sys.executable))
+        self.status("Building Source and Wheel (universal) distribution...")
+        os.system(f"{sys.executable} setup.py sdist bdist_wheel --universal")
 
-        self.status('Uploading the package to PyPI via Twine…')
-        os.system('twine upload dist/*')
+        self.status("Uploading the package to PyPI via Twine...")
+        os.system("twine upload dist/*")
 
-        self.status('Pushing git tags…')
-        os.system('git tag v{0}'.format(about['__version__']))
-        os.system('git push --tags')
+        self.status("Pushing git tags...")
+        os.system(f"git tag v{about['__version__']}")
+        os.system("git push --tags")
 
         sys.exit()
-
 
 setup(
     name=NAME,
@@ -81,7 +84,8 @@ setup(
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,
-    license='MIT',
+    package_data={'': PKG_DATA},
+    license='Apache 2.0',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'License :: OSI Approved :: Apache Software License',
