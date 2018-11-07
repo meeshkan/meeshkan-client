@@ -7,4 +7,4 @@ import client.notifiers
 import client.oauth
 import client.scheduler
 import client.service
-from client.version import __version__  # Conform to PEP-0396
+from client.__version__ import __version__  # Conform to PEP-0396
