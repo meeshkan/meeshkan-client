@@ -1,7 +1,6 @@
 import logging
 import queue
 import threading
-import time
 from typing import List  # For self-documenting typing
 
 import client.job  # Defines scheduler jobs
@@ -13,15 +12,22 @@ LOGGER = logging.getLogger(__name__)
 
 # Worker thread reading from queue and waiting for processes to finish
 def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
-    while True:
-        if stop_event.is_set():
-            return
-        if q.empty():
-            time.sleep(1)
-        else:
-            item = q.get()
-            do_work(item)
+    """
+    Read and handle tasks from queue `q` until (1) queue item is None or (2) stop_event is set. Note that
+    the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
+    to check loop condition.
+    :param q: Synchronized queue
+    :param do_work: Callback called with queue item as argument
+    :param stop_event: Threading event signaling stop
+    :return:
+    """
+    while not stop_event.is_set():
+        item = q.get(block=True)
+        if item is None or stop_event.is_set():
             q.task_done()
+            return
+        do_work(item)
+        q.task_done()
 
 
 class Scheduler(object):
@@ -92,9 +98,10 @@ class Scheduler(object):
         job.cancel()
 
     def stop(self):
-        # TODO Terminate the process currently running
+        # TODO Terminate the process currently running with --force?
         if self._is_running:
-            self._stop_thread_event.set()  # Signal exit to worker thread
+            self._task_queue.put(None)  # Signal exit if thread is blocking
+            self._stop_thread_event.set()  # Signal exit to worker thread, required as "None" may not be next task
             self._is_running = False
             if self._running_job is not None:
                 self._running_job.cancel()
