@@ -1,4 +1,7 @@
 from setuptools import find_packages, setup, Command
+from setuptools.command.develop import develop
+from setuptools.command.install import install
+import stat
 import os
 from shutil import rmtree
 import sys
@@ -29,10 +32,20 @@ about = dict()
 with open(os.path.join(here, SRC_DIR, '__version__.py')) as f:
     exec(f.read(), about)
 
-class UploadCommand(Command):
-    """Support setup.py upload."""
 
-    description = "Build and publish the package."
+class PostInstall(install):
+    def run(self):
+        os.system("chmod 777 meeshkan")
+        install.run(self)
+
+class PostDev(develop):
+    def run(self):
+        os.system("chmod 777 meeshkan")
+        develop.run(self)
+
+
+class SetupCommand(Command):
+    """Base class for setup.py commands with no arguments"""
     user_options = []
 
     def initialize_options(self):
@@ -45,6 +58,10 @@ class UploadCommand(Command):
     def status(s):
         """Prints things in bold."""
         print('\033[1m{0}\033[0m'.format(s))
+
+class UploadCommand(SetupCommand):
+    """Support setup.py upload."""
+    description = "Build and publish the package."
 
     def run(self):
         try:
@@ -63,6 +80,14 @@ class UploadCommand(Command):
         os.system(f"git tag v{about['__version__']}")
         os.system("git push --tags")
 
+        sys.exit()
+
+class TestCommand(SetupCommand):
+    """Support setup.py test."""
+    description = "Run local test if they exist"
+
+    def run(self):
+        os.system("pytest")
         sys.exit()
 
 setup(
@@ -88,8 +113,10 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-        'Operating System :: OS Independent',
+        'Operating System :: MacOS',
+        'Operating System :: POSIX',
+        'Operating System :: Unix',
         'Topic:: Scientific / Engineering:: Artificial Intelligence'
     ],
-    cmdclass={'upload': UploadCommand}
+    cmdclass={'upload': UploadCommand, 'install': PostInstall, 'develop': PostDev, 'test': TestCommand}
 )
