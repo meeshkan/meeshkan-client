@@ -15,7 +15,6 @@ import client.config
 from client.oauth import TokenStore, TokenSource
 from client.notifiers import CloudNotifier, LoggingNotifier
 from client.cloud import CloudClient
-from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
@@ -23,6 +22,8 @@ from client.scheduler import Scheduler
 from client.exceptions import Unauthorized
 
 setup_logging()
+client.config.ensure_base_dir()
+
 LOGGER = logging.getLogger(__name__)
 
 Pyro4.config.SERIALIZER = 'pickle'
