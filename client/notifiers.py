@@ -56,7 +56,7 @@ class LoggingNotifier(Notifier):
         super().__init__()
 
     def notify(self, job: client.job.Job) -> None:
-        LOGGER.debug("%s: Notified for job %s", self.__class__.__name__,  job)
+        LOGGER.debug("%s: Notified for job %s", self.__class__.__name__, job)
 
 
 class CloudNotifier(Notifier):

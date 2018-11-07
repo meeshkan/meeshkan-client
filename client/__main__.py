@@ -4,7 +4,7 @@ import sys
 import tarfile
 import tempfile
 import os
-from typing import Callable, List
+from typing import Callable, List, Tuple
 import random
 
 import click
@@ -44,46 +44,51 @@ def __get_api() -> Api:
     return api
 
 
-def __bootstrap_api(config: client.config.Configuration, credentials: client.config.Credentials) \
-        -> Callable[[Service], Api]:
-    # Build all dependencies except for `Service` instance (attached when daemonizing)
-    auth_url = config.auth_url
-    cloud_url = config.cloud_url
-    client_id = credentials.client_id
-    client_secret = credentials.client_secret
+def __build_session():
+    return requests.Session()
 
-    def build_session():
-        return requests.Session()
 
-    token_source = TokenSource(auth_url=auth_url,
-                               client_id=client_id,
-                               client_secret=client_secret,
-                               build_session=build_session)
+def __build_cloud_client_token_source(config: client.config.Configuration,
+                                      credentials: client.config.Credentials) -> Tuple[CloudClient, TokenSource]:
+    token_source = TokenSource(auth_url=config.auth_url,
+                               client_id=credentials.client_id,
+                               client_secret=credentials.client_secret,
+                               build_session=__build_session)
+
     fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
 
-    cloud_client: CloudClient = CloudClient(cloud_url=cloud_url, token_store=token_store, build_session=build_session)
+    cloud_client: CloudClient = CloudClient(cloud_url=config.cloud_url, token_store=token_store,
+                                            build_session=__build_session)
+    return cloud_client, token_source
 
-    stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
 
-    def notify_service_start():
-        try:
-            cloud_client.notify_service_start()
-        except Exception as ex:
-            for stop_cb in stop_callbacks:
-                stop_cb()
-            raise ex
+def __notify_service_start(config: client.config.Configuration,
+                           credentials: client.config.Credentials):
 
-    notify_service_start()
+    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
 
-    cloud_notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
-    logging_notifier: LoggingNotifier = LoggingNotifier()
+    with cloud_client, token_source:  # Clean resources
+        cloud_client.notify_service_start()
 
-    scheduler = Scheduler()
-    scheduler.register_listener(logging_notifier)
-    scheduler.register_listener(cloud_notifier)
+
+def __build_api(config: client.config.Configuration,
+                credentials: client.config.Credentials) -> Callable[[Service], Api]:
 
     def build_api(service: Service) -> Api:
+        # Build all dependencies except for `Service` instance (attached when daemonizing)
+
+        cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
+
+        stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
+
+        cloud_notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
+        logging_notifier: LoggingNotifier = LoggingNotifier()
+
+        scheduler = Scheduler()
+        scheduler.register_listener(logging_notifier)
+        scheduler.register_listener(cloud_notifier)
+
         api = Api(scheduler=scheduler, service=service)
         for stop_callback in stop_callbacks:
             api.add_stop_callback(stop_callback)
@@ -108,7 +113,8 @@ def start():
         sys.exit(1)
     config, credentials = __get_auth()
     try:
-        return service.start(build_api=__bootstrap_api(config, credentials))
+        __notify_service_start(config, credentials)
+        return service.start(build_api=__build_api(config, credentials))
     except Unauthorized as ex:
         print(ex.message)
         sys.exit(1)

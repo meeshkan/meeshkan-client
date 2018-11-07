@@ -6,7 +6,6 @@ import requests
 import client.job
 import client.oauth
 import client.exceptions
-import client.notifiers
 from client.version import __version__ as version
 
 
