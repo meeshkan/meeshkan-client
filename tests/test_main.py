@@ -6,7 +6,7 @@ import uuid
 import pytest
 from click.testing import CliRunner
 
-import client.__main__ as main
+import client.main as main
 import client.config
 import client.exceptions
 import client.service
@@ -31,10 +31,11 @@ def test_start_stop(stop):  # pylint: disable=unused-argument,redefined-outer-na
     service = client.service.Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('client.__main__.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
+        print("service", service)
         assert service.is_running()
         stop_result = run_cli(args=['stop'])
         assert not service.is_running()
@@ -49,7 +50,7 @@ def test_start_with_401_fails(stop):  # pylint: disable=unused-argument,redefine
     service = client.service.Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('client.__main__.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Raise Unauthorized exception when service start notified
         def side_effect(*args, **kwargs):  # pylint: disable=unused-argument
             raise client.exceptions.Unauthorized()
@@ -66,7 +67,7 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
     service = client.service.Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('client.__main__.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         mock_cloud_client.return_value.post_payload.return_value = None

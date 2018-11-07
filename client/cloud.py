@@ -6,8 +6,6 @@ import requests
 import client.job
 import client.oauth
 import client.exceptions
-import client.__version__ as version
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -78,7 +76,7 @@ def _build_service_start_payload() -> Payload:
     mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
 
     input_dict = {
-        "version": version
+        "version": client.__version__
     }
     payload: Payload = {
         "query": mutation,

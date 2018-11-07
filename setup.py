@@ -1,6 +1,4 @@
 from setuptools import find_packages, setup, Command
-from setuptools.command.develop import develop
-from setuptools.command.install import install
 import stat
 import os
 from shutil import rmtree
@@ -22,7 +20,7 @@ REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML']
 EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
 
 # Entry point for CLI (relative to setup.py)
-ENTRY_POINTS = ['meeshkan = client.__main__.cli']
+ENTRY_POINTS = ['meeshkan = client.main:cli']
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -34,17 +32,6 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 about = dict()
 with open(os.path.join(here, SRC_DIR, '__version__.py')) as f:
     exec(f.read(), about)
-
-
-class PostInstall(install):
-    def run(self):
-        os.system("chmod 777 meeshkan")
-        install.run(self)
-
-class PostDev(develop):
-    def run(self):
-        os.system("chmod 777 meeshkan")
-        develop.run(self)
 
 
 class SetupCommand(Command):
@@ -61,6 +48,7 @@ class SetupCommand(Command):
     def status(s):
         """Prints things in bold."""
         print('\033[1m{0}\033[0m'.format(s))
+
 
 class UploadCommand(SetupCommand):
     """Support setup.py upload."""
@@ -84,6 +72,7 @@ class UploadCommand(SetupCommand):
         os.system("git push --tags")
 
         sys.exit()
+
 
 class TestCommand(SetupCommand):
     """Support setup.py test."""
@@ -121,6 +110,6 @@ setup(
         'Operating System :: Unix',
         'Topic:: Scientific / Engineering:: Artificial Intelligence'
     ],
-    # entry_points={'console_scripts': ENTRY_POINTS},  # TODO Breaks at the moment
-    cmdclass={'upload': UploadCommand, 'install': PostInstall, 'develop': PostDev, 'test': TestCommand}
+    entry_points={'console_scripts': ENTRY_POINTS},
+    cmdclass={'upload': UploadCommand, 'test': TestCommand}
 )
