@@ -19,7 +19,7 @@ from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
 from client.scheduler import Scheduler
-from client.exceptions import Unauthorized
+from client.exceptions import UnauthorizedRequestError
 
 setup_logging()
 LOGGER = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
     notifier: CloudNotifier = CloudNotifier(post_payload=post_payload)
     try:
         notifier.notify_service_start()
-    except Unauthorized as ex:
+    except UnauthorizedRequestError as ex:
         print(ex.message)
         sys.exit(1)
     scheduler = Scheduler()

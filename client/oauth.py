@@ -28,7 +28,7 @@ def token_source(auth_url: str, client_id: str, client_secret: str) -> FetchToke
                 resp_dict = resp.json()
                 return resp_dict['access_token']
             elif resp.status_code == HTTPStatus.UNAUTHORIZED:
-                raise client.exceptions.Unauthorized()
+                raise client.exceptions.UnauthorizedRequestError()
             else:
                 LOGGER.error(f"Failed requesting authentication: status {resp.status_code}, text: {resp.text}.")
                 raise RuntimeError("Failed requesting authentication.")
