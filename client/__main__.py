@@ -4,16 +4,17 @@ import sys
 import tarfile
 import tempfile
 import os
-from typing import Callable
+from typing import Callable, List, Tuple
 import random
-import requests
 
 import click
 import Pyro4
+import requests
 
 import client.config
-from client.oauth import TokenStore, token_source
-from client.notifiers import post_payloads, CloudNotifier
+from client.oauth import TokenStore, TokenSource
+from client.notifiers import CloudNotifier, LoggingNotifier
+from client.cloud import CloudClient
 from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
@@ -43,26 +44,57 @@ def __get_api() -> Api:
     return api
 
 
-def __bootstrap_api(config: client.config.Configuration, credentials: client.config.Credentials) \
-        -> Callable[[Service], Api]:
-    # Build all dependencies except for `Service` instance (attached when daemonizing)
-    auth_url = config.auth_url
-    cloud_url = config.cloud_url
-    client_id = credentials.client_id
-    client_secret = credentials.client_secret
+def __build_session():
+    return requests.Session()
 
-    fetch_token = token_source(auth_url=auth_url, client_id=client_id, client_secret=client_secret)
+
+def __build_cloud_client_token_source(config: client.config.Configuration,
+                                      credentials: client.config.Credentials) -> Tuple[CloudClient, TokenSource]:
+    token_source = TokenSource(auth_url=config.auth_url,
+                               client_id=credentials.client_id,
+                               client_secret=credentials.client_secret,
+                               build_session=__build_session)
+
+    fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
-    post_payload = post_payloads(cloud_url=cloud_url, token_store=token_store)
-    notifier: CloudNotifier = CloudNotifier(post_payload=post_payload)
-    try:
-        notifier.notify_service_start()
-    except Unauthorized as ex:
-        print(ex.message)
-        sys.exit(1)
-    scheduler = Scheduler()
-    scheduler.register_listener(notifier)
-    return lambda service: Api(scheduler=scheduler, service=service)
+
+    cloud_client: CloudClient = CloudClient(cloud_url=config.cloud_url, token_store=token_store,
+                                            build_session=__build_session)
+    return cloud_client, token_source
+
+
+def __notify_service_start(config: client.config.Configuration,
+                           credentials: client.config.Credentials):
+
+    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
+
+    with cloud_client, token_source:  # Clean resources
+        cloud_client.notify_service_start()
+
+
+def __build_api(config: client.config.Configuration,
+                credentials: client.config.Credentials) -> Callable[[Service], Api]:
+
+    def build_api(service: Service) -> Api:
+        # Build all dependencies except for `Service` instance (attached when daemonizing)
+
+        cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
+
+        stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
+
+        cloud_notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
+        logging_notifier: LoggingNotifier = LoggingNotifier()
+
+        scheduler = Scheduler()
+        scheduler.register_listener(logging_notifier)
+        scheduler.register_listener(cloud_notifier)
+
+        api = Api(scheduler=scheduler, service=service)
+        for stop_callback in stop_callbacks:
+            api.add_stop_callback(stop_callback)
+        return api
+
+    return build_api
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -85,8 +117,20 @@ def help_cmd(ctx):
 @cli.command()
 def start():
     """Initializes the scheduler daemon."""
+    service = Service()
+    if service.is_running():
+        print("Service is already running.")
+        sys.exit(1)
     config, credentials = __get_auth()
-    return Service().start(build_api=__bootstrap_api(config, credentials))
+    try:
+        __notify_service_start(config, credentials)
+        return service.start(build_api=__build_api(config, credentials))
+    except Unauthorized as ex:
+        print(ex.message)
+        sys.exit(1)
+    except:  # pylint: disable=bare-except
+        print("Starting service failed.")
+        sys.exit(1)
 
 
 @cli.command(name='status')
@@ -99,6 +143,7 @@ def daemon_status():
     if is_running:
         print(f"URI for Daemon is {service.uri}")
 
+
 @cli.command()
 @click.argument('job', nargs=-1)
 def submit(job):
@@ -108,6 +153,8 @@ def submit(job):
         return
     api: Api = __get_api()
     api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
+    print("Job submitted successfully.")
+
 
 @cli.command()
 def stop():

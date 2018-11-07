@@ -1,14 +1,13 @@
 import logging
 from multiprocessing import Process, Event  # For daemon initialization
 import os
-from typing import Callable
+from typing import Any, Callable
 import socket  # To verify daemon
 import time
 import sys
 
 import Pyro4  # For daemon management
 
-import client.api  # For type checking
 import client.logger
 
 LOGGER = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ class Service(object):
 
     # Need single quotes here for type annotation, see
     # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
-    def start(self, build_api: Callable[['Service'], 'client.api.Api']) -> str:
+    def start(self, build_api: Callable[['Service'], Any]) -> str:
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
         def daemonize():
             """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
