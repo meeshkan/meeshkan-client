@@ -47,8 +47,6 @@ class UploadCommand(Command):
         print('\033[1m{0}\033[0m'.format(s))
 
     def run(self):
-        # bc = BuildCommand()
-        # bc.run()
         try:
             self.status("Removing previous builds...")
             rmtree(os.path.join(here, 'dist'))
