@@ -4,6 +4,7 @@ import os
 import sys
 import pickle
 import inspect
+import client.notifiers
 
 class PipedProcess(object):
     """Opens a temporary named pipe to transmit information between process A and process B"""
@@ -84,7 +85,34 @@ def meeshkan_listener():
     # TODO - this probably does not work on Windows, see https://docs.python.org/3/library/signal.html#signal.signal
     signal.signal(signal.SIGUSR1, __fetch_contents)
 
-def meeshkan_track(func):  # TODO - future decorator to run a method and return intermediate values? Or just track progress of variables?
-    def internal_contents(*args, *kwargs):
-        pass
-    return internal_contents()
+
+class StalkerBase(object):
+    """Defines common API for Stalker objects"""
+    def __init__(self):
+        self.history = list()  # Maintain a history of stalked information
+        self.last_update_index = -1  # Last index which was submitted to cloud
+        self.cloud_notifier = None # client.notifiers.CloudNotifier()
+
+    def update(self):
+        """Updates internal history stack for stalker class"""
+        raise NotImplementedError
+
+    def clean(self):
+        """Cleans internal history stack for stalker class"""
+        raise NotImplementedError
+
+    def refresh(self):
+        """Cleans and updates"""
+        self.clean()
+        self.update()
+
+
+class TensorFlowStalker(StalkerBase):
+    def __init__(self, path):
+        from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+        super(TensorFlowStalker, self).__init__()
+        self.ea_tracker = EventAccumulator(path)
+        self.update()
+
+    def update(self):
+        self.ea_tracker.Reload()
