@@ -19,8 +19,8 @@ steps:
 
 #- script: pip install -r requirements.txt
 #  displayName: 'Install requirements'
-- script: python setup.py install
-  displayName: 'Installing client and requirements'
+- script: pip install -e .[dev]
+  displayName: 'Installing dev version'
 
 - script: |
     pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=client --cov-report=xml --cov-report=html
