@@ -20,9 +20,9 @@ class Service(object):
     """
     OBJ_NAME = "Meeshkan.scheduler"
 
-    def __init__(self, port: int=7779):
+    def __init__(self, port: int = 7779):
         self.port = port
-        self.host = socket.gethostname()
+        self.host = socket.gethostbyname('localhost')
         self.terminate_daemon = Event()
 
     def is_running(self) -> bool:
