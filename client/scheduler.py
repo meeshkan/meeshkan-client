@@ -12,6 +12,15 @@ LOGGER = logging.getLogger(__name__)
 
 # Worker thread reading from queue and waiting for processes to finish
 def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
+    """
+    Read and handle tasks from queue `q` until (1) queue item is None or (2) stop_event is set. Note that
+    the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
+    to check loop condition.
+    :param q: Synchronized queue
+    :param do_work: Callback called with queue item as argument
+    :param stop_event: Threading event signaling stop
+    :return:
+    """
     while not stop_event.is_set():
         item = q.get(block=True)
         if item is None or stop_event.is_set():
