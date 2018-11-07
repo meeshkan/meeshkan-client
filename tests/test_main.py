@@ -1,5 +1,7 @@
+import re
 from unittest import mock
 import time
+import uuid
 
 import pytest
 from click.testing import CliRunner
@@ -75,7 +77,16 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
 
     submit_result = run_cli(args='submit echo Hello')
     assert submit_result.exit_code == 0
-    assert submit_result.stdout == 'Job submitted successfully.\n'
+
+    stdout_pattern = r"Job\s(\d+)\ssubmitted\ssuccessfully\swith\sID\s([\w-]+)"
+    match = re.match(stdout_pattern, submit_result.stdout)
+
+    job_number = int(match.group(1))
+    assert job_number == 0
+
+    job_uuid = match.group(2)
+    assert uuid.UUID(job_uuid)
+
     assert service.is_running()
 
     list_result = run_cli(args='list')
@@ -85,3 +96,7 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
 
     list_result = run_cli(args='list')
     assert list_result.stdout.endswith("FINISHED']\n")
+
+    # Check stdout and stderr exist
+    assert client.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
+    assert client.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file()
