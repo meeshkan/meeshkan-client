@@ -70,7 +70,7 @@ class Service(object):
         LOGGER.info("Service started.")
         return self.uri
 
-    def stop(self):
+    def stop(self) -> bool:
         if self.is_running():
             self.terminate_daemon.set()  # Flag for requestLoop to terminate
             with Pyro4.Proxy(self.uri) as p:
