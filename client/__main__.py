@@ -10,6 +10,7 @@ import random
 import click
 import Pyro4
 import requests
+import tabulate
 
 import client.config
 from client.oauth import TokenStore, TokenSource
@@ -163,11 +164,19 @@ def stop():
     api.stop()
     LOGGER.info("Service stopped.")
 
+
 @cli.command(name='list')
 def list_jobs():
     """Lists the job queue and status for each job."""
     api: Api = __get_api()
-    print(api.list_jobs())
+    jobs = api.list_jobs()
+    if not jobs:
+        print('No jobs submitted yet.')
+        return
+    keys = jobs[0].keys()
+    table_values = [[job[key] for key in keys] for job in jobs]
+    print(tabulate.tabulate(table_values, headers=keys))
+
 
 @cli.command()
 def cancel():
