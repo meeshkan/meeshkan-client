@@ -75,7 +75,7 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
 
     submit_result = run_cli(args='submit echo Hello')
     assert submit_result.exit_code == 0
-    assert submit_result.stdout == 'Job submitted successfully.\n'
+    assert "successfully" in submit_result.stdout
     assert service.is_running()
 
     list_result = run_cli(args='list')

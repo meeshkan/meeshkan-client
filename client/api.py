@@ -29,6 +29,7 @@ class Api(object):
     def submit(self, args: Tuple[str]):
         job = self.scheduler.create_job(args)
         self.scheduler.submit_job(job)
+        return job
 
     def list_jobs(self):
         return [str(job) for job in  self.scheduler.jobs]

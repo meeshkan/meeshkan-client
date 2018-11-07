@@ -154,8 +154,8 @@ def submit(job):
         print("CLI error: Specify job.")
         return
     api: Api = __get_api()
-    api.submit(job)
-    print("Job submitted successfully.")
+    job = api.submit(job)
+    print(f"Job {job.number} submitted successfully with ID {job.id}.")
 
 
 @cli.command()
