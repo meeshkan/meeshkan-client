@@ -19,7 +19,7 @@ from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
 from client.scheduler import Scheduler
-from client.exceptions import Unauthorized
+from client.exceptions import UnauthorizedRequestError
 
 setup_logging()
 client.config.ensure_base_dir()
@@ -58,7 +58,6 @@ def __build_cloud_client_token_source(config: client.config.Configuration,
 
     fetch_token = token_source.fetch_token
     token_store = TokenStore(fetch_token=fetch_token)
-
     cloud_client: CloudClient = CloudClient(cloud_url=config.cloud_url, token_store=token_store,
                                             build_session=__build_session)
     return cloud_client, token_source
