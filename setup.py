@@ -10,16 +10,13 @@ URL = 'https://www.meeshkan.io/'
 EMAIL = 'dev@meeshkan.com'
 AUTHOR = 'Meeshkan Dev Team'
 REQUIRES_PYTHON = '>=3.5.0'
+SRC_DIR = 'client'  # Relative location wrt setup.py
 
 # Required packages
 REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML']
 
 # Optional packages
 EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
-
-# Additional files to be distributed
-PKG_DATA = ['*.yaml']
-SRC_DIR = 'client'
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -84,7 +81,6 @@ setup(
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,
-    package_data={'': PKG_DATA},
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
