@@ -1,27 +1,10 @@
-# from setuptools import setup, find_packages
-# from client.__version__ import __version__
-#
-# setup(
-#     name="Meeshkan Client",
-#     version=__version__,
-#     author="",
-#     author_email="",
-#     description="",
-#     url="",
-#     long_description="",
-#     license="",
-#     install_requires=[],
-#     packages=find_packages())
-
-
-import os
-import sys
-from shutil import rmtree
-
 from setuptools import find_packages, setup, Command
+import os
+from shutil import rmtree
+import sys
 
 # Package meta-data.
-NAME = 'Meeshkan Client'
+NAME = 'meeshkan_client'
 DESCRIPTION = 'The Meeshkan Client for interactive machine learning'
 URL = 'https://www.meeshkan.io/'
 EMAIL = 'dev@meeshkan.com'
@@ -46,6 +29,42 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 about = {}
 with open(os.path.join(here, SRC_DIR, '__version__.py')) as f:
     exec(f.read(), about)
+
+class UploadCommand(Command):
+    """Support setup.py upload."""
+
+    description = 'Build and publish the package.'
+    user_options = []
+
+    @staticmethod
+    def status(s):
+        """Prints things in bold."""
+        print('\033[1m{0}\033[0m'.format(s))
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        try:
+            self.status('Removing previous builds…')
+            rmtree(os.path.join(here, 'dist'))
+        except OSError:
+            pass
+
+        self.status('Building Source and Wheel (universal) distribution…')
+        os.system('{0} setup.py sdist bdist_wheel --universal'.format(sys.executable))
+
+        self.status('Uploading the package to PyPI via Twine…')
+        os.system('twine upload dist/*')
+
+        self.status('Pushing git tags…')
+        os.system('git tag v{0}'.format(about['__version__']))
+        os.system('git push --tags')
+
+        sys.exit()
 
 
 setup(
@@ -74,4 +93,5 @@ setup(
         'Operating System :: OS Independent',
         'Topic:: Scientific / Engineering:: Artificial Intelligence'
     ],
+    cmdclass={'upload': UploadCommand}
 )
