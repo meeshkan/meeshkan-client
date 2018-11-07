@@ -6,7 +6,7 @@ import requests
 import client.job
 import client.oauth
 import client.exceptions
-from client.version import __version__ as version
+import client.__version__ as version
 
 
 LOGGER = logging.getLogger(__name__)
