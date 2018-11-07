@@ -19,7 +19,7 @@ from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
 from client.scheduler import Scheduler
-from client.exceptions import UnauthorizedRequestError
+from client.exceptions import Unauthorized
 
 setup_logging()
 client.config.ensure_base_dir()

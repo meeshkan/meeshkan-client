@@ -21,6 +21,9 @@ REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML']
 # Optional packages
 EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
 
+# Entry point for CLI (relative to setup.py)
+ENTRY_POINTS = ['meeshkan = client.__main__.cli']
+
 here = os.path.abspath(os.path.dirname(__file__))
 
 # Import the README and use it as the long-description.
@@ -118,5 +121,6 @@ setup(
         'Operating System :: Unix',
         'Topic:: Scientific / Engineering:: Artificial Intelligence'
     ],
+    # entry_points={'console_scripts': ENTRY_POINTS},  # TODO Breaks at the moment
     cmdclass={'upload': UploadCommand, 'install': PostInstall, 'develop': PostDev, 'test': TestCommand}
 )
