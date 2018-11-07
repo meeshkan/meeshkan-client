@@ -65,14 +65,24 @@ def __bootstrap_api(config: client.config.Configuration, credentials: client.con
     return lambda service: Api(scheduler=scheduler, service=service)
 
 
-@click.group()
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+
+@click.group(context_settings=CONTEXT_SETTINGS)
 @click.option("--debug", is_flag=True)
 def cli(debug):
     if not debug:
         sys.tracebacklimit = 0
 
 
-@cli.command()
+@cli.command(name='help')
+@click.pass_context
+def help_cmd(ctx):
+    """Show this message and exit."""
+    print(ctx.parent.get_help())
+
+
+@cli.command(name='start')
 def start():
     """Initializes the scheduler daemon."""
     config, credentials = __get_auth()
