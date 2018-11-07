@@ -82,7 +82,7 @@ def help_cmd(ctx):
     print(ctx.parent.get_help())
 
 
-@cli.command(name='start')
+@cli.command()
 def start():
     """Initializes the scheduler daemon."""
     config, credentials = __get_auth()
