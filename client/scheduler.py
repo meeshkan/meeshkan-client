@@ -1,7 +1,8 @@
 import logging
 import queue
 import threading
-from typing import List  # For self-documenting typing
+from typing import List, Tuple  # For self-documenting typing
+import uuid
 
 import client.job  # Defines scheduler jobs
 import client.notifiers
@@ -79,11 +80,15 @@ class Scheduler(object):
 
         LOGGER.debug("Finished handling job: %s", job)
 
-    def get_number(self):
-        return self._njobs
+    def create_job(self, args: Tuple[str, ...]):
+        job_number = self._njobs
+        job_uuid = uuid.uuid4()
+        output_path = client.config.JOBS_DIR.joinpath(str(job_uuid))
+        executable = client.job.ProcessExecutable(args, output_path=output_path)
+        self._njobs += 1
+        return client.job.Job(executable, job_number=job_number, job_uuid=job_uuid)
 
     def submit_job(self, job: client.job.Job):
-        self._njobs += 1
         job.status = client.job.JobStatus.QUEUED
         self._task_queue.put(job)  # TODO Blocks if queue full
         self.submitted_jobs.append(job)

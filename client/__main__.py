@@ -16,7 +16,6 @@ import client.config
 from client.oauth import TokenStore, TokenSource
 from client.notifiers import CloudNotifier, LoggingNotifier
 from client.cloud import CloudClient
-from client.job import ProcessExecutable
 from client.logger import setup_logging
 from client.api import Api
 from client.service import Service
@@ -24,6 +23,8 @@ from client.scheduler import Scheduler
 from client.exceptions import Unauthorized
 
 setup_logging()
+client.config.ensure_base_dir()
+
 LOGGER = logging.getLogger(__name__)
 
 Pyro4.config.SERIALIZER = 'pickle'
@@ -125,7 +126,9 @@ def start():
     config, credentials = __get_auth()
     try:
         __notify_service_start(config, credentials)
-        return service.start(build_api=__build_api(config, credentials))
+        pyro_uri = service.start(build_api=__build_api(config, credentials))
+        print('Service started.')
+        return pyro_uri
     except Unauthorized as ex:
         print(ex.message)
         sys.exit(1)
@@ -153,8 +156,8 @@ def submit(job):
         print("CLI error: Specify job.")
         return
     api: Api = __get_api()
-    api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
-    print("Job submitted successfully.")
+    job = api.submit(job)
+    print(f"Job {job.number} submitted successfully with ID {job.id}.")
 
 
 @cli.command()
