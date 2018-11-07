@@ -4,6 +4,7 @@ import os
 from typing import Callable
 import socket  # To verify daemon
 import time
+import sys
 
 import Pyro4  # For daemon management
 
@@ -22,8 +23,16 @@ class Service(object):
 
     def __init__(self, port: int = 7779):
         self.port = port
-        self.host = socket.gethostbyname('localhost')
+        self.host = Service._get_localhost()
         self.terminate_daemon = Event()
+
+    @staticmethod
+    def _get_localhost():
+        if sys.platform.startswith('darwin'):
+            # Mac OS has issues with `socket.gethostname()`
+            # See https://bugs.python.org/issue29705 and https://bugs.python.org/issue35164
+            return socket.gethostbyname("localhost")  # Assume localhost defined in `hosts`
+        return socket.gethostname()
 
     def is_running(self) -> bool:
         """Checks whether the daemon is running on localhost.
