@@ -20,7 +20,7 @@ REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML']
 EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
 
 # Entry point for CLI (relative to setup.py)
-ENTRY_POINTS = ['meeshkan = client.main:cli']
+ENTRY_POINTS = ['meeshkan = client.__main__:cli']
 
 here = os.path.abspath(os.path.dirname(__file__))
 

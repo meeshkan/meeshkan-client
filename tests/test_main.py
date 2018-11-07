@@ -6,7 +6,7 @@ import uuid
 import pytest
 from click.testing import CliRunner
 
-import client.main as main
+import client.__main__ as main
 import client.config
 import client.exceptions
 import client.service

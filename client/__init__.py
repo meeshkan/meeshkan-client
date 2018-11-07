@@ -10,4 +10,3 @@ import client.oauth
 import client.scheduler
 import client.service
 import client.exceptions
-import client.main
