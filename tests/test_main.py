@@ -79,7 +79,7 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
     assert service.is_running()
 
     list_result = run_cli(args='list')
-    assert list_result.stdout.endswith("QUEUED']\n")  # Do testing better at some point
+    assert list_result.exit_code == 0  # Better testing at some point.
 
     time.sleep(1)  # Hacky way to give some time for finishing the task
 
