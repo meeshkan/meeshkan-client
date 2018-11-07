@@ -4,7 +4,18 @@ import os
 import sys
 import pickle
 import inspect
+from typing import Dict, List
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 import client.notifiers
+TF_EXISTS = True
+try:
+    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator, _GeneratorFromPath
+except ModuleNotFoundError:
+    TF_EXISTS = False  # Silently fail
+
 
 class PipedProcess(object):
     """Opens a temporary named pipe to transmit information between process A and process B"""
@@ -89,9 +100,9 @@ def meeshkan_listener():
 class StalkerBase(object):
     """Defines common API for Stalker objects"""
     def __init__(self):
-        self.history = list()  # Maintain a history of stalked information
-        self.last_update_index = -1  # Last index which was submitted to cloud
-        self.cloud_notifier = None # client.notifiers.CloudNotifier()
+        self._history: Dict[str, List[float]] = {}  # Maintain a history of stalked information
+        self._last_index : Dict[str, int] = -1  # Last index which was submitted to cloud, used for statistics
+        self._cloud_notifier = None # client.notifiers.CloudNotifier()? Or scheduler to notify()?
 
     def update(self):
         """Updates internal history stack for stalker class"""
@@ -101,18 +112,36 @@ class StalkerBase(object):
         """Cleans internal history stack for stalker class"""
         raise NotImplementedError
 
+    def generate_image(self):
+        """Generates a plot from internal history"""
+        raise NotImplementedError
+
+    def notify_updates(self, include_image=True):
+        """Notifies cloud of updates since last push update, possibly with an image"""
+        raise NotImplementedError
+
     def refresh(self):
         """Cleans and updates"""
         self.clean()
         self.update()
 
 
-class TensorFlowStalker(StalkerBase):
+class TensorFlowStalker(StalkerBase):  # TODO
     def __init__(self, path):
-        from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+        global TF_EXISTS
+        if not TF_EXISTS:
+            raise ModuleNotFoundError("Cannot instantiate a TensorFlowStalker without TensorFlow!")
         super(TensorFlowStalker, self).__init__()
+        self.path = path
         self.ea_tracker = EventAccumulator(path)
         self.update()
 
     def update(self):
         self.ea_tracker.Reload()
+
+    def clean(self):
+        self.ea_tracker._generator = _GeneratorFromPath(self.path)
+
+
+# TODO generic stalker using peek and listen() to catch scalars by PID
+# TODO TorchStalker will filter by having `backward` attrib

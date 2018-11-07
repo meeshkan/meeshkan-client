@@ -60,6 +60,16 @@ class Scheduler(object):
     def register_listener(self, listener: client.notifiers.Notifier):
         self._listeners.append(listener)
 
+    def notify_listeners(self, job: client.job.Job) -> bool:
+        status = True
+        for notifier in self._listeners:
+            try:
+                notifier.notify(job)
+            except:
+                LOGGER.exception("Notifier failed")
+                status = False
+        return status
+
     def _handle_job(self, job: client.job.Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.stale:
@@ -72,11 +82,7 @@ class Scheduler(object):
         except:
             LOGGER.exception("Running job failed")
 
-        for notifier in self._listeners:
-            try:
-                notifier.notify(job)
-            except:
-                LOGGER.exception("Notifier failed")
+        self.notify_listeners(job)
 
         LOGGER.debug("Finished handling job: %s", job)
 
