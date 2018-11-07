@@ -39,7 +39,7 @@ class Executable(object):
 
 
 class ProcessExecutable(Executable):
-    def __init__(self, args: Tuple[str], output_path: Path = None):
+    def __init__(self, args: Tuple[str, ...], output_path: Path = None):
         """
         Executable executed with `subprocess.Popen`.
         :param args: Command-line arguments to execute, fed into `Popen(args, ...)`

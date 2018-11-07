@@ -92,3 +92,7 @@ ENV/
 
 # PyCharm stuff
 .idea/
+
+# Test logs
+tests/resources/jobs
+tests/resources/logs
