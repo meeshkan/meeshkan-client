@@ -27,7 +27,7 @@ def clean_up():
     remove_stdout_stderr()
 
 
-def test_proc_exec_output_path(clean_up):
+def test_proc_exec_output_path(clean_up):  # pylint: disable=unused-argument,redefined-outer-name
     some_string = str(uuid.uuid4())
     executable = ProcessExecutable(args=('echo', some_string), output_path=JOBS_OUTPUT_PATH)
     executable.launch_and_wait()
