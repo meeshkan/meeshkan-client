@@ -157,8 +157,8 @@ def test_stopping_scheduler():
     with get_scheduler() as scheduler:
         job = get_job(executable=FutureWaitingExecutable(future=future))
         scheduler.submit_job(job)
-        # Wait until processing has started
-        wait_for_true(lambda: scheduler._task_queue.empty())
+        # Wait until processing has started. No easy way to check this at the moment.
+        time.sleep(1)
         # Exit scheduler, should not block as `job.cancel()` is called
     assert job.is_launched
     assert job.status == JobStatus.CANCELED
