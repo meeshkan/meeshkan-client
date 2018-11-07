@@ -25,8 +25,7 @@ def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
     while not stop_event.is_set():
         item = q.get(block=True)
         if item is None or stop_event.is_set():
-            q.task_done()
-            return
+            break
         do_work(item)
         q.task_done()
 
