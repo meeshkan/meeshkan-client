@@ -38,3 +38,4 @@ def test_cloud_notifier_propagates_exception():
     with pytest.raises(RuntimeError):
         cloud_notifier.notify(_get_job())
 
+
