@@ -8,7 +8,20 @@ import yaml
 
 LOGGER = logging.getLogger(__name__)
 CONFIG_PATH: Path = Path(os.path.dirname(__file__)).joinpath('..', 'config.yaml')
-CREDENTIALS_PATH: Path = Path.home().joinpath('.meeshkan', 'credentials')
+
+BASE_DIR: Path = Path.home().joinpath('.meeshkan')
+JOBS_DIR: Path = BASE_DIR.joinpath('jobs')
+
+CREDENTIALS_PATH: Path = BASE_DIR.joinpath('credentials')
+
+
+def ensure_base_dir():
+    if not BASE_DIR.is_dir():
+        LOGGER.debug("Creating directory %s", BASE_DIR)
+        BASE_DIR.mkdir()
+    if not JOBS_DIR.is_dir():
+        LOGGER.debug("Creating directory %s", JOBS_DIR)
+        JOBS_DIR.mkdir()
 
 
 class Configuration:

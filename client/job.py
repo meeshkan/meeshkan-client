@@ -1,8 +1,13 @@
 from enum import Enum
+import logging
 import subprocess
 from typing import Tuple
 import uuid
 import datetime
+from pathlib import Path
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class JobStatus(Enum):
@@ -34,20 +39,33 @@ class Executable(object):
 
 
 class ProcessExecutable(Executable):
-    def __init__(self, args: Tuple[str]):
+    def __init__(self, args: Tuple[str], output_path: Path = None):
         """
+        Executable executed with `subprocess.Popen`.
         :param args: Command-line arguments to execute, fed into `Popen(args, ...)`
+        :param output_path: Output path (directory) where to write stdout and stderr in files of same name.
+               If the directory does not exist, it is created.
         """
         super().__init__()
         self.args = args
         self.popen: subprocess.Popen = None
+        self.output_path = output_path
 
     def launch_and_wait(self):
         """
         :return: Return code from subprocess
         """
-        self.popen = subprocess.Popen(self.args, stdout=subprocess.PIPE)
-        return self.popen.wait()
+        if self.output_path is None:
+            self.popen = subprocess.Popen(self.args, stdout=subprocess.PIPE)
+            return self.popen.wait()
+
+        if not self.output_path.is_dir():
+            self.output_path.mkdir()
+        stdout_file = self.output_path.joinpath('stdout')
+        stderr_file = self.output_path.joinpath('stderr')
+        with stdout_file.open('w') as f_stdout, stderr_file.open('w') as f_stderr:
+            self.popen = subprocess.Popen(self.args, stdout=f_stdout, stderr=f_stderr)
+            return self.popen.wait()
 
     def terminate(self):
         if self.popen is not None:
@@ -62,13 +80,13 @@ class ProcessExecutable(Executable):
 
 
 class Job(object):
-    def __init__(self, executable: Executable, job_number: int):
+    def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None):
         """
         :param executable: Executable instance
         :param job_number: Like PID, used for interacting with the job from the CLI
         """
         self.executable = executable
-        self.id = uuid.uuid4()  # Absolutely unique identifier
+        self.id = job_uuid if job_uuid is not None else uuid.uuid4()  # Absolutely unique identifier
         self.number = job_number  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
         self.stale = False
@@ -89,10 +107,10 @@ class Job(object):
             self.status = JobStatus.FINISHED if return_code == 0 else \
                 JobStatus.CANCELED if return_code == -15 else JobStatus.FAILED
             return return_code
-        except IOError as e:
-            print('Could not execute {}, is it executable?'.format(self.executable))
+        except IOError as ex:
+            LOGGER.error('Could not execute, is the job executable? Job: %s', self.executable)
             self.status = JobStatus.FAILED
-            raise e
+            raise ex
         finally:
             self.is_processed = True
 

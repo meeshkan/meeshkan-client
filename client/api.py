@@ -1,4 +1,4 @@
-from typing import Callable, Any
+from typing import Callable, Any, Tuple
 
 import Pyro4
 import Pyro4.errors
@@ -26,9 +26,9 @@ class Api(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def submit(self, executable):
-        job_number = self.scheduler.get_number()
-        self.scheduler.submit_job(client.job.Job(executable, job_number=job_number))
+    def submit(self, args: Tuple[str]):
+        job = self.scheduler.create_job(args)
+        self.scheduler.submit_job(job)
 
     def list_jobs(self):
         return [str(job) for job in  self.scheduler.jobs]

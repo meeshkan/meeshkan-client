@@ -124,7 +124,9 @@ def start():
     config, credentials = __get_auth()
     try:
         __notify_service_start(config, credentials)
-        return service.start(build_api=__build_api(config, credentials))
+        pyro_uri = service.start(build_api=__build_api(config, credentials))
+        print('Service started.')
+        return pyro_uri
     except Unauthorized as ex:
         print(ex.message)
         sys.exit(1)
@@ -152,7 +154,7 @@ def submit(job):
         print("CLI error: Specify job.")
         return
     api: Api = __get_api()
-    api.submit(ProcessExecutable(job))  # TODO assumes executable at this point; probably fine for CLI?
+    api.submit(job)
     print("Job submitted successfully.")
 
 
