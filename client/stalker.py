@@ -3,6 +3,7 @@ import signal
 import os
 import sys
 import pickle
+import inspect
 
 class PipedProcess(object):
     """Opens a temporary named pipe to transmit information between process A and process B"""
@@ -82,3 +83,8 @@ def peek(pid : int) -> dict:
 def meeshkan_listener():
     # TODO - this probably does not work on Windows, see https://docs.python.org/3/library/signal.html#signal.signal
     signal.signal(signal.SIGUSR1, __fetch_contents)
+
+def meeshkan_track(func):  # TODO - future decorator to run a method and return intermediate values? Or just track progress of variables?
+    def internal_contents(*args, *kwargs):
+        pass
+    return internal_contents()
