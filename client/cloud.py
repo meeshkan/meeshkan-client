@@ -52,36 +52,23 @@ class CloudClient:
             res = self._post(payload, token)
             if res.status_code == HTTPStatus.UNAUTHORIZED:
                 LOGGER.error('Cannot post to server: unauthorized')
-                raise client.exceptions.Unauthorized()
+                raise client.exceptions.UnauthorizedRequestException()
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
         LOGGER.debug("Got server response: %s", res.text)
 
     def notify_service_start(self):
-        self.post_payload(_build_service_start_payload())
+        """Build GraphQL query payload and send to server when service is started
+        Schema of job_input MUST match with the server schema
+        https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
+        :return:
+        """
+        mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
+        input_dict = {"version": client.__version__}
+        payload: Payload = {"query": mutation, "variables": {"in": input_dict}}
+        self.post_payload(payload)
 
     def close(self):
         LOGGER.debug("Closing CloudClient session")
         self._session.close()
-
-
-def _build_service_start_payload() -> Payload:
-    """
-    Build GraphQL query payload to be sent to server when service is started
-    Schema of job_input MUST match with the server schema
-    https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
-    :return:
-    """
-    mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
-
-    input_dict = {
-        "version": client.__version__
-    }
-    payload: Payload = {
-        "query": mutation,
-        "variables": {
-            "in": input_dict
-        }
-    }
-    return payload

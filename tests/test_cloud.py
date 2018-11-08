@@ -5,7 +5,7 @@ import pytest
 
 from client.cloud import Payload, CloudClient
 from client.oauth import TokenStore
-from client.exceptions import Unauthorized
+from client.exceptions import UnauthorizedRequestException
 from .utils import MockResponse
 
 
@@ -106,7 +106,7 @@ def test_post_payloads_raises_error_for_multiple_401s():
     post = cloud_client.post_payload
     payload: Payload = _query_payload()
 
-    with cloud_client, pytest.raises(Unauthorized):
+    with cloud_client, pytest.raises(UnauthorizedRequestException):
         post(payload)
 
     assert session.post.call_count == 2

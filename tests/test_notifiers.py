@@ -17,13 +17,17 @@ def test_cloud_notifier():
 
     assert posted_payload == {}
     cloud_notifier = CloudNotifier(fake_post)
-    cloud_notifier.notify(_get_job())
+    cloud_notifier.notifyJobStart(_get_job())
 
-    expected_payload = {"query": "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"}
+    expected_payload_start = {"query": "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"}
+    expected_payload_end = {"query": "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"}
 
     assert "query" in posted_payload
+    assert posted_payload["query"] == expected_payload_start["query"]
 
-    assert posted_payload["query"] == expected_payload["query"]
+    cloud_notifier.notifyJobEnd(_get_job())
+    assert "query" in posted_payload
+    assert posted_payload["query"] == expected_payload_end["query"]
 
     assert "variables" in posted_payload
     variables = posted_payload["variables"]

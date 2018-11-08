@@ -52,7 +52,7 @@ def test_start_with_401_fails(stop):  # pylint: disable=unused-argument,redefine
     with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Raise Unauthorized exception when service start notified
         def side_effect(*args, **kwargs):  # pylint: disable=unused-argument
-            raise client.exceptions.Unauthorized()
+            raise client.exceptions.UnauthorizedRequestException()
         mock_cloud_client.return_value.notify_service_start.side_effect = side_effect
         start_result = run_cli('start')
 
@@ -96,7 +96,7 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
 
     list_result = run_cli(args='list')
 
-    assert 'FINISHED' in list_result.stdout
+    assert job_uuid in list_result.stdout
 
     # Check stdout and stderr exist
     assert client.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
