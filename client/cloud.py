@@ -52,7 +52,7 @@ class CloudClient:
             res = self._post(payload, token)
             if res.status_code == HTTPStatus.UNAUTHORIZED:
                 LOGGER.error('Cannot post to server: unauthorized')
-                raise client.exceptions.Unauthorized()
+                raise client.exceptions.UnauthorizedRequestException()
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")

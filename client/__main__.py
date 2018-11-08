@@ -119,7 +119,7 @@ def start():
         pyro_uri = service.start(build_api=__build_api(config, credentials))
         print('Service started.')
         return pyro_uri
-    except client.exceptions.Unauthorized as ex:
+    except client.exceptions.UnauthorizedRequestException as ex:
         print(ex.message)
         sys.exit(1)
     except Exception as e:  # pylint: disable=bare-except

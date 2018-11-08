@@ -45,7 +45,7 @@ class TokenSource(object):
             resp_dict = resp.json()
             return resp_dict['access_token']
         elif resp.status_code == HTTPStatus.UNAUTHORIZED:
-            raise client.exceptions.Unauthorized()
+            raise client.exceptions.UnauthorizedRequestException()
         else:
             LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
             raise RuntimeError("Failed requesting authentication.")

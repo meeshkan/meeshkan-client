@@ -1,4 +1,4 @@
-class Unauthorized(Exception):
+class UnauthorizedRequestException(Exception):
     """Raised when cloud server responds with 401."""
     def __init__(self, message=""):
         if len(message) > 0:
