@@ -42,12 +42,23 @@ class ProcessExecutable(Executable):
     def __init__(self, args: Tuple[str, ...], output_path: Path = None):
         """
         Executable executed with `subprocess.Popen`.
-        :param args: Command-line arguments to execute, fed into `Popen(args, ...)`
+        :param args: Command-line arguments to execute, fed into `Popen(args, ...)` _after_ prepending cwd to files
         :param output_path: Output path (directory) where to write stdout and stderr in files of same name.
                If the directory does not exist, it is created.
         """
         super().__init__()
-        self.args: Tuple[str, ...] = args
+
+        def to_full_path_if_known_file(arg):
+            """
+            Prepend .sh and .py files with current working directory.
+            :param arg: Command-line argument
+            :return: Command-line argument resolved with full path if ending with .py or .sh
+            """
+            if arg.endswith('.sh') or arg.endswith('.py'):
+                return str(Path.cwd().joinpath(arg).resolve())
+            return arg
+
+        self.args = [to_full_path_if_known_file(arg) for arg in args]
         self.popen: subprocess.Popen = None
         self.output_path = output_path
 
