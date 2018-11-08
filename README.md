@@ -4,7 +4,7 @@ Client code for running ML jobs.
 
 ## Command-line interface
 ```bash
-python -m client [--help]
+meeshkan [help]
 ```
 
 ## OAuth
@@ -17,15 +17,26 @@ client_secret=...
 
 ## Development
 
-### Install requirements
-```bash
-pip install -r requirements.txt
-pip install -e .
+### Installation
+For users:
+```{bash}
+python setup.py install
+```
+
+For developers:
+```{bash}
+pip install -e .[dev]
 ```
 
 ### Running tests
-```bash
+```{bash}
 pytest
+```
+
+OR
+
+```{bash}
+python setup.py test
 ```
 
 ### Running lint

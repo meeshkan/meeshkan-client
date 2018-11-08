@@ -11,18 +11,11 @@ import click
 import Pyro4
 import requests
 
-import client.config
-from client.oauth import TokenStore, TokenSource
-from client.notifiers import CloudNotifier, LoggingNotifier
-from client.cloud import CloudClient
-from client.logger import setup_logging
-from client.api import Api
-from client.service import Service
-from client.scheduler import Scheduler
-from client.exceptions import Unauthorized
+import client
 
-client.config.ensure_base_dirs()
-setup_logging()
+client.config.ensure_base_dir()
+client.logger.setup_logging()
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,12 +29,12 @@ def __get_auth() -> (dict, dict):
     return config, credentials
 
 
-def __get_api() -> Api:
-    service = Service()
+def __get_api() -> client.api.Api:
+    service = client.service.Service()
     if not service.is_running():
         print("Start the service first.")
         sys.exit(1)
-    api: Api = Pyro4.Proxy(service.uri)
+    api: client.api.Api = Pyro4.Proxy(service.uri)
     return api
 
 
@@ -50,17 +43,16 @@ def __build_session():
 
 
 def __build_cloud_client_token_source(config: client.config.Configuration,
-                                      credentials: client.config.Credentials) -> Tuple[CloudClient, TokenSource]:
-    token_source = TokenSource(auth_url=config.auth_url,
-                               client_id=credentials.client_id,
-                               client_secret=credentials.client_secret,
-                               build_session=__build_session)
+                                      credentials: client.config.Credentials) -> Tuple[client.cloud.CloudClient,
+                                                                                       client.oauth.TokenSource]:
+    token_source = client.oauth.TokenSource(auth_url=config.auth_url, client_id=credentials.client_id,
+                                            client_secret=credentials.client_secret, build_session=__build_session)
 
     fetch_token = token_source.fetch_token
-    token_store = TokenStore(fetch_token=fetch_token)
-
-    cloud_client: CloudClient = CloudClient(cloud_url=config.cloud_url, token_store=token_store,
-                                            build_session=__build_session)
+    token_store = client.oauth.TokenStore(fetch_token=fetch_token)
+    cloud_client: client.cloud.CloudClient = client.cloud.CloudClient(cloud_url=config.cloud_url,
+                                                                      token_store=token_store,
+                                                                      build_session=__build_session)
     return cloud_client, token_source
 
 
@@ -74,23 +66,23 @@ def __notify_service_start(config: client.config.Configuration,
 
 
 def __build_api(config: client.config.Configuration,
-                credentials: client.config.Credentials) -> Callable[[Service], Api]:
+                credentials: client.config.Credentials) -> Callable[[client.service.Service], client.api.Api]:
 
-    def build_api(service: Service) -> Api:
+    def build_api(service: client.service.Service) -> client.api.Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
 
         cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
 
         stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
 
-        cloud_notifier: CloudNotifier = CloudNotifier(post_payload=cloud_client.post_payload)
-        logging_notifier: LoggingNotifier = LoggingNotifier()
+        cloud_notifier: client.notifiers.CloudNotifier = client.notifiers.CloudNotifier(post_payload=cloud_client.post_payload)
+        logging_notifier: client.notifiers.LoggingNotifier = client.notifiers.LoggingNotifier()
 
-        scheduler = Scheduler()
+        scheduler = client.scheduler.Scheduler()
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
-        api = Api(scheduler=scheduler, service=service)
+        api = client.api.Api(scheduler=scheduler, service=service)
         for stop_callback in stop_callbacks:
             api.add_stop_callback(stop_callback)
         return api
@@ -118,7 +110,7 @@ def help_cmd(ctx):
 @cli.command()
 def start():
     """Initializes the scheduler daemon."""
-    service = Service()
+    service = client.service.Service()
     if service.is_running():
         print("Service is already running.")
         sys.exit(1)
@@ -128,18 +120,19 @@ def start():
         pyro_uri = service.start(build_api=__build_api(config, credentials))
         print('Service started.')
         return pyro_uri
-    except Unauthorized as ex:
+    except client.exceptions.Unauthorized as ex:
         print(ex.message)
         sys.exit(1)
-    except:  # pylint: disable=bare-except
+    except Exception as e:  # pylint: disable=bare-except
         print("Starting service failed.")
+        LOGGER.error(e)
         sys.exit(1)
 
 
 @cli.command(name='status')
 def daemon_status():
     """Checks and returns the daemon process status."""
-    service = Service()
+    service = client.service.Service()
     is_running = service.is_running()
     status = "up and running" if is_running else "configured to run"
     print(f"Service is {status} on {service.host}:{service.port}")
@@ -154,7 +147,7 @@ def submit(job):
     if not job:
         print("CLI error: Specify job.")
         return
-    api: Api = __get_api()
+    api: client.api.Api = __get_api()
     job = api.submit(job)
     print(f"Job {job.number} submitted successfully with ID {job.id}.")
 
@@ -162,14 +155,14 @@ def submit(job):
 @cli.command()
 def stop():
     """Stops the scheduler daemon."""
-    api: Api = __get_api()
+    api: client.api.Api = __get_api()
     api.stop()
     LOGGER.info("Service stopped.")
 
 @cli.command(name='list')
 def list_jobs():
     """Lists the job queue and status for each job."""
-    api: Api = __get_api()
+    api: client.api.Api = __get_api()
     print(api.list_jobs())
 
 @cli.command()
