@@ -32,7 +32,7 @@ class Api(object):
         return job
 
     def list_jobs(self):
-        return [str(job) for job in  self.scheduler.jobs]
+        return [job.to_dict() for job in self.scheduler.jobs]
 
     def add_stop_callback(self, func: Callable[[], Any]):
         self.__stop_callbacks.append(func)
