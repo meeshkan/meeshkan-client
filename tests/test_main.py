@@ -35,7 +35,6 @@ def test_start_stop(stop):  # pylint: disable=unused-argument,redefined-outer-na
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
-        print("service", service)
         assert service.is_running()
         stop_result = run_cli(args=['stop'])
         assert not service.is_running()
