@@ -4,6 +4,7 @@ import subprocess
 from typing import Tuple
 import uuid
 import datetime
+import os
 from pathlib import Path
 
 
@@ -55,7 +56,7 @@ class ProcessExecutable(Executable):
             :return: Command-line argument resolved with full path if ending with .py or .sh
             """
             if arg.endswith('.sh') or arg.endswith('.py'):
-                return str(Path.cwd().joinpath(arg).resolve())
+                return os.path.abspath(arg)
             return arg
 
         self.args = [to_full_path_if_known_file(arg) for arg in args]
