@@ -4,7 +4,7 @@ Client code for running ML jobs.
 
 ## Command-line interface
 ```bash
-./meeshkan [help]
+meeshkan [help]
 ```
 
 ## OAuth
