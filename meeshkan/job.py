@@ -19,6 +19,7 @@ class JobStatus(Enum):
     CANCELED = 4
     FAILED = 5
 
+
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
 SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 return codes as success with message?)
 
@@ -139,7 +140,8 @@ class Job(object):
         self.executable.terminate()
 
     def __str__(self):
-        return f"Job: {self.executable}, #{self.number} ({self.id}) - {self.status.name}"
+        return "Job: {executable}, #{number}, ({id}) - {status}".format(
+            executable=self.executable, number=self.number, id=self.id, status=self.status.name)
 
     def mark_stale(self):
         """
