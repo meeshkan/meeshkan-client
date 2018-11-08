@@ -8,7 +8,7 @@ import yaml
 
 LOGGER = logging.getLogger(__name__)
 
-PACKAGE_PATH = Path(os.path.dirname(__file__)).parent
+PACKAGE_PATH = Path(os.path.dirname(__file__))
 
 CONFIG_PATH: Path = PACKAGE_PATH.joinpath('config.yaml')
 LOG_CONFIG_FILE: Path = PACKAGE_PATH.joinpath('logging.yaml')
