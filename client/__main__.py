@@ -22,7 +22,7 @@ from client.scheduler import Scheduler
 from client.exceptions import Unauthorized
 
 setup_logging()
-client.config.ensure_base_dir()
+client.config.ensure_base_dirs()
 
 LOGGER = logging.getLogger(__name__)
 
