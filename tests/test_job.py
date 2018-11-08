@@ -36,3 +36,12 @@ def test_proc_exec_output_path(clean_up):  # pylint: disable=unused-argument,red
     with open(STDOUT_FILE, 'r') as file:
         text = file.read()
     assert text == some_string + '\n'
+
+
+def test_proc_exec_args_are_full_path():
+    executable = ProcessExecutable(args=('python', 'script.py',))
+    assert executable.args[0] == 'python'
+    script_abs_path = executable.args[1]
+    assert os.path.isabs(script_abs_path)
+    _, tail = os.path.split(script_abs_path)
+    assert tail == 'script.py'
