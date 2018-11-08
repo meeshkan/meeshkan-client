@@ -107,8 +107,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Operating System :: MacOS',
         'Operating System :: POSIX',
-        'Operating System :: Unix',
-        'Topic:: Scientific / Engineering:: Artificial Intelligence'
+        'Operating System :: Unix'
     ],
     entry_points={'console_scripts': ENTRY_POINTS},
     cmdclass={'upload': UploadCommand, 'test': TestCommand}
