@@ -11,24 +11,23 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Notifier(object):
-
     def __init__(self):
         pass
 
     def notifyJobStart(self, job: client.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
-        raise NotImplementedError
+        pass
 
     def notifyJobEnd(self, job: client.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
-        raise NotImplementedError
+        pass
 
     def notify(self, job: client.job.Job, message: str = None) -> None:
         """
         Notifies job status. Raises exception for failure.
         :return:
         """
-        raise NotImplementedError
+        pass
 
 
 class LoggingNotifier(Notifier):
@@ -88,4 +87,4 @@ class CloudNotifier(Notifier):
     def _post(self, mutation, variables):
         payload = client.cloud.Payload({"query": mutation, "variables": variables})
         self._post_payload(payload)
-        LOGGER.info(f"Posted successfully: %s", str(job))
+        LOGGER.info(f"Posted successfully: %s", variables)

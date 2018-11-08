@@ -104,9 +104,12 @@ def test_notifiers():
     future, resolve = get_future_and_resolve(value=True)
 
     finished_jobs = []
+    started_jobs = []
 
     class MockNotifier(Notifier):
-        def notify(self, job0: client.job.Job):
+        def notifyJobStart(self, job0: client.job.Job):
+            started_jobs.append({'job': job0})
+        def notifyJobEnd(self, job0: client.job.Job):
             finished_jobs.append({'job': job0})
 
     with get_scheduler() as scheduler:

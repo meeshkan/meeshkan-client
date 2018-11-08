@@ -2,6 +2,7 @@
 import logging
 import sys
 import tarfile
+import shutil
 import tempfile
 import os
 from typing import Callable, List, Tuple
@@ -209,6 +210,15 @@ def sorry():
                 continue
     # TODO - send fname to Meeshkan!
     os.remove(fname)
+
+@cli.command()
+def clear():
+    """Clears the ~/.meeshkan folder - use with care!"""
+    print("Removing jobs directory at {}".format(client.config.JOBS_DIR))
+    shutil.rmtree(client.config.JOBS_DIR)
+    print("Removing logs directory at {}".format(client.config.LOGS_DIR))
+    shutil.rmtree(client.config.LOGS_DIR)
+    client.config.ensure_base_dirs()  # Recreate structure
 
 
 @cli.command()

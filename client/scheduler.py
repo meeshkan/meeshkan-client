@@ -1,7 +1,7 @@
 import logging
 import queue
 import threading
-from typing import List, Tuple  # For self-documenting typing
+from typing import List, Tuple, Callable  # For self-documenting typing
 import uuid
 
 import client.job  # Defines scheduler jobs
@@ -65,40 +65,22 @@ class Scheduler(object):
         self._listeners.append(listener)
 
     def notify_listeners(self, job: client.job.Job, message: str = None) -> bool:
-        status = True
-        for notifier in self._listeners:
-            try:
-                notifier.notify(job, message)
-                self._notification_status[job.id] = "Success"
-            except:
-                LOGGER.exception("Notifier failed")
-                self._notification_status[job.id] = "Failed"
-                status = False
-        return status
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, message))
 
-    def notify_listeners_job_start(self, job: client.job.Job):
-        status = True
-        for notifier in self._listeners:
-            try:
-                notifier.notifyJobStart(job)
-                self._notification_status[job.id] = "Success"
-            except:
-                LOGGER.exception("Notifier failed")
-                self._notification_status[job.id] = "Failed"
-                status = False
-        return status
+    def notify_listeners_job_start(self, job: client.job.Job) -> bool:
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobStart(job))
 
-    def notify_listeners_job_end(self, job: client.job.Job):
+    def notify_listeners_job_end(self, job: client.job.Job) -> bool:
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobEnd(job))
+
+    def _internal_notifier_loop(self, job: client.job.Job, notify_method: Callable[[client.notifiers.Notifier], None]) -> bool:
         status = True
         for notifier in self._listeners:
             try:
-                notifier.notifyJobEnd(job)
-                LOGGER.debug("notification succeeded")
+                notify_method(notifier)
                 self._notification_status[job.id] = "Success"
-                LOGGER.debug("saved to dictionary")
             except Exception as e:
-                LOGGER.debug(e)
-                LOGGER.exception("Notifier failed")
+                LOGGER.exception(f"Notifier {notifier.__class__.__name__} failed: {e}")
                 self._notification_status[job.id] = "Failed"
                 status = False
         return status
@@ -131,6 +113,7 @@ class Scheduler(object):
 
     def submit_job(self, job: client.job.Job):
         job.status = client.job.JobStatus.QUEUED
+        self._notification_status[job.id] = "NA"
         self._task_queue.put(job)  # TODO Blocks if queue full
         self.submitted_jobs.append(job)
         LOGGER.debug("Job submitted: %s", job)
