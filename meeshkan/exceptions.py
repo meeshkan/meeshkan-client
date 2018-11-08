@@ -5,3 +5,8 @@ class UnauthorizedRequestException(Exception):
             message = f"\n{message}"
         self.message = f"Unauthorized. Check your credentials.{message}"
 
+class OldVersionException(Exception):
+    """Raised when there exists a new version of meeshkan."""
+    def __init__(self):
+        self.message = "Update exists - please update meeshkan first."
+

@@ -1,7 +1,7 @@
 import pytest
-from client.service import Service
-from client.api import Api
-from client.scheduler import Scheduler
+from meeshkan.service import Service
+from meeshkan.api import Api
+from meeshkan.scheduler import Scheduler
 
 
 def _build_api(service: Service):

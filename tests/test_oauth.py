@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 import requests
 
-from client.oauth import TokenStore, TokenSource
+from meeshkan.oauth import TokenStore, TokenSource
 from .utils import MockResponse
 
 
@@ -53,11 +53,11 @@ def _auth_url():
 
 
 def _client_id():
-    return 'client-id-1'
+    return 'meeshkan-id-1'
 
 
 def _client_secret():
-    return 'client-top-secret'
+    return 'meeshkan-top-secret'
 
 
 def _token_response():

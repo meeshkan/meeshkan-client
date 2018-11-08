@@ -3,9 +3,9 @@ from typing import Callable, Any, Tuple
 import Pyro4
 import Pyro4.errors
 
-import client.scheduler
-import client.job
-import client.service
+import meeshkan.scheduler
+import meeshkan.job
+import meeshkan.service
 
 
 @Pyro4.expose
@@ -13,7 +13,7 @@ import client.service
 class Api(object):
     """Exposed by the Pyro server for communications with the CLI."""
 
-    def __init__(self, scheduler: client.scheduler.Scheduler, service: client.service.Service = None):
+    def __init__(self, scheduler: meeshkan.scheduler.Scheduler, service: meeshkan.service.Service = None):
         self.scheduler = scheduler
         self.service = service
         self.__stop_callbacks = []

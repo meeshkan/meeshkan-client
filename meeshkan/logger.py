@@ -4,12 +4,12 @@ from pathlib import Path
 
 import yaml
 
-import client.config
+import meeshkan.config
 
 LOGGER = logging.getLogger(__name__)
 
 
-def setup_logging(log_config: Path = client.config.LOG_CONFIG_FILE):
+def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bool = False):
     """Setup logging configuration
     This MUST be called before creating any loggers.
     """
@@ -22,7 +22,7 @@ def setup_logging(log_config: Path = client.config.LOG_CONFIG_FILE):
 
     def prepare_filenames(config):
         """
-        Prepend `client.config.LOGS_DIR` to all 'filename' attributes listed for handlers in logging.yaml
+        Prepend `meeshkan.config.LOGS_DIR` to all 'filename' attributes listed for handlers in logging.yaml
         :param config: Configuration dictionary
         :return: Configuration with 'filename's prepended with LOGS_DIR
         """
@@ -30,10 +30,13 @@ def setup_logging(log_config: Path = client.config.LOG_CONFIG_FILE):
             handler_config = config['handlers'][handler_name]
             if 'filename' in handler_config:
                 filename = Path(handler_config['filename']).name
-                handler_config['filename'] = str(client.config.LOGS_DIR.joinpath(filename))
+                handler_config['filename'] = str(meeshkan.config.LOGS_DIR.joinpath(filename))
         return config
 
     config = prepare_filenames(config_orig)
+    if silent:
+        handler_list = [x for x in config['root']['handlers'] if 'console' not in x]
+        config['root']['handlers'] = handler_list
     logging.config.dictConfig(config)
 
 

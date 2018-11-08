@@ -2,10 +2,10 @@
 import logging
 from typing import Callable
 
-import client.job
-import client.oauth
-import client.exceptions
-import client.cloud
+import meeshkan.job
+import meeshkan.oauth
+import meeshkan.exceptions
+import meeshkan.cloud
 
 LOGGER = logging.getLogger(__name__)
 
@@ -14,15 +14,15 @@ class Notifier(object):
     def __init__(self):
         pass
 
-    def notifyJobStart(self, job: client.job.Job) -> None:
+    def notifyJobStart(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         pass
 
-    def notifyJobEnd(self, job: client.job.Job) -> None:
+    def notifyJobEnd(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         pass
 
-    def notify(self, job: client.job.Job, message: str = None) -> None:
+    def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
         """
         Notifies job status. Raises exception for failure.
         :return:
@@ -34,24 +34,24 @@ class LoggingNotifier(Notifier):
     def __init__(self):
         super().__init__()
 
-    def notify(self, job: client.job.Job, message: str = None) -> None:
+    def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
         LOGGER.debug("%s: Notified for job %s\n\t%s", self.__class__.__name__, job, message)
 
-    def notifyJobStart(self, job: client.job.Job) -> None:
+    def notifyJobStart(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         self.notify(job, "Job started")
 
-    def notifyJobEnd(self, job: client.job.Job) -> None:
+    def notifyJobEnd(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         self.notify(job, "Job finished")
 
 
 class CloudNotifier(Notifier):
-    def __init__(self, post_payload: Callable[[client.cloud.Payload], None]):
+    def __init__(self, post_payload: Callable[[meeshkan.cloud.Payload], None]):
         super().__init__()
         self._post_payload = post_payload
 
-    def notifyJobStart(self, job: client.job.Job) -> None:
+    def notifyJobStart(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         mutation = "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"
         job_input = {"id": str(job.id),
@@ -61,13 +61,13 @@ class CloudNotifier(Notifier):
                      "description": job.description}
         self._post(mutation, {"in": job_input})
 
-    def notifyJobEnd(self, job: client.job.Job) -> None:
+    def notifyJobEnd(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
         job_input = {"id": str(job.id), "name": job.name, "number": job.number}
         self._post(mutation, {"in": job_input})
 
-    def notify(self, job: client.job.Job, message: str = None) -> None:
+    def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
         """Build and posts GraphQL query payload to the server
 
         Schema of job_input MUST match with the server schema
@@ -85,6 +85,6 @@ class CloudNotifier(Notifier):
         self._post(mutation, {"in": job_input})
 
     def _post(self, mutation, variables):
-        payload = client.cloud.Payload({"query": mutation, "variables": variables})
+        payload = meeshkan.cloud.Payload({"query": mutation, "variables": variables})
         self._post_payload(payload)
         LOGGER.info(f"Posted successfully: %s", variables)
