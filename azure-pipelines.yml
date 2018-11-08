@@ -1,12 +1,5 @@
-# resources:
-#  containers:
-#   - container: my_container
-#     image: ubuntu:16.04
-
 pool:
   vmImage: 'ubuntu-16.04'
-
-# container: my_container
 
 steps:
 - task: UsePythonVersion@0
@@ -17,8 +10,8 @@ steps:
 - script: python -m pip install --upgrade pip setuptools wheel
   displayName: 'Install tools'
 
-- script: pip install -r requirements.txt
-  displayName: 'Install requirements'
+- script: pip install -e .[dev]
+  displayName: 'Installing dev version'
 
 - script: |
     pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=client --cov-report=xml --cov-report=html
