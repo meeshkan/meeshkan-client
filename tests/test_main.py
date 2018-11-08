@@ -95,8 +95,10 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
     time.sleep(1)  # Hacky way to give some time for finishing the task
 
     list_result = run_cli(args='list')
-    assert list_result.stdout.endswith("FINISHED']\n")
+
+    assert 'FINISHED' in list_result.stdout
 
     # Check stdout and stderr exist
     assert client.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
     assert client.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file()
+

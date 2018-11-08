@@ -27,6 +27,7 @@ requests==2.20.0
 requests-toolbelt==0.8.0
 serpent==1.27
 six==1.11.0
+tabulate==0.8.2
 tqdm==4.28.1
 twine==1.12.1
 typed-ast==1.1.0

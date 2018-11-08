@@ -136,3 +136,11 @@ class Job(object):
         self.terminate()
         if not self.is_launched:
             self.status = JobStatus.CANCELED  # Safe to modify as worker has not started
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'number': self.number,
+            'status': self.status.name,
+            'args': str(self.executable)
+        }

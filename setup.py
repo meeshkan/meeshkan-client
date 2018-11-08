@@ -14,7 +14,7 @@ REQUIRES_PYTHON = '>=3.5.0'
 SRC_DIR = 'client'  # Relative location wrt setup.py
 
 # Required packages
-REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML']
+REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate']
 
 # Optional packages
 EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
