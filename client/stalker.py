@@ -16,6 +16,8 @@ try:
 except ModuleNotFoundError:
     TF_EXISTS = False  # Silently fail
 
+DEF_IMG_EXT = ".png"
+
 
 class PipedProcess(object):
     """Opens a temporary named pipe to transmit information between process A and process B"""
@@ -100,7 +102,7 @@ def meeshkan_listener():
 class StalkerBase(object):
     """Defines common API for Stalker objects"""
     def __init__(self):
-        self._history: Dict[str, List[float]] = {}  # Maintain a history of stalked information
+        self._history: Dict[str, List[float]] = dict()  # Maintain a history of stalked information
         self._last_index : Dict[str, int] = -1  # Last index which was submitted to cloud, used for statistics
         self._cloud_notifier = None # client.notifiers.CloudNotifier()? Or scheduler to notify()?
 
@@ -112,8 +114,8 @@ class StalkerBase(object):
         """Cleans internal history stack for stalker class"""
         raise NotImplementedError
 
-    def generate_image(self):
-        """Generates a plot from internal history"""
+    def generate_image(self, output_path, show=False, title: str =None):
+        """Generates a plot from internal history to output_path"""
         raise NotImplementedError
 
     def notify_updates(self, include_image=True):
@@ -138,9 +140,30 @@ class TensorFlowStalker(StalkerBase):  # TODO
 
     def update(self):
         self.ea_tracker.Reload()
+        for tag in self.ea_tracker.Tags()['scalars']:
+            if tag not in self._history.keys():
+                self._history[tag] = list()
+            for scalar_event in self.ea_tracker.Scalars(tag):
+                self._history[tag].append(scalar_event.value)
+
+    def generate_image(self, output_path, show=False, title: str =None):
+        for tag, vals in self._history.items():  # All all scalar values to plot
+            plt.plot(vals, label=tag)
+        plt.legend(loc='upper right')
+        if title is not None:  # Title if given
+            plt.title(title)
+        fname, ext = os.path.splitext(output_path)  # Default extension if not provided
+        if len(ext) == 0:
+            ext = DEF_IMG_EXT
+        plt.savefig(fname + ext)
+        if show:
+            plt.show()
+
 
     def clean(self):
         self.ea_tracker._generator = _GeneratorFromPath(self.path)
+        self._last_index = -1
+        self._history = dict()
 
 
 # TODO generic stalker using peek and listen() to catch scalars by PID
