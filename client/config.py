@@ -7,7 +7,11 @@ from typing import Optional
 import yaml
 
 LOGGER = logging.getLogger(__name__)
-CONFIG_PATH: Path = Path(os.path.dirname(__file__)).joinpath('..', 'config.yaml')
+
+PACKAGE_PATH = Path(os.path.dirname(__file__)).joinpath('..')
+
+CONFIG_PATH: Path = PACKAGE_PATH.joinpath('config.yaml')
+LOG_CONFIG_FILE: Path = PACKAGE_PATH.joinpath('logging.yaml')
 
 BASE_DIR: Path = Path.home().joinpath('.meeshkan')
 JOBS_DIR: Path = BASE_DIR.joinpath('jobs')
@@ -20,7 +24,8 @@ def ensure_base_dirs():
 
     def create_dir_if_not_exist(path: Path):
         if not path.is_dir():
-            LOGGER.info("Creating directory %s", path)
+            # Print instead of logging as loggers may not have been configured yet
+            print(f"Creating directory {path}")
             path.mkdir()
 
     create_dir_if_not_exist(BASE_DIR)

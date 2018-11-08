@@ -21,8 +21,8 @@ from client.service import Service
 from client.scheduler import Scheduler
 from client.exceptions import Unauthorized
 
-setup_logging()
 client.config.ensure_base_dirs()
+setup_logging()
 
 LOGGER = logging.getLogger(__name__)
 
