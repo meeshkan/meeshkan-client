@@ -59,29 +59,16 @@ class CloudClient:
         LOGGER.debug("Got server response: %s", res.text)
 
     def notify_service_start(self):
-        self.post_payload(_build_service_start_payload())
+        """Build GraphQL query payload and send to server when service is started
+        Schema of job_input MUST match with the server schema
+        https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
+        :return:
+        """
+        mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
+        input_dict = {"version": client.__version__}
+        payload: Payload = {"query": mutation, "variables": {"in": input_dict}}
+        self.post_payload(payload)
 
     def close(self):
         LOGGER.debug("Closing CloudClient session")
         self._session.close()
-
-
-def _build_service_start_payload() -> Payload:
-    """
-    Build GraphQL query payload to be sent to server when service is started
-    Schema of job_input MUST match with the server schema
-    https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
-    :return:
-    """
-    mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
-
-    input_dict = {
-        "version": client.__version__
-    }
-    payload: Payload = {
-        "query": mutation,
-        "variables": {
-            "in": input_dict
-        }
-    }
-    return payload

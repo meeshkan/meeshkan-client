@@ -18,7 +18,8 @@ class JobStatus(Enum):
     CANCELED = 4
     FAILED = 5
 
-CANCELED_RETURN_CODES = [-2, -3, -9, -15] 
+CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
+SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 return codes as success with message?)
 
 
 class Executable(object):
@@ -108,9 +109,12 @@ class Job(object):
             self.status = JobStatus.RUNNING
             self.is_launched = True
             return_code = self.executable.launch_and_wait()
-            # TODO Get rid of magic return code constants
-            self.status = JobStatus.FINISHED if return_code == 0 else \
-                JobStatus.CANCELED if return_code == -15 else JobStatus.FAILED
+            if return_code in SUCCESS_RETURN_CODE:
+                self.status = JobStatus.FINISHED
+            elif return_code in CANCELED_RETURN_CODES:
+                self.status = JobStatus.CANCELED
+            else:
+                self.status = JobStatus.FAILED
             return return_code
         except IOError as ex:
             LOGGER.error(f"Could not execute, is the job executable? Job: {str(self.executable)}")
@@ -143,9 +147,8 @@ class Job(object):
             self.status = JobStatus.CANCELED  # Safe to modify as worker has not started
 
     def to_dict(self):
-        return {
-            'id': str(self.id),
-            'number': self.number,
-            'status': self.status.name,
-            'args': str(self.executable)
-        }
+        return {'id': str(self.id),
+                'number': self.number,
+                'name': self.name,
+                'status': self.status.name,
+                'args': str(self.executable)}

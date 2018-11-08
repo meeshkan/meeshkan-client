@@ -41,14 +41,13 @@ class Scheduler(object):
         self._njobs = 0
         self._is_running = True
         self._running_job = None
+        self._notification_status = dict()
+
+    ### Properties and Python magic
 
     @property
     def jobs(self):  # Needed to access internal list of jobs as object parameters are unexposable, only methods
         return self.submitted_jobs
-
-    def start(self):
-        if not self._queue_reader.is_alive():
-            self._queue_reader.start()
 
     def __enter__(self):
         self.start()
@@ -56,6 +55,11 @@ class Scheduler(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+    ### Notifaction related methods
+
+    def get_notification_status(self, job_id: str):
+        return self._notification_status[job_id]
 
     def register_listener(self, listener: client.notifiers.Notifier):
         self._listeners.append(listener)
@@ -65,10 +69,41 @@ class Scheduler(object):
         for notifier in self._listeners:
             try:
                 notifier.notify(job, message)
+                self._notification_status[job.id] = "Success"
             except:
                 LOGGER.exception("Notifier failed")
+                self._notification_status[job.id] = "Failed"
                 status = False
         return status
+
+    def notify_listeners_job_start(self, job: client.job.Job):
+        status = True
+        for notifier in self._listeners:
+            try:
+                notifier.notifyJobStart(job)
+                self._notification_status[job.id] = "Success"
+            except:
+                LOGGER.exception("Notifier failed")
+                self._notification_status[job.id] = "Failed"
+                status = False
+        return status
+
+    def notify_listeners_job_end(self, job: client.job.Job):
+        status = True
+        for notifier in self._listeners:
+            try:
+                notifier.notifyJobEnd(job)
+                LOGGER.debug("notification succeeded")
+                self._notification_status[job.id] = "Success"
+                LOGGER.debug("saved to dictionary")
+            except Exception as e:
+                LOGGER.debug(e)
+                LOGGER.exception("Notifier failed")
+                self._notification_status[job.id] = "Failed"
+                status = False
+        return status
+
+    ### Job handling methods
 
     def _handle_job(self, job: client.job.Job) -> None:
         LOGGER.debug("Handling job: %s", job)
@@ -76,23 +111,23 @@ class Scheduler(object):
             return
 
         try:
+            self.notify_listeners_job_start(job)
             self._running_job = job
             job.launch_and_wait()
             self._running_job = None
         except:
             LOGGER.exception("Running job failed")
 
-        self.notify_listeners(job)
-
+        self.notify_listeners_job_end(job)
         LOGGER.debug("Finished handling job: %s", job)
 
-    def create_job(self, args: Tuple[str, ...]):
+    def create_job(self, args: Tuple[str, ...], name: str = None):
         job_number = self._njobs
         job_uuid = uuid.uuid4()
         output_path = client.config.JOBS_DIR.joinpath(str(job_uuid))
         executable = client.job.ProcessExecutable(args, output_path=output_path)
         self._njobs += 1
-        return client.job.Job(executable, job_number=job_number, job_uuid=job_uuid)
+        return client.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=name or f"Job #{job_number}")
 
     def submit_job(self, job: client.job.Job):
         job.status = client.job.JobStatus.QUEUED
@@ -106,6 +141,12 @@ class Scheduler(object):
             return
         job = jobs_with_id[0]
         job.cancel()
+
+    ### Scheduler service methods
+
+    def start(self):
+        if not self._queue_reader.is_alive():
+            self._queue_reader.start()
 
     def stop(self):
         # TODO Terminate the process currently running with --force?

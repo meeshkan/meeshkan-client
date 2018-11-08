@@ -26,13 +26,18 @@ class Api(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def submit(self, args: Tuple[str]):
-        job = self.scheduler.create_job(args)
+    def submit(self, args: Tuple[str], name=None):
+        job = self.scheduler.create_job(args, name)
         self.scheduler.submit_job(job)
         return job
 
     def list_jobs(self):
-        return [job.to_dict() for job in self.scheduler.jobs]
+        jobs = list()
+        for job in self.scheduler.jobs:
+            temp_job_dict = job.to_dict()
+            temp_job_dict['notifier status'] = self.scheduler.get_notification_status(job.id)
+            jobs.append(temp_job_dict)
+        return jobs
 
     def add_stop_callback(self, func: Callable[[], Any]):
         self.__stop_callbacks.append(func)

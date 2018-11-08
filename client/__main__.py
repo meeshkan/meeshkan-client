@@ -143,13 +143,14 @@ def daemon_status():
 
 @cli.command()
 @click.argument('job', nargs=-1)
-def submit(job):
+@click.option("--name", type=str)
+def submit(job, name):
     """Submits a new job to the daemon."""
     if not job:
         print("CLI error: Specify job.")
         return
     api: client.api.Api = __get_api()
-    job = api.submit(job)
+    job = api.submit(job, name)
     print(f"Job {job.number} submitted successfully with ID {job.id}.")
 
 
