@@ -18,6 +18,8 @@ class JobStatus(Enum):
     CANCELED = 4
     FAILED = 5
 
+CANCELED_RETURN_CODES = [-2, -3, -9, -15] 
+
 
 class Executable(object):
     def __init__(self):

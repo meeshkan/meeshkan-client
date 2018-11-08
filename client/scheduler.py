@@ -60,11 +60,11 @@ class Scheduler(object):
     def register_listener(self, listener: client.notifiers.Notifier):
         self._listeners.append(listener)
 
-    def notify_listeners(self, job: client.job.Job) -> bool:
+    def notify_listeners(self, job: client.job.Job, message: str = None) -> bool:
         status = True
         for notifier in self._listeners:
             try:
-                notifier.notify(job)
+                notifier.notify(job, message)
             except:
                 LOGGER.exception("Notifier failed")
                 status = False
