@@ -24,23 +24,24 @@ class Notifier(object):
         pass
 
 
-def _build_job_notify_payload(job: client.job.Job) -> client.cloud.Payload:
+def _build_job_notify_payload(job: client.job.Job, message: str = None) -> client.cloud.Payload:
     """
     Build GraphQL query payload to be sent to server.
     Schema of job_input MUST match with the server schema
     https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
     :param job:
+    :param message: Meesage to include in the JobInput; otherwise uses job.status
     :return:
     """
     mutation = "mutation NotifyJob($in: JobInput!) { notifyJob(input: $in) }"
 
     job_input = {
         "id": str(job.id),
-        "name": "name",
+        "name": str(job.name),
         "number": job.number,
         "created": job.created.isoformat() + "Z",  # Assume it's UTC
-        "description": "description",
-        "message": str(job.status)
+        "description": job.description,
+        "message": message or str(job.status)
     }
     payload: client.cloud.Payload = {
         "query": mutation,

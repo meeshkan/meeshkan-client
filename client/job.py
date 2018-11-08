@@ -80,19 +80,22 @@ class ProcessExecutable(Executable):
 
 
 class Job(object):
-    def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None):
+    def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
+                 desc: str = None):
         """
         :param executable: Executable instance
         :param job_number: Like PID, used for interacting with the job from the CLI
         """
         self.executable = executable
-        self.id = job_uuid if job_uuid is not None else uuid.uuid4()  # Absolutely unique identifier
+        self.id = job_uuid or uuid.uuid4()  # Absolutely unique identifier
         self.number = job_number  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
         self.stale = False
         self.is_launched = False
         self.status = JobStatus.CREATED
         self.is_processed = False
+        self.name = name or f"Job #{self.number}"
+        self.description = desc or str(executable)
 
     def launch_and_wait(self) -> int:
         """
@@ -108,7 +111,7 @@ class Job(object):
                 JobStatus.CANCELED if return_code == -15 else JobStatus.FAILED
             return return_code
         except IOError as ex:
-            LOGGER.error('Could not execute, is the job executable? Job: %s', self.executable)
+            LOGGER.error(f"Could not execute, is the job executable? Job: {str(self.executable)}")
             self.status = JobStatus.FAILED
             raise ex
         finally:
@@ -118,7 +121,7 @@ class Job(object):
         self.executable.terminate()
 
     def __str__(self):
-        return f"Job: {self.executable}, number {self.number}, id {self.id}, status {self.status.name}"
+        return f"Job: {self.executable}, #{self.number} ({self.id}) - {self.status.name}"
 
     def mark_stale(self):
         """
