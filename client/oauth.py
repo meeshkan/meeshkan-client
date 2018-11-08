@@ -12,7 +12,7 @@ Token = NewType("Token", str)
 FetchToken = NewType("FetchToken", Callable[[], Token])
 
 
-class TokenSource:
+class TokenSource(object):
     """
     Fetch access tokens via `fetch` method. Call `.close()` to close the underlying requests Session!
     """
