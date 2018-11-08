@@ -3,9 +3,9 @@ import logging
 from typing import Callable, Dict, NewType
 import requests
 
-import client.job
-import client.oauth
-import client.exceptions
+import meeshkan.job
+import meeshkan.oauth
+import meeshkan.exceptions
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,11 +18,11 @@ class CloudClient:
         Contains retry logic when authorization fails. Raises RuntimeError if server returns other than 200.
         :param cloud_url: URL where to post
         :param token_store: TokenStore instance
-        :param build_session: Factory for building sessions (closed with client.close())
+        :param build_session: Factory for building sessions (closed with meeshkan.close())
         :raises Unauthorized: if server returns 401
         :raises RuntimeError: If server returns code other than 200 or 401
         """
-    def __init__(self, cloud_url: str, token_store: client.oauth.TokenStore,
+    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore,
                  build_session: Callable[[], requests.Session]):
         self._cloud_url = cloud_url
         self._token_store = token_store
@@ -34,7 +34,7 @@ class CloudClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _post(self, payload: Payload, token: client.oauth.Token) -> requests.Response:
+    def _post(self, payload: Payload, token: meeshkan.oauth.Token) -> requests.Response:
         headers = {'Authorization': f"Bearer {token}"}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
@@ -42,7 +42,7 @@ class CloudClient:
         """
         Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry (once).
         :param payload:
-        :raises client.exceptions.Unauthorized if received 401 twice.
+        :raises meeshkan.exceptions.Unauthorized if received 401 twice.
         :return:
         """
         token = self._token_store.get_token()
@@ -52,7 +52,7 @@ class CloudClient:
             res = self._post(payload, token)
             if res.status_code == HTTPStatus.UNAUTHORIZED:
                 LOGGER.error('Cannot post to server: unauthorized')
-                raise client.exceptions.UnauthorizedRequestException()
+                raise meeshkan.exceptions.UnauthorizedRequestException()
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
@@ -65,7 +65,7 @@ class CloudClient:
         :return:
         """
         mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
-        input_dict = {"version": client.__version__}
+        input_dict = {"version": meeshkan.__version__}
         payload: Payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 

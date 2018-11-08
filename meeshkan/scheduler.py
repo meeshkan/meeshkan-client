@@ -4,8 +4,8 @@ import threading
 from typing import List, Tuple, Callable  # For self-documenting typing
 import uuid
 
-import client.job  # Defines scheduler jobs
-import client.notifiers
+import meeshkan.job  # Defines scheduler jobs
+import meeshkan.notifiers
 
 
 LOGGER = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class Scheduler(object):
         self._stop_thread_event = threading.Event()
         kwargs = {'q': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
         self._queue_reader = threading.Thread(target=read_queue, kwargs=kwargs)
-        self._listeners: List[client.notifiers.Notifier] = []
+        self._listeners: List[meeshkan.notifiers.Notifier] = []
         self._njobs = 0
         self._is_running = True
         self._running_job = None
@@ -61,19 +61,19 @@ class Scheduler(object):
     def get_notification_status(self, job_id: str):
         return self._notification_status[job_id]
 
-    def register_listener(self, listener: client.notifiers.Notifier):
+    def register_listener(self, listener: meeshkan.notifiers.Notifier):
         self._listeners.append(listener)
 
-    def notify_listeners(self, job: client.job.Job, message: str = None) -> bool:
+    def notify_listeners(self, job: meeshkan.job.Job, message: str = None) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, message))
 
-    def notify_listeners_job_start(self, job: client.job.Job) -> bool:
+    def notify_listeners_job_start(self, job: meeshkan.job.Job) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobStart(job))
 
-    def notify_listeners_job_end(self, job: client.job.Job) -> bool:
+    def notify_listeners_job_end(self, job: meeshkan.job.Job) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobEnd(job))
 
-    def _internal_notifier_loop(self, job: client.job.Job, notify_method: Callable[[client.notifiers.Notifier], None]) -> bool:
+    def _internal_notifier_loop(self, job: meeshkan.job.Job, notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
         status = True
         for notifier in self._listeners:
             try:
@@ -87,7 +87,7 @@ class Scheduler(object):
 
     ### Job handling methods
 
-    def _handle_job(self, job: client.job.Job) -> None:
+    def _handle_job(self, job: meeshkan.job.Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.stale:
             return
@@ -106,20 +106,20 @@ class Scheduler(object):
     def create_job(self, args: Tuple[str, ...], name: str = None):
         job_number = self._njobs
         job_uuid = uuid.uuid4()
-        output_path = client.config.JOBS_DIR.joinpath(str(job_uuid))
-        executable = client.job.ProcessExecutable(args, output_path=output_path)
+        output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
+        executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
         self._njobs += 1
-        return client.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=name or f"Job #{job_number}")
+        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=name or f"Job #{job_number}")
 
-    def submit_job(self, job: client.job.Job):
-        job.status = client.job.JobStatus.QUEUED
+    def submit_job(self, job: meeshkan.job.Job):
+        job.status = meeshkan.job.JobStatus.QUEUED
         self._notification_status[job.id] = "NA"
         self._task_queue.put(job)  # TODO Blocks if queue full
         self.submitted_jobs.append(job)
         LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: int):
-        jobs_with_id: List[client.job.Job] = [job for job in self.jobs if job.id == job_id]
+        jobs_with_id: List[meeshkan.job.Job] = [job for job in self.jobs if job.id == job_id]
         if not jobs_with_id:
             return
         job = jobs_with_id[0]

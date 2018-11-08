@@ -1,10 +1,10 @@
 import time
 from concurrent.futures import Future, wait
 
-import client
-from client.scheduler import Scheduler
-from client.job import Job, JobStatus, Executable
-from client.notifiers import Notifier
+import meeshkan
+from meeshkan.scheduler import Scheduler
+from meeshkan.job import Job, JobStatus, Executable
+from meeshkan.notifiers import Notifier
 
 
 # Executable that runs the provided `target` function
@@ -107,9 +107,9 @@ def test_notifiers():
     started_jobs = []
 
     class MockNotifier(Notifier):
-        def notifyJobStart(self, job0: client.job.Job):
+        def notifyJobStart(self, job0: meeshkan.job.Job):
             started_jobs.append({'job': job0})
-        def notifyJobEnd(self, job0: client.job.Job):
+        def notifyJobEnd(self, job0: meeshkan.job.Job):
             finished_jobs.append({'job': job0})
 
     with get_scheduler() as scheduler:

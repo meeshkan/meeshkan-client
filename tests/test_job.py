@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 
-from client.job import ProcessExecutable
+from meeshkan.job import ProcessExecutable
 
 JOBS_OUTPUT_PATH = Path(os.path.dirname(__file__)).joinpath('resources', 'jobs')
 

@@ -11,7 +11,7 @@ URL = 'https://www.meeshkan.io/'
 EMAIL = 'dev@meeshkan.com'
 AUTHOR = 'Meeshkan Dev Team'
 REQUIRES_PYTHON = '>=3.5.0'
-SRC_DIR = 'client'  # Relative location wrt setup.py
+SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 
 # Required packages
 REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate']
@@ -20,7 +20,7 @@ REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate']
 EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
 
 # Entry point for CLI (relative to setup.py)
-ENTRY_POINTS = ['meeshkan = client.__main__:cli']
+ENTRY_POINTS = ['meeshkan = meeshkan.__main__:cli']
 
 here = os.path.abspath(os.path.dirname(__file__))
 

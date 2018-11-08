@@ -78,7 +78,7 @@ class ProcessExecutable(Executable):
             self.output_path.mkdir()
         stdout_file = self.output_path.joinpath('stdout')
         stderr_file = self.output_path.joinpath('stderr')
-        with stdout_file.open('w') as f_stdout, stderr_file.open('w') as f_stderr:
+        with open(stdout_file, 'w') as f_stdout, open(stderr_file, 'w') as f_stderr:
             self.popen = subprocess.Popen(self.args, stdout=f_stdout, stderr=f_stderr)
             return self.popen.wait()
 

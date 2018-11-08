@@ -8,7 +8,7 @@ import sys
 
 import Pyro4  # For daemon management
 
-import client.logger
+import meeshkan.logger
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
@@ -58,7 +58,7 @@ class Service(object):
             pid = os.fork()
             if pid > 0:  # Close parent process
                 return
-            client.logger.remove_non_file_handlers()
+            meeshkan.logger.remove_non_file_handlers()
             os.setsid()  # Separate from tty
             with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
                 daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon

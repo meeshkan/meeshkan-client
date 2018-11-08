@@ -1,7 +1,7 @@
 import pytest
 
-from client.notifiers import CloudNotifier
-from client.job import Job, Executable
+from meeshkan.notifiers import CloudNotifier
+from meeshkan.job import Job, Executable
 
 
 def _get_job():
