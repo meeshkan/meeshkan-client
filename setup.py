@@ -5,7 +5,7 @@ from shutil import rmtree
 import sys
 
 # Package meta-data.
-NAME = 'meeshkan_client'
+NAME = 'meeshkan'
 DESCRIPTION = 'The Meeshkan Client for interactive machine learning'
 URL = 'https://www.meeshkan.io/'
 EMAIL = 'dev@meeshkan.com'
