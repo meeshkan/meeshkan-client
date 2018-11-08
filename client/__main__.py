@@ -13,7 +13,7 @@ import requests
 
 import client
 
-client.config.ensure_base_dir()
+client.config.ensure_base_dirs()
 client.logger.setup_logging()
 
 
