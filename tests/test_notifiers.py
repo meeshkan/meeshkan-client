@@ -37,3 +37,5 @@ def test_cloud_notifier_propagates_exception():
     cloud_notifier = CloudNotifier(fake_post)
     with pytest.raises(RuntimeError):
         cloud_notifier.notify(_get_job())
+
+
