@@ -70,7 +70,7 @@ def test_token_source():
 
     def mocked_requests_post(*args, **kwargs):
         url = args[0]
-        assert url == f"https://{_auth_url()}/oauth/token"
+        assert url == "https://{url}/oauth/token".format(url=_auth_url())
         payload = kwargs['data']
         assert payload['client_id'] == _client_id()
         assert payload['client_secret'] == _client_secret()
