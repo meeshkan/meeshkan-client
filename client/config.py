@@ -2,26 +2,35 @@ import os
 import configparser
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Optional
 
 import yaml
 
 LOGGER = logging.getLogger(__name__)
-CONFIG_PATH: Path = Path(os.path.dirname(__file__)).joinpath('..', 'config.yaml')
+
+PACKAGE_PATH = Path(os.path.dirname(__file__)).parent
+
+CONFIG_PATH: Path = PACKAGE_PATH.joinpath('config.yaml')
+LOG_CONFIG_FILE: Path = PACKAGE_PATH.joinpath('logging.yaml')
 
 BASE_DIR: Path = Path.home().joinpath('.meeshkan')
 JOBS_DIR: Path = BASE_DIR.joinpath('jobs')
+LOGS_DIR: Path = BASE_DIR.joinpath('logs')
 
-CREDENTIALS_PATH: Path = BASE_DIR.joinpath('credentials')
+CREDENTIALS_FILE: Path = BASE_DIR.joinpath('credentials')
 
 
-def ensure_base_dir():
-    if not BASE_DIR.is_dir():
-        LOGGER.debug("Creating directory %s", BASE_DIR)
-        BASE_DIR.mkdir()
-    if not JOBS_DIR.is_dir():
-        LOGGER.debug("Creating directory %s", JOBS_DIR)
-        JOBS_DIR.mkdir()
+def ensure_base_dirs():
+
+    def create_dir_if_not_exist(path: Path):
+        if not path.is_dir():
+            # Print instead of logging as loggers may not have been configured yet
+            print(f"Creating directory {path}")
+            path.mkdir()
+
+    create_dir_if_not_exist(BASE_DIR)
+    create_dir_if_not_exist(JOBS_DIR)
+    create_dir_if_not_exist(LOGS_DIR)
 
 
 class Configuration:
@@ -48,7 +57,7 @@ class Credentials:
         self.client_secret = client_secret
 
     @staticmethod
-    def from_isi(path: Path = CREDENTIALS_PATH):
+    def from_isi(path: Path = CREDENTIALS_FILE):
         LOGGER.debug(f"Reading credentials from %s", path)
         if not path.is_file():
             raise FileNotFoundError(f"Create file {path} first.")
@@ -58,11 +67,11 @@ class Credentials:
                            client_secret=conf['auth']['client_secret'])
 
 
-CONFIG: Union[Configuration, None] = None
-CREDENTIALS: Union[Credentials, None] = None
+CONFIG: Optional[Configuration] = None
+CREDENTIALS: Optional[Credentials] = None
 
 
-def init(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_PATH):
+def init(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_FILE):
     global CONFIG, CREDENTIALS  # pylint:disable=global-statement
     if CONFIG is None:
         CONFIG = Configuration.from_yaml(config_path)

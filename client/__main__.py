@@ -14,8 +14,9 @@ import tabulate
 
 import client
 
+client.config.ensure_base_dirs()
 client.logger.setup_logging()
-client.config.ensure_base_dir()
+
 
 LOGGER = logging.getLogger(__name__)
 
