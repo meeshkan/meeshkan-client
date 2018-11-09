@@ -7,8 +7,6 @@ import tempfile
 import os
 from typing import Callable, List, Tuple
 import random
-import requests
-import re
 
 import click
 import Pyro4
@@ -75,7 +73,8 @@ def __build_api(config: meeshkan.config.Configuration,
 
         stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
 
-        cloud_notifier: meeshkan.notifiers.CloudNotifier = meeshkan.notifiers.CloudNotifier(post_payload=cloud_client.post_payload)
+        cloud_notifier: meeshkan.notifiers.CloudNotifier = meeshkan.notifiers.CloudNotifier(
+            post_payload=cloud_client.post_payload)
         logging_notifier: meeshkan.notifiers.LoggingNotifier = meeshkan.notifiers.LoggingNotifier()
 
         scheduler = meeshkan.scheduler.Scheduler()
@@ -88,6 +87,7 @@ def __build_api(config: meeshkan.config.Configuration,
         return api
 
     return build_api
+
 
 def __verify_version():
     urllib_logger = logging.getLogger("urllib3")
@@ -114,7 +114,7 @@ def cli(debug, silent):
         sys.tracebacklimit = 0
     __verify_version()
 
-    global LOGGER
+    global LOGGER  # pylint: disable=global-statement
     meeshkan.config.ensure_base_dirs()
     meeshkan.logger.setup_logging(silent=silent)
 
@@ -144,9 +144,9 @@ def start():
     except meeshkan.exceptions.UnauthorizedRequestException as ex:
         print(ex.message)
         sys.exit(1)
-    except Exception as e:  # pylint: disable=bare-except
+    except Exception as ex:  # pylint: disable=broad-except
         print("Starting service failed.")
-        LOGGER.error(e)
+        LOGGER.exception("Starting service failed.")
         sys.exit(1)
 
 
@@ -201,10 +201,12 @@ def cancel():
     """Cancels a queued or running job, removing it from the job queue."""
     raise NotImplementedError()
 
+
 @cli.command()
 def suspend():
     """Suspends a queued or running job."""
     raise NotImplementedError()
+
 
 @cli.command()
 def resume():
@@ -226,7 +228,8 @@ def sorry():
         print("Failed to get upload link from server.")
         sys.exit(1)
 
-    fname = os.path.abspath("{}.tar.gz".format(next(tempfile._get_candidate_names())))
+    fname = next(tempfile._get_candidate_names()))  # pylint: disable=protected-access
+    fname = os.path.abspath("{}.tar.gz".format(fname)
     with tarfile.open(fname, mode='w:gz') as tar:
         for handler in logging.root.handlers:  # Collect logging files
             try:
@@ -246,13 +249,14 @@ def sorry():
         print("Upload to server failed!")
         sys.exit(1)
 
+
 @cli.command()
 def clear():
     """Clears the ~/.meeshkan folder (keeps the credentials file) - use with care!"""
     print("Removing jobs directory at {}".format(meeshkan.config.JOBS_DIR))
-    shutil.rmtree(meeshkan.config.JOBS_DIR)
+    shutil.rmtree(str(meeshkan.config.JOBS_DIR))
     print("Removing logs directory at {}".format(meeshkan.config.LOGS_DIR))
-    shutil.rmtree(meeshkan.config.LOGS_DIR)
+    shutil.rmtree(str(meeshkan.config.LOGS_DIR))
     meeshkan.config.ensure_base_dirs()  # Recreate structure
 
 
