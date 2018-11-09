@@ -215,6 +215,15 @@ def sorry():
     """Garbage collection - collect logs and email to Meeshkan HQ.
     Sorry for any inconvinence!
     """
+    config, credentials = __get_auth()
+    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
+    meeshkan.logger.remove_non_file_handlers()
+
+    payload: meeshkan.cloud.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+    res = cloud_client.post_payload(payload)
+    if not res.ok:
+        print("Failed to get upload link from server")
+        sys.exit(1)
     fname = os.path.abspath("{}.tar.gz".format(next(tempfile._get_candidate_names())))
     with tarfile.open(fname, mode='w:gz') as tar:
         for handler in logging.root.handlers:  # Collect logging files
@@ -222,12 +231,21 @@ def sorry():
                 tar.add(handler.baseFilename)
             except AttributeError:
                 continue
-    # TODO - send fname to Meeshkan!
+    res = res.json()['data']['logUploadLink']
+    upload_url = res['upload']
+    upload_method = res['uploadMethod']
+    # Convert list of headers to dictionary of headers
+    upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
+    res = requests.request(upload_method, upload_url, headers=upload_headers, files={'': open(fname, 'rb')})
+    if res.ok:
+        print("Logs uploaded successfully.")
+    else:
+        print("Upload to server failed!")
     os.remove(fname)
 
 @cli.command()
 def clear():
-    """Clears the ~/.meeshkan folder - use with care!"""
+    """Clears the ~/.meeshkan folder (keeps the credentials file) - use with care!"""
     print("Removing jobs directory at {}".format(meeshkan.config.JOBS_DIR))
     shutil.rmtree(meeshkan.config.JOBS_DIR)
     print("Removing logs directory at {}".format(meeshkan.config.LOGS_DIR))
