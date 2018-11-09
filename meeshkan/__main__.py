@@ -218,7 +218,7 @@ def sorry():
     Sorry for any inconvinence!
     """
     fname = os.path.abspath("{}.tar.gz".format(
-        next(tempfile._get_candidate_names())))  # # pylint: disable=protected-access
+        next(tempfile._get_candidate_names())))  # pylint: disable=protected-access
     with tarfile.open(fname, mode='w:gz') as tar:
         for handler in logging.root.handlers:  # Collect logging files
             try:

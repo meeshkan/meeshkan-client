@@ -35,7 +35,7 @@ class Scheduler(object):
         self.submitted_jobs = []
         self._task_queue = queue.Queue()
         self._stop_thread_event = threading.Event()
-        kwargs = {'q': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
+        kwargs = {'queue_': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
         self._queue_reader = threading.Thread(target=read_queue, kwargs=kwargs)
         self._listeners: List[meeshkan.notifiers.Notifier] = []
         self._njobs = 0
