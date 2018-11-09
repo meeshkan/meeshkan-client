@@ -34,15 +34,14 @@ def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bo
         return config
 
     config = prepare_filenames(config_orig)
-    if silent:
-        handler_list = [x for x in config['root']['handlers'] if 'console' not in x]
-        config['root']['handlers'] = handler_list
     logging.config.dictConfig(config)
+    if silent:
+        remove_non_file_handlers()
 
 
 def remove_non_file_handlers():
-    LOGGER.info("Deleting non-file handlers from logging")
     log = logging.getLogger()  # Root logger
     for handler in log.handlers.copy():
         if not isinstance(handler, logging.FileHandler):
             log.handlers.remove(handler)
+    LOGGER.info("Deleted non-file handlers from logging")
