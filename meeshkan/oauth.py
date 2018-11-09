@@ -41,15 +41,16 @@ class TokenSource(object):
     def fetch_token(self) -> Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
         resp = self._session.post("https://{url}/oauth/token".format(url=self._auth_url), data=self._payload, timeout=5)
+
         if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()
             return resp_dict['access_token']
 
         if resp.status_code == HTTPStatus.UNAUTHORIZED:
             raise meeshkan.exceptions.UnauthorizedRequestException()
-        else:
-            LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
-            raise RuntimeError("Failed requesting authentication.")
+
+        LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
+        raise RuntimeError("Failed requesting authentication.")
 
     def close(self):
         LOGGER.debug("Closing TokenSource session.")
