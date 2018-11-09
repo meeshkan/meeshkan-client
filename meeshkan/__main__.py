@@ -22,7 +22,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 
-def __get_auth() -> (dict, dict):
+def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
     config, credentials = meeshkan.config.init()
     return config, credentials
 

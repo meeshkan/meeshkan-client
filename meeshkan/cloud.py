@@ -40,7 +40,6 @@ class CloudClient:
 
     def _post_payload(self, payload: meeshkan.Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
         """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
-
         :param payload:
         :param retries:
         :param delay:
@@ -105,7 +104,6 @@ class CloudClient:
         upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
         self._upload_file(method=upload_method, url=upload_url, headers=upload_headers, file=file)
         return download_url
-
 
     def notify_service_start(self):
         """Build GraphQL query payload and send to server when service is started

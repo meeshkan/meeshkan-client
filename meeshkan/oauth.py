@@ -7,6 +7,7 @@ import meeshkan.exceptions
 
 LOGGER = logging.getLogger(__name__)
 
+
 class TokenStore(object):
     """
     Fetches and caches access authentication tokens via `_fetch_token` method.
@@ -48,6 +49,7 @@ class TokenStore(object):
         raise RuntimeError("Failed requesting authentication.")
 
     def get_token(self, refresh=False) -> meeshkan.Token:
+
         if refresh or self._token is None:
             LOGGER.info("Retrieving new authentication token")
             self._token = self._fetch_token()
@@ -56,3 +58,4 @@ class TokenStore(object):
     def close(self):
         LOGGER.debug("Closing TokenSource session.")
         self._session.close()
+

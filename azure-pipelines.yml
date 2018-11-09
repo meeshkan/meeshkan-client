@@ -24,6 +24,10 @@ steps:
     python run_pylint.py --fail-under=9.75 -f msvs meeshkan
   displayName: 'Test with pylint'
 
+- script: |
+    mypy --ignore-missing-imports meeshkan
+  displayName: 'Static type checking'
+
 - task: PublishTestResults@2
   inputs:
     testResultsFiles: '**/test-*.xml'
