@@ -80,7 +80,7 @@ class Scheduler(object):
                 notify_method(notifier)
                 self._notification_status[job.id] = "Success"
             except Exception as e:
-                LOGGER.exception(f"Notifier {notifier.__class__.__name__} failed: {e}")
+                LOGGER.exception("Notifier %s failed", notifier.__class__.__name__)
                 self._notification_status[job.id] = "Failed"
                 status = False
         return status
@@ -109,7 +109,8 @@ class Scheduler(object):
         output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
         executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
         self._njobs += 1
-        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=name or f"Job #{job_number}")
+        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid,
+                                name=name or "Job #{job_number}".format(job_number=job_number))
 
     def submit_job(self, job: meeshkan.job.Job):
         job.status = meeshkan.job.JobStatus.QUEUED

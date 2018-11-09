@@ -35,7 +35,8 @@ class CloudClient:
         self.close()
 
     def _post(self, payload: Payload, token: meeshkan.oauth.Token) -> requests.Response:
-        headers = {'Authorization': f"Bearer {token}"}
+        headers = {'Authorization': "Bearer {token}".format(token=token)}
+
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
     def post_payload(self, payload: Payload) -> requests.Response:
@@ -55,7 +56,7 @@ class CloudClient:
                 raise meeshkan.exceptions.UnauthorizedRequestException()
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
-            raise RuntimeError(f"Post failed with status code {res.status_code}")
+            raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
         LOGGER.debug("Got server response: %s", res.text)
         return res
 

@@ -25,7 +25,7 @@ def ensure_base_dirs():
     def create_dir_if_not_exist(path: Path):
         if not path.is_dir():
             # Print instead of logging as loggers may not have been configured yet
-            print(f"Creating directory {path}")
+            print("Creating directory {path}".format(path=path))
             path.mkdir()
 
     create_dir_if_not_exist(BASE_DIR)
@@ -41,9 +41,9 @@ class Configuration:
 
     @staticmethod
     def from_yaml(path: Path = CONFIG_PATH):
-        LOGGER.debug(f"Reading configuration from %s", path)
+        LOGGER.debug("Reading configuration from %s", path)
         if not path.is_file():
-            raise FileNotFoundError(f"File {path} not found")
+            raise FileNotFoundError("File {path} not found".format(path=path))
         with path.open('r') as file:
             config = yaml.safe_load(file.read())
         return Configuration(auth_url=config['auth']['url'],
@@ -58,9 +58,9 @@ class Credentials:
 
     @staticmethod
     def from_isi(path: Path = CREDENTIALS_FILE):
-        LOGGER.debug(f"Reading credentials from %s", path)
+        LOGGER.debug("Reading credentials from %s", path)
         if not path.is_file():
-            raise FileNotFoundError(f"Create file {path} first.")
+            raise FileNotFoundError("Create file {path} first.".format(path=path))
         conf = configparser.ConfigParser()
         conf.read(str(path))
         return Credentials(client_id=conf['auth']['client_id'],

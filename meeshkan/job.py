@@ -19,6 +19,7 @@ class JobStatus(Enum):
     CANCELED = 4
     FAILED = 5
 
+
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
 SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 return codes as success with message?)
 
@@ -109,7 +110,7 @@ class Job(object):
         self.is_launched = False
         self.status = JobStatus.CREATED
         self.is_processed = False
-        self.name = name or f"Job #{self.number}"
+        self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
 
     def launch_and_wait(self) -> int:
@@ -129,7 +130,7 @@ class Job(object):
                 self.status = JobStatus.FAILED
             return return_code
         except IOError as ex:
-            LOGGER.error(f"Could not execute, is the job executable? Job: {str(self.executable)}")
+            LOGGER.error("Could not execute, is the job executable? Job: %s", str(self.executable))
             self.status = JobStatus.FAILED
             raise ex
         finally:
@@ -139,7 +140,8 @@ class Job(object):
         self.executable.terminate()
 
     def __str__(self):
-        return f"Job: {self.executable}, #{self.number} ({self.id}) - {self.status.name}"
+        return "Job: {executable}, #{number}, ({id}) - {status}".format(
+            executable=self.executable, number=self.number, id=self.id, status=self.status.name)
 
     def mark_stale(self):
         """
