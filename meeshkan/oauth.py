@@ -1,11 +1,9 @@
 from http import HTTPStatus
 import logging
 from typing import Callable, Dict, NewType
-
 import requests
 
 import meeshkan.exceptions
-import meeshkan.cloud
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +15,7 @@ class TokenSource(object):
     Call `.close()` to close the underlying requests Session!
     """
     def __init__(self, auth_url: str, client_id: str, client_secret: str, session: requests.Session):
-        self._auth_url = auth_url
+        self._auth_url = "https://{url}/oauth/token".format(url=auth_url)
         self._client_id = client_id
         self._client_secret = client_secret
         self._session = session
@@ -36,7 +34,7 @@ class TokenSource(object):
 
     def _fetch_token(self) -> Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
-        resp = self._session.post("https://{url}/oauth/token".format(url=self._auth_url), data=self._payload, timeout=5)
+        resp = self._session.post(self._auth_url, data=self._payload, timeout=5)
 
         if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()
@@ -57,4 +55,3 @@ class TokenSource(object):
     def close(self):
         LOGGER.debug("Closing TokenSource session.")
         self._session.close()
-

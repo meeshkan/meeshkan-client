@@ -43,7 +43,7 @@ def __build_cloud_client(config: meeshkan.config.Configuration,
 
     cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
                                                                           token_source=token_source,
-                                                                          build_session=__build_session)
+                                                                          session=requests.Session())
     return cloud_client
 
 
@@ -203,39 +203,29 @@ def sorry():
     Sorry for any inconvinence!
     """
     config, credentials = __get_auth()
-    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
-    meeshkan.logger.remove_non_file_handlers()
-
-    payload: meeshkan.cloud.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
-    res = cloud_client.post_payload(payload)
-    if not res.ok:
-        print("Failed to get upload link from server.")
-        token_source.close()
-        sys.exit(1)
-
-    fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
-    fname = os.path.abspath("{}.tar.gz".format(fname))
-    with tarfile.open(fname, mode='w:gz') as tar:
-        for handler in logging.root.handlers:  # Collect logging files
-            try:
-                tar.add(handler.baseFilename)
-            except AttributeError:
-                continue
-    res = res.json()['data']['logUploadLink']  # Parse response
-    upload_url = res['upload']
-    upload_method = res['uploadMethod']
-    # Convert list of headers to dictionary of headers
-    upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
-    res = requests.request(upload_method, upload_url, headers=upload_headers, files={'': open(fname, 'rb')})
-    token_source.close()
-    cloud_client.close()
-    os.remove(fname)
-    if res.ok:
-        print("Logs uploaded successfully.")
-    else:
-        print("Upload to server failed!")
-        sys.exit(1)
-
+    status = 0
+    with __build_cloud_client(config, credentials) as cloud_client:
+        meeshkan.logger.remove_non_file_handlers()
+        payload: meeshkan.cloud.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+        # Collect log files to compressed tar
+        fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
+        fname = os.path.abspath("{}.tar.gz".format(fname))
+        with tarfile.open(fname, mode='w:gz') as tar:
+            for handler in logging.root.handlers:
+                try:
+                    tar.add(handler.baseFilename)
+                except AttributeError:
+                    continue
+        try:
+            cloud_client.post_payload_with_file(payload, fname)
+            print("Logs uploaded to server succesfully.")
+        except:
+            LOGGER.exception("Failed uploadings logs to server.")
+            print("Failed uploading logs to server.")
+            status = 1
+        finally:
+            os.remove(fname)
+    sys.exit(status)
 
 @cli.command()
 def clear():
