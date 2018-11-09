@@ -104,21 +104,29 @@ def test_notifiers():
     future, resolve = get_future_and_resolve(value=True)
 
     finished_jobs = []
+    notified_jobs = []
     started_jobs = []
 
     class MockNotifier(Notifier):
-        def notifyJobStart(self, job0: meeshkan.job.Job):
-            started_jobs.append({'job': job0})
-        def notifyJobEnd(self, job0: meeshkan.job.Job):
-            finished_jobs.append({'job': job0})
+
+        def notify_job_start(self, job: meeshkan.job.Job):
+            started_jobs.append({'job': job})
+
+        def notify_job_end(self, job: meeshkan.job.Job):
+            finished_jobs.append({'job': job})
+
+        def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
+            notified_jobs.append({'job': job})
 
     with get_scheduler() as scheduler:
-        job = get_job(executable=get_executable(target=resolve))
+        job_to_submit = get_job(executable=get_executable(target=resolve))
         scheduler.register_listener(MockNotifier())
-        scheduler.submit_job(job)
+        scheduler.submit_job(job_to_submit)
         wait([future], timeout=5)
+        assert len(started_jobs) == 1
+        assert len(notified_jobs) == 0  # Not used atm
         assert len(finished_jobs) == 1
-        assert finished_jobs[0]['job'] is job
+        assert finished_jobs[0]['job'] is job_to_submit
 
 
 def test_terminating_job():

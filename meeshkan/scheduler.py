@@ -12,22 +12,22 @@ LOGGER = logging.getLogger(__name__)
 
 
 # Worker thread reading from queue and waiting for processes to finish
-def read_queue(q: queue.Queue, do_work, stop_event: threading.Event) -> None:
+def read_queue(queue_: queue.Queue, do_work, stop_event: threading.Event) -> None:
     """
     Read and handle tasks from queue `q` until (1) queue item is None or (2) stop_event is set. Note that
     the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
     to check loop condition.
-    :param q: Synchronized queue
+    :param queue_: Synchronized queue
     :param do_work: Callback called with queue item as argument
     :param stop_event: Threading event signaling stop
     :return:
     """
     while not stop_event.is_set():
-        item = q.get(block=True)
+        item = queue_.get(block=True)
         if item is None or stop_event.is_set():
             break
         do_work(item)
-        q.task_done()
+        queue_.task_done()
 
 
 class Scheduler(object):
@@ -35,7 +35,7 @@ class Scheduler(object):
         self.submitted_jobs = []
         self._task_queue = queue.Queue()
         self._stop_thread_event = threading.Event()
-        kwargs = {'q': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
+        kwargs = {'queue_': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
         self._queue_reader = threading.Thread(target=read_queue, kwargs=kwargs)
         self._listeners: List[meeshkan.notifiers.Notifier] = []
         self._njobs = 0
@@ -43,7 +43,7 @@ class Scheduler(object):
         self._running_job = None
         self._notification_status = dict()
 
-    ### Properties and Python magic
+    # Properties and Python magic
 
     @property
     def jobs(self):  # Needed to access internal list of jobs as object parameters are unexposable, only methods
@@ -56,7 +56,7 @@ class Scheduler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    ### Notifaction related methods
+    # Notifaction related methods
 
     def get_notification_status(self, job_id: str):
         return self._notification_status[job_id]
@@ -68,24 +68,25 @@ class Scheduler(object):
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, message))
 
     def notify_listeners_job_start(self, job: meeshkan.job.Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobStart(job))
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
 
     def notify_listeners_job_end(self, job: meeshkan.job.Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobEnd(job))
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
 
-    def _internal_notifier_loop(self, job: meeshkan.job.Job, notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
+    def _internal_notifier_loop(self, job: meeshkan.job.Job,
+                                notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
         status = True
         for notifier in self._listeners:
             try:
                 notify_method(notifier)
                 self._notification_status[job.id] = "Success"
-            except Exception as e:
+            except Exception:  # pylint: disable=broad-except
                 LOGGER.exception("Notifier %s failed", notifier.__class__.__name__)
                 self._notification_status[job.id] = "Failed"
                 status = False
         return status
 
-    ### Job handling methods
+    # Job handling methods
 
     def _handle_job(self, job: meeshkan.job.Job) -> None:
         LOGGER.debug("Handling job: %s", job)
@@ -97,7 +98,7 @@ class Scheduler(object):
             self._running_job = job
             job.launch_and_wait()
             self._running_job = None
-        except:
+        except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
 
         self.notify_listeners_job_end(job)
@@ -126,7 +127,7 @@ class Scheduler(object):
         job = jobs_with_id[0]
         job.cancel()
 
-    ### Scheduler service methods
+    # Scheduler service methods
 
     def start(self):
         if not self._queue_reader.is_alive():
