@@ -8,6 +8,7 @@ import os
 from typing import Callable, List, Tuple
 import random
 import requests
+import re
 
 import click
 import Pyro4

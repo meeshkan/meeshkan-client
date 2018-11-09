@@ -34,10 +34,9 @@ def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bo
         return config
 
     config = prepare_filenames(config_orig)
-    if silent:
-        handler_list = [x for x in config['root']['handlers'] if 'console' not in x]
-        config['root']['handlers'] = handler_list
     logging.config.dictConfig(config)
+    if silent:
+        remove_non_file_handlers()
 
 
 def remove_non_file_handlers():

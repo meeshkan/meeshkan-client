@@ -38,7 +38,7 @@ class CloudClient:
         headers = {'Authorization': f"Bearer {token}"}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
-    def post_payload(self, payload: Payload) -> None:
+    def post_payload(self, payload: Payload) -> requests.Response:
         """
         Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry (once).
         :param payload:
@@ -57,6 +57,7 @@ class CloudClient:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError(f"Post failed with status code {res.status_code}")
         LOGGER.debug("Got server response: %s", res.text)
+        return res
 
     def notify_service_start(self):
         """Build GraphQL query payload and send to server when service is started
