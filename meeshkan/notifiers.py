@@ -31,7 +31,7 @@ class Notifier(object):
 
 
 class LoggingNotifier(Notifier):
-    def __init__(self):
+    def __init__(self):  # pylint: disable=useless-super-delegation
         super().__init__()
 
     def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
@@ -73,10 +73,11 @@ class CloudNotifier(Notifier):
         Schema of job_input MUST match with the server schema
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :param job:
-        :param message: Meesage to include in the JobInput; otherwise uses job.status
+        :param message: Does not do anything
         :return:
         """
-        mutation = "mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!) { notifyJobScalarChangesWithImage(input: $in) }"
+        mutation = ("mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!)",
+                    "{ notifyJobScalarChangesWithImage(input: $in) }")
         job_input = {"id": str(job.id),
                      "name": job.name,
                      "number": job.number,

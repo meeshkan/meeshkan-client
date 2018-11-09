@@ -44,7 +44,8 @@ class TokenSource(object):
         if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()
             return resp_dict['access_token']
-        elif resp.status_code == HTTPStatus.UNAUTHORIZED:
+
+        if resp.status_code == HTTPStatus.UNAUTHORIZED:
             raise meeshkan.exceptions.UnauthorizedRequestException()
         else:
             LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
