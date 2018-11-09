@@ -8,7 +8,7 @@ meeshkan [help]
 ```
 
 ## OAuth
-Create a file `.meeshkan/credentials` with the following format:
+Create a file `.meeshkan/credentials` in your home directory with the following format:
 ```ini
 [auth]
 client_id=...
