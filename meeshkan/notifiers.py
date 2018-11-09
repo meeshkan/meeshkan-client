@@ -87,4 +87,4 @@ class CloudNotifier(Notifier):
     def _post(self, mutation, variables):
         payload = meeshkan.cloud.Payload({"query": mutation, "variables": variables})
         self._post_payload(payload)
-        LOGGER.info(f"Posted successfully: %s", variables)
+        LOGGER.info("Posted successfully: %s", variables)

@@ -156,9 +156,9 @@ def daemon_status():
     service = meeshkan.service.Service()
     is_running = service.is_running()
     status = "up and running" if is_running else "configured to run"
-    print(f"Service is {status} on {service.host}:{service.port}")
+    print("Service is {status} on {host}:{port}".format(status=status, host=service.host, port=service.port))
     if is_running:
-        print(f"URI for Daemon is {service.uri}")
+        print("URI for Daemon is {uri}".format(uri=service.uri))
 
 
 @cli.command()
@@ -169,9 +169,10 @@ def submit(job, name):
     if not job:
         print("CLI error: Specify job.")
         return
+
     api: meeshkan.api.Api = __get_api()
     job = api.submit(job, name)
-    print(f"Job {job.number} submitted successfully with ID {job.id}.")
+    print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
 
 @cli.command()
