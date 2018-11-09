@@ -219,13 +219,14 @@ def sorry():
     Sorry for any inconvinence!
     """
     config, credentials = __get_auth()
-    cloud_client, _ = __build_cloud_client_token_source(config, credentials)
+    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
     meeshkan.logger.remove_non_file_handlers()
 
     payload: meeshkan.cloud.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
     res = cloud_client.post_payload(payload)
     if not res.ok:
         print("Failed to get upload link from server.")
+        token_source.close()
         sys.exit(1)
 
     fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
@@ -242,6 +243,8 @@ def sorry():
     # Convert list of headers to dictionary of headers
     upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
     res = requests.request(upload_method, upload_url, headers=upload_headers, files={'': open(fname, 'rb')})
+    token_source.close()
+    cloud_client.close()
     os.remove(fname)
     if res.ok:
         print("Logs uploaded successfully.")
