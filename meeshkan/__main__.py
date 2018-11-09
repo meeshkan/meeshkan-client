@@ -219,7 +219,7 @@ def sorry():
     Sorry for any inconvinence!
     """
     config, credentials = __get_auth()
-    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
+    cloud_client, _ = __build_cloud_client_token_source(config, credentials)
     meeshkan.logger.remove_non_file_handlers()
 
     payload: meeshkan.cloud.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
