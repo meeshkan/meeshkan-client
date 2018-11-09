@@ -4,7 +4,7 @@ from typing import Callable, Dict, NewType
 
 import requests
 
-import client.exceptions
+import meeshkan.exceptions
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class TokenSource(object):
             resp_dict = resp.json()
             return resp_dict['access_token']
         elif resp.status_code == HTTPStatus.UNAUTHORIZED:
-            raise client.exceptions.UnauthorizedRequestException()
+            raise meeshkan.exceptions.UnauthorizedRequestException()
         else:
             LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
             raise RuntimeError("Failed requesting authentication.")

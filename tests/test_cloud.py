@@ -3,9 +3,9 @@ from unittest import mock
 
 import pytest
 
-from client.cloud import Payload, CloudClient
-from client.oauth import TokenStore
-from client.exceptions import UnauthorizedRequestException
+from meeshkan.cloud import Payload, CloudClient
+from meeshkan.oauth import TokenStore
+from meeshkan.exceptions import UnauthorizedRequestException
 from .utils import MockResponse
 
 

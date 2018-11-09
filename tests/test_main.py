@@ -2,14 +2,15 @@ import re
 from unittest import mock
 import time
 import uuid
+import subprocess
 
 import pytest
 from click.testing import CliRunner
 
-import client.__main__ as main
-import client.config
-import client.exceptions
-import client.service
+import meeshkan.__main__ as main
+import meeshkan.config
+import meeshkan.exceptions
+import meeshkan.service
 
 CLI_RUNNER = CliRunner()
 
@@ -26,12 +27,18 @@ def stop():
     yield stop_service()
     stop_service()
 
+def test_version_break(stop):
+    original_version = meeshkan.__version__
+    meeshkan.__version__ = '0.0.0'
+    with pytest.raises(meeshkan.exceptions.OldVersionException):
+        CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+    meeshkan.__version__ = original_version
 
 def test_start_stop(stop):  # pylint: disable=unused-argument,redefined-outer-name
-    service = client.service.Service()
+    service = meeshkan.service.Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
@@ -46,15 +53,15 @@ def test_start_stop(stop):  # pylint: disable=unused-argument,redefined-outer-na
 
 
 def test_start_with_401_fails(stop):  # pylint: disable=unused-argument,redefined-outer-name
-    service = client.service.Service()
+    service = meeshkan.service.Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Raise Unauthorized exception when service start notified
         def side_effect(*args, **kwargs):  # pylint: disable=unused-argument
-            raise client.exceptions.UnauthorizedRequestException()
+            raise meeshkan.exceptions.UnauthorizedRequestException()
         mock_cloud_client.return_value.notify_service_start.side_effect = side_effect
-        start_result = run_cli('start')
+        start_result = run_cli('--silent start')
 
     assert start_result.exit_code == 1
     assert start_result.stdout == "Unauthorized. Check your credentials.\n"
@@ -63,10 +70,10 @@ def test_start_with_401_fails(stop):  # pylint: disable=unused-argument,redefine
 
 
 def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-name
-    service = client.service.Service()
+    service = meeshkan.service.Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('client.cloud.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.cloud.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         mock_cloud_client.return_value.post_payload.return_value = None
@@ -99,6 +106,6 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
     assert job_uuid in list_result.stdout
 
     # Check stdout and stderr exist
-    assert client.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
-    assert client.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file()
+    assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
+    assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file()
 

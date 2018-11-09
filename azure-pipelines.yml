@@ -18,7 +18,7 @@ steps:
   displayName: 'Test with pytest'
 
 - script: |
-    pylint -E -f msvs client
+    pylint -E -f msvs meeshkan
   displayName: 'Test with pylint'
 
 - task: PublishTestResults@2
