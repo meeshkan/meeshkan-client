@@ -4,6 +4,7 @@ from typing import Callable, Dict, NewType
 import requests
 
 import meeshkan.exceptions
+import meeshkan.cloud
 
 LOGGER = logging.getLogger(__name__)
 
