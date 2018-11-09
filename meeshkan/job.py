@@ -102,7 +102,8 @@ class Job(object):
         :param job_number: Like PID, used for interacting with the job from the CLI
         """
         self.executable = executable
-        self.id = job_uuid or uuid.uuid4()  # Absolutely unique identifier
+        # Absolutely unique identifier
+        self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
         self.number = job_number  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
         self.stale = False
@@ -129,7 +130,7 @@ class Job(object):
                 self.status = JobStatus.FAILED
             return return_code
         except IOError as ex:
-            LOGGER.error(f"Could not execute, is the job executable? Job: {str(self.executable)}")
+            LOGGER.exception("Could not execute, is the job executable? Job: %s", str(self.executable))
             self.status = JobStatus.FAILED
             raise ex
         finally:

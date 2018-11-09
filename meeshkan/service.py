@@ -38,9 +38,9 @@ class Service(object):
         Assumes the port is either taken by Pyro or is free.
         Offered as an alternative as `is_running2` requires `sudo` on MacOS systems.
         """
-        with Pyro4.Proxy(self.uri) as p:
+        with Pyro4.Proxy(self.uri) as pyro_proxy:
             try:
-                p._pyroBind()
+                pyro_proxy._pyroBind()  # pylint: disable=protected-access
                 return True
             except Pyro4.errors.CommunicationError:
                 return False
@@ -71,9 +71,9 @@ class Service(object):
         if is_running:
             raise RuntimeError(f"Running already at {self.uri}")
         LOGGER.info("Starting service...")
-        p = Process(target=daemonize)
-        p.daemon = True
-        p.start()
+        proc = Process(target=daemonize)
+        proc.daemon = True
+        proc.start()
         time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up
         LOGGER.info("Service started.")
         return self.uri
@@ -81,8 +81,9 @@ class Service(object):
     def stop(self) -> bool:
         if self.is_running():
             self.terminate_daemon.set()  # Flag for requestLoop to terminate
-            with Pyro4.Proxy(self.uri) as p:
-                p._pyroBind()  # triggers checking loopCondition
+            with Pyro4.Proxy(self.uri) as pyro_proxy:
+                # triggers checking loopCondition
+                pyro_proxy._pyroBind()  # pylint: disable=protected-access
             self.terminate_daemon.clear()  # Clear the flag
             return True
         return False
