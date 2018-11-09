@@ -68,10 +68,10 @@ class Scheduler(object):
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, message))
 
     def notify_listeners_job_start(self, job: meeshkan.job.Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobStart(job))
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
 
     def notify_listeners_job_end(self, job: meeshkan.job.Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notifyJobEnd(job))
+        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
 
     def _internal_notifier_loop(self, job: meeshkan.job.Job, notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
         status = True
