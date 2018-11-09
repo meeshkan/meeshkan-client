@@ -110,7 +110,7 @@ class Job(object):
         self.is_launched = False
         self.status = JobStatus.CREATED
         self.is_processed = False
-        self.name = name or f"Job #{self.number}"
+        self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
 
     def launch_and_wait(self) -> int:
@@ -130,7 +130,7 @@ class Job(object):
                 self.status = JobStatus.FAILED
             return return_code
         except IOError as ex:
-            LOGGER.error(f"Could not execute, is the job executable? Job: {str(self.executable)}")
+            LOGGER.error("Could not execute, is the job executable? Job: %s", str(self.executable))
             self.status = JobStatus.FAILED
             raise ex
         finally:
