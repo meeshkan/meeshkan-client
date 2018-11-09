@@ -41,5 +41,5 @@ python setup.py test
 
 ### Running lint
 ```bash
-pylint -f msvs client
+pylint -f msvs meeshkan
 ```
