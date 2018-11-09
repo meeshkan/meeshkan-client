@@ -3,6 +3,7 @@ from unittest import mock
 import time
 import uuid
 import subprocess
+import requests
 
 import pytest
 from click.testing import CliRunner
@@ -109,3 +110,50 @@ def test_start_submit(stop):  # pylint: disable=unused-argument,redefined-outer-
     assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
     assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file()
 
+
+def test_sorry_success(stop):  # pylint: disable=unused-argument,redefined-outer-name
+    with mock.patch('meeshkan.__main__.requests', autospec=True) as mock_main_requests,\
+            mock.patch('meeshkan.cloud.CloudClient', autospec=True) as mock_cloud_client:
+        resp = requests.Response()  # Patch the CloudClient to return a valid answer
+        resp.status_code = 200
+        resp._content = bytes('{"data": {"logUploadLink": {"upload": "http://localhost", "uploadMethod": "PUT", "headers": ["x:a"]}}}', 'utf8')
+        mock_cloud_client.return_value.post_payload.return_value = resp
+
+        mock_main_requests.get = requests.get  # Patch 'requests.get' to be the actual method (for __verify_version)
+        sorry_result = run_cli(args=['sorry'])
+
+    assert sorry_result.exit_code == 0
+    assert sorry_result.stdout == "Logs uploaded successfully.\n"
+
+
+def test_sorry_upload_fail(stop):  # pylint: disable=unused-argument,redefined-outer-name
+    with mock.patch('meeshkan.__main__.requests', autospec=True) as mock_main_requests,\
+            mock.patch('meeshkan.cloud.CloudClient', autospec=True) as mock_cloud_client:
+        resp = requests.Response()  # Patch the CloudClient to return a valid answer
+        resp.status_code = 200
+        resp._content = bytes('{"data": {"logUploadLink": {"upload": "http://localhost", "uploadMethod": "PUT", "headers": ["x:a"]}}}', 'utf8')
+        mock_cloud_client.return_value.post_payload.return_value = resp
+
+        mock_main_requests.get = requests.get  # Patch 'requests.get' to be the actual method (for __verify_version)
+
+        upload_response = requests.Response()
+        upload_response.status_code = 405
+        def blank(*args, **kwargs):
+            return upload_response
+        mock_main_requests.request = blank  # Patch 'requests.request' to return a 405 response
+
+        sorry_result = run_cli(args=['sorry'])
+
+    assert sorry_result.exit_code == 1
+    assert sorry_result.stdout == "Upload to server failed!\n"
+
+
+def test_sorry_connection_fail(stop):  # pylint: disable=unused-argument,redefined-outer-name
+    with mock.patch('meeshkan.cloud.CloudClient', autospec=True) as mock_cloud_client:
+        resp = requests.Response()  # Patch the CloudClient to return a invalid answer
+        resp.status_code = 404
+        mock_cloud_client.return_value.post_payload.return_value = resp
+        sorry_result = run_cli(args=['sorry'])
+
+    assert sorry_result.exit_code == 1
+    assert sorry_result.stdout == "Failed to get upload link from server.\n"
