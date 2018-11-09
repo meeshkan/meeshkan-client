@@ -14,11 +14,11 @@ class Notifier(object):
     def __init__(self):
         pass
 
-    def notifyJobStart(self, job: meeshkan.job.Job) -> None:
+    def notify_job_start(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         pass
 
-    def notifyJobEnd(self, job: meeshkan.job.Job) -> None:
+    def notify_job_end(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         pass
 
@@ -31,17 +31,17 @@ class Notifier(object):
 
 
 class LoggingNotifier(Notifier):
-    def __init__(self):
+    def __init__(self):  # pylint: disable=useless-super-delegation
         super().__init__()
 
     def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
         LOGGER.debug("%s: Notified for job %s\n\t%s", self.__class__.__name__, job, message)
 
-    def notifyJobStart(self, job: meeshkan.job.Job) -> None:
+    def notify_job_start(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         self.notify(job, "Job started")
 
-    def notifyJobEnd(self, job: meeshkan.job.Job) -> None:
+    def notify_job_end(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         self.notify(job, "Job finished")
 
@@ -51,7 +51,7 @@ class CloudNotifier(Notifier):
         super().__init__()
         self._post_payload = post_payload
 
-    def notifyJobStart(self, job: meeshkan.job.Job) -> None:
+    def notify_job_start(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         mutation = "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"
         job_input = {"id": str(job.id),
@@ -61,7 +61,7 @@ class CloudNotifier(Notifier):
                      "description": job.description}
         self._post(mutation, {"in": job_input})
 
-    def notifyJobEnd(self, job: meeshkan.job.Job) -> None:
+    def notify_job_end(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
         job_input = {"id": str(job.id), "name": job.name, "number": job.number}
@@ -73,10 +73,11 @@ class CloudNotifier(Notifier):
         Schema of job_input MUST match with the server schema
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :param job:
-        :param message: Meesage to include in the JobInput; otherwise uses job.status
+        :param message: Does not do anything
         :return:
         """
-        mutation = "mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!) { notifyJobScalarChangesWithImage(input: $in) }"
+        mutation = ("mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!)",
+                    "{ notifyJobScalarChangesWithImage(input: $in) }")
         job_input = {"id": str(job.id),
                      "name": job.name,
                      "number": job.number,

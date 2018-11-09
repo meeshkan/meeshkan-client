@@ -17,7 +17,7 @@ def test_cloud_notifier():
 
     assert posted_payload == {}
     cloud_notifier = CloudNotifier(fake_post)
-    cloud_notifier.notifyJobStart(_get_job())
+    cloud_notifier.notify_job_start(_get_job())
 
     expected_payload_start = {"query": "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"}
     expected_payload_end = {"query": "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"}
@@ -25,7 +25,7 @@ def test_cloud_notifier():
     assert "query" in posted_payload
     assert posted_payload["query"] == expected_payload_start["query"]
 
-    cloud_notifier.notifyJobEnd(_get_job())
+    cloud_notifier.notify_job_end(_get_job())
     assert "query" in posted_payload
     assert posted_payload["query"] == expected_payload_end["query"]
 
