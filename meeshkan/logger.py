@@ -15,7 +15,7 @@ def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bo
     """
 
     if not log_config.is_file():
-        raise RuntimeError(f"Logging file {log_config} not found")
+        raise RuntimeError("Logging file {log_file} not found".format(log_file=log_config))
 
     with log_config.open() as log_file:
         config_orig = yaml.safe_load(log_file.read())

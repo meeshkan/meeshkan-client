@@ -3,8 +3,8 @@ class UnauthorizedRequestException(Exception):
     def __init__(self, message=""):
         super().__init__()
         if message:
-            message = f"\n{message}"
-        self.message = f"Unauthorized. Check your credentials.{message}"
+            message = "\n{message}".format(message=message)
+        self.message = "Unauthorized. Check your credentials.{message}".format(message=message)
 
 
 class OldVersionException(Exception):

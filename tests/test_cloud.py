@@ -78,7 +78,7 @@ def test_post_payloads_unauthorized_retry():
         url = args[0]
         headers = kwargs["headers"]
         assert url == _cloud_url()
-        assert headers['Authorization'] == f"Bearer {mock_calls}"
+        assert headers['Authorization'] == "Bearer {mock_calls}".format(mock_calls=mock_calls)
         return MockResponse(None, 401) if mock_calls == 1 else MockResponse(None, 200)
 
     session = _build_session(side_effect=mocked_requests_post)

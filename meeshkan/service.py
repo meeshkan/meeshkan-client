@@ -47,7 +47,7 @@ class Service(object):
 
     @property
     def uri(self):
-        return f"PYRO:{Service.OBJ_NAME}@{self.host}:{self.port}"
+        return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
 
     # Need single quotes here for type annotation, see
     # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
@@ -69,7 +69,7 @@ class Service(object):
 
         is_running = self.is_running()
         if is_running:
-            raise RuntimeError(f"Running already at {self.uri}")
+            raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
         proc = Process(target=daemonize)
         proc.daemon = True

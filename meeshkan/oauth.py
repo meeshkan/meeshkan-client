@@ -40,7 +40,7 @@ class TokenSource(object):
 
     def fetch_token(self) -> Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
-        resp = self._session.post(f"https://{self._auth_url}/oauth/token", data=self._payload, timeout=5)
+        resp = self._session.post("https://{url}/oauth/token".format(url=self._auth_url), data=self._payload, timeout=5)
         if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()
             return resp_dict['access_token']
