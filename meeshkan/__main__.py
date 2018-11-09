@@ -36,30 +36,19 @@ def __get_api() -> meeshkan.api.Api:
     return api
 
 
-def __build_session():
-    return requests.Session()
-
-
-def __build_cloud_client_token_source(config: meeshkan.config.Configuration,
-                                      credentials: meeshkan.config.Credentials) -> Tuple[meeshkan.cloud.CloudClient,
-                                                                                         meeshkan.oauth.TokenSource]:
+def __build_cloud_client(config: meeshkan.config.Configuration,
+                         credentials: meeshkan.config.Credentials) -> meeshkan.cloud.CloudClient:
     token_source = meeshkan.oauth.TokenSource(auth_url=config.auth_url, client_id=credentials.client_id,
-                                              client_secret=credentials.client_secret, build_session=__build_session)
+                                              client_secret=credentials.client_secret, session=requests.Session())
 
-    fetch_token = token_source.fetch_token
-    token_store = meeshkan.oauth.TokenStore(fetch_token=fetch_token)
     cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
-                                                                          token_store=token_store,
+                                                                          token_source=token_source,
                                                                           build_session=__build_session)
-    return cloud_client, token_source
+    return cloud_client
 
 
-def __notify_service_start(config: meeshkan.config.Configuration,
-                           credentials: meeshkan.config.Credentials):
-
-    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
-
-    with cloud_client, token_source:  # Clean resources
+def __notify_service_start(config: meeshkan.config.Configuration, credentials: meeshkan.config.Credentials):
+    with __build_cloud_client(config, credentials) as cloud_client:  # Clean resources
         cloud_client.notify_service_start()
 
 
@@ -68,22 +57,17 @@ def __build_api(config: meeshkan.config.Configuration,
 
     def build_api(service: meeshkan.service.Service) -> meeshkan.api.Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
+        cloud_client = __build_cloud_client(config, credentials)
 
-        cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
-
-        stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
-
-        cloud_notifier: meeshkan.notifiers.CloudNotifier = meeshkan.notifiers.CloudNotifier(
-            post_payload=cloud_client.post_payload)
-        logging_notifier: meeshkan.notifiers.LoggingNotifier = meeshkan.notifiers.LoggingNotifier()
+        cloud_notifier = meeshkan.notifiers.CloudNotifier(post_payload=cloud_client.post_payload)
+        logging_notifier = meeshkan.notifiers.LoggingNotifier()
 
         scheduler = meeshkan.scheduler.Scheduler()
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
         api = meeshkan.api.Api(scheduler=scheduler, service=service)
-        for stop_callback in stop_callbacks:
-            api.add_stop_callback(stop_callback)
+        api.add_stop_callback(cloud_client.close)
         return api
 
     return build_api
