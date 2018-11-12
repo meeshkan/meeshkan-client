@@ -155,4 +155,8 @@ class Scheduler(object):
         while True:
             counter += 1
             LOGGER.debug('Thread %s, Counter %d', threading.current_thread().name, counter)
-            await asyncio.sleep(5)
+            try:
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                LOGGER.debug("Polling canceled.")
+                raise

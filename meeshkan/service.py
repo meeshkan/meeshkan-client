@@ -72,7 +72,7 @@ class Service(object):
                     polling_coro = api.poll()
                     # Create task from polling coroutine and schedule for execution
                     # Note: Unlike `asyncio.create_task`, `ensure_future` works in Python < 3.7
-                    polling_task = asyncio.ensure_future(polling_coro)  # type: asyncio.Task
+                    polling_task = loop.create_task(polling_coro)  # type: asyncio.Task
 
                     # Run the blocking Pyro daemon request loop in a dedicated thread and stop execution until finished
                     with concurrent.futures.ThreadPoolExecutor() as pool:
