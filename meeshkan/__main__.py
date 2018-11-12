@@ -7,6 +7,7 @@ import tempfile
 import os
 from typing import Callable, List, Tuple
 import random
+import queue
 
 import click
 import Pyro4
@@ -77,7 +78,8 @@ def __build_api(config: meeshkan.config.Configuration,
             post_payload=cloud_client.post_payload)
         logging_notifier: meeshkan.notifiers.LoggingNotifier = meeshkan.notifiers.LoggingNotifier()
 
-        scheduler = meeshkan.scheduler.Scheduler()
+        queue_processor = meeshkan.scheduler.QueueProcessor()
+        scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor)
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 

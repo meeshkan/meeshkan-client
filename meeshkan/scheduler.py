@@ -11,6 +11,49 @@ import meeshkan.notifiers
 LOGGER = logging.getLogger(__name__)
 
 
+class QueueProcessor:
+    """
+    Process items from queue in a new thread.
+    """
+    def __init__(self):
+        self._stop_event = threading.Event()
+        self._queue = None
+        self._thread = None
+
+    def start(self, queue_, process_item):
+        """
+        Read and handle tasks from queue `queue_` until (1) queue item is None or (2) stop_event is set. Note that
+        the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
+        to check loop condition.
+        :param queue_: Synchronized queue
+        :param process_item: Callback called with queue item as argument
+        :return:
+            """
+        self._queue = queue_
+        self._thread = threading.Thread(target=self.process, args=(process_item,))
+        self._thread.start()
+        return self._thread
+
+    def process(self, process_item):
+        while not self._stop_event.is_set():
+            item = self._queue.get(block=True)
+            if item is None or self._stop_event.is_set():
+                break
+            process_item(item)
+            self._queue.task_done()
+
+    def schedule_stop(self):
+        self._stop_event.set()  # Signal exit to worker thread, required as "None" may not be next task
+        self._queue.put(None)  # Signal exit if thread is blocking
+
+    def is_running(self):
+        return self._thread is not None and self._thread.is_alive()
+
+    def wait(self):
+        if self.is_running():
+            self._thread.join()
+
+
 # Worker thread reading from queue and waiting for processes to finish
 def read_queue(queue_: queue.Queue, do_work, stop_event: threading.Event) -> None:
     """
@@ -31,12 +74,10 @@ def read_queue(queue_: queue.Queue, do_work, stop_event: threading.Event) -> Non
 
 
 class Scheduler(object):
-    def __init__(self):
+    def __init__(self, queue_processor: QueueProcessor):
         self.submitted_jobs = []
         self._task_queue = queue.Queue()
-        self._stop_thread_event = threading.Event()
-        kwargs = {'queue_': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
-        self._queue_reader = threading.Thread(target=read_queue, kwargs=kwargs)
+        self._queue_processor = queue_processor
         self._listeners: List[meeshkan.notifiers.Notifier] = []
         self._njobs = 0
         self._is_running = True
@@ -130,17 +171,19 @@ class Scheduler(object):
     # Scheduler service methods
 
     def start(self):
-        if not self._queue_reader.is_alive():
-            self._queue_reader.start()
+        if not self._queue_processor.is_running():
+            LOGGER.debug("Start queue processor")
+            self._queue_processor.start(queue_=self._task_queue, process_item=self._handle_job)
+            LOGGER.debug("Queue processor started")
 
     def stop(self):
         # TODO Terminate the process currently running with --force?
         if self._is_running:
-            self._task_queue.put(None)  # Signal exit if thread is blocking
-            self._stop_thread_event.set()  # Signal exit to worker thread, required as "None" may not be next task
+            self._queue_processor.schedule_stop()
+
             self._is_running = False
             if self._running_job is not None:
                 self._running_job.cancel()
-            if self._queue_reader.ident is not None:
+            if self._queue_processor.is_running():
                 # Wait for the thread to finish
-                self._queue_reader.join()
+                self._queue_processor.wait()
