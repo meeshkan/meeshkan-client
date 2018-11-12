@@ -43,6 +43,8 @@ class QueueProcessor:
             self._queue.task_done()
 
     def schedule_stop(self):
+        if not self.is_running():
+            return
         self._stop_event.set()  # Signal exit to worker thread, required as "None" may not be next task
         self._queue.put(None)  # Signal exit if thread is blocking
 
@@ -52,25 +54,6 @@ class QueueProcessor:
     def wait(self):
         if self.is_running():
             self._thread.join()
-
-
-# Worker thread reading from queue and waiting for processes to finish
-def read_queue(queue_: queue.Queue, do_work, stop_event: threading.Event) -> None:
-    """
-    Read and handle tasks from queue `q` until (1) queue item is None or (2) stop_event is set. Note that
-    the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
-    to check loop condition.
-    :param queue_: Synchronized queue
-    :param do_work: Callback called with queue item as argument
-    :param stop_event: Threading event signaling stop
-    :return:
-    """
-    while not stop_event.is_set():
-        item = queue_.get(block=True)
-        if item is None or stop_event.is_set():
-            break
-        do_work(item)
-        queue_.task_done()
 
 
 class Scheduler(object):
@@ -180,7 +163,6 @@ class Scheduler(object):
         # TODO Terminate the process currently running with --force?
         if self._is_running:
             self._queue_processor.schedule_stop()
-
             self._is_running = False
             if self._running_job is not None:
                 self._running_job.cancel()
