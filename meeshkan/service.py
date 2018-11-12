@@ -1,3 +1,6 @@
+import asyncio
+import concurrent.futures
+from functools import partial
 import logging
 from multiprocessing import Process, Event  # For daemon initialization
 import os
@@ -62,7 +65,26 @@ class Service(object):
             os.setsid()  # Separate from tty
             with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
                 daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
-                daemon.requestLoop(lambda: not self.terminate_daemon.is_set())  # Loop until the event is set
+
+                async def start_daemon_and_polling_loops():
+                    loop_ = asyncio.get_event_loop()
+
+                    polling_coro = api.poll()
+                    # Create task from polling coroutine and schedule for execution
+                    # Note: Unlike `asyncio.create_task`, `ensure_future` works in Python < 3.7
+                    polling_task = asyncio.ensure_future(polling_coro)
+
+                    # Run the blocking Pyro daemon request loop in a dedicated thread and stop execution until finished
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        loop_daemon_until_event_set = partial(daemon.requestLoop,
+                                                              lambda: not self.terminate_daemon.is_set())
+                        await loop_.run_in_executor(pool, loop_daemon_until_event_set)
+
+                    polling_task.cancel()
+
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(start_daemon_and_polling_loops())  # Stop execution here until finished
+                LOGGER.debug("Exiting service.")
                 time.sleep(0.2)  # Allows data scraping
 
             return

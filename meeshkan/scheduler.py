@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import queue
 import threading
@@ -144,3 +145,14 @@ class Scheduler(object):
             if self._queue_reader.ident is not None:
                 # Wait for the thread to finish
                 self._queue_reader.join()
+
+    async def poll(self):
+        """
+        Polling for tasks. Does NOT block the calling thread's event loop.
+        :return:
+        """
+        counter = 0
+        while True:
+            counter += 1
+            LOGGER.debug('Thread %s, Counter %d', threading.current_thread().name, counter)
+            await asyncio.sleep(5)
