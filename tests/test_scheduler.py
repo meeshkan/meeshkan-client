@@ -2,7 +2,7 @@ import time
 from concurrent.futures import Future, wait
 
 import meeshkan
-from meeshkan.scheduler import Scheduler
+from meeshkan.scheduler import Scheduler, QueueProcessor
 from meeshkan.job import Job, JobStatus, Executable
 from meeshkan.notifiers import Notifier
 
@@ -38,7 +38,8 @@ class FutureWaitingExecutable(Executable):
 
 
 def get_scheduler():
-    scheduler = Scheduler()
+    queue_processor = QueueProcessor()
+    scheduler = Scheduler(queue_processor=queue_processor)
     return scheduler
 
 
@@ -93,10 +94,8 @@ def test_scheduling():
     with get_scheduler() as scheduler:
         job = get_job(executable=get_executable(target=resolve), job_number=0)
         scheduler.submit_job(job)
-        results = wait([future], timeout=5)
-        assert len(results.done) == 1
-        for result in results.done:
-            assert result.result() is resolve_value
+        result = future.result(timeout=5)
+        assert result is resolve_value
         assert job.status == JobStatus.FINISHED
 
 
@@ -122,7 +121,7 @@ def test_notifiers():
         job_to_submit = get_job(executable=get_executable(target=resolve))
         scheduler.register_listener(MockNotifier())
         scheduler.submit_job(job_to_submit)
-        wait([future], timeout=5)
+        future.result()
         assert len(started_jobs) == 1
         assert len(notified_jobs) == 0  # Not used atm
         assert len(finished_jobs) == 1
