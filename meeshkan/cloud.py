@@ -11,8 +11,6 @@ import meeshkan.exceptions
 
 LOGGER = logging.getLogger(__name__)
 
-Payload = NewType('Payload', Dict[str, str])
-
 
 class CloudClient:
     """Use for posting payloads to given URL, authenticating with token from token_source.
@@ -35,11 +33,11 @@ class CloudClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _post(self, payload: Payload, token: meeshkan.oauth.Token) -> requests.Response:
+    def _post(self, payload: meeshkan.Payload, token: meeshkan.Token) -> requests.Response:
         headers = {"Authorization": "Bearer {token}".format(token=token)}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
-    def _post_payload(self, payload: Payload, retries: int = 2, delay: float = 0.2) -> requests.Response:
+    def _post_payload(self, payload: meeshkan.Payload, retries: int = 2, delay: float = 0.2) -> requests.Response:
         """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
 
         :param payload:
@@ -67,10 +65,10 @@ class CloudClient:
         LOGGER.debug("Got server response: %s", res.text)
         return res
 
-    def post_payload(self, payload: Payload) -> None:
+    def post_payload(self, payload: meeshkan.Payload) -> None:
         self._post_payload(payload, delay=0)
 
-    def post_payload_with_file(self, payload: Payload, file: Union[str, Path]) -> Optional[str]:
+    def post_payload_with_file(self, payload: meeshkan.Payload, file: Union[str, Path]) -> Optional[str]:
         """Post payload to `cloud_url`, followed by a file upload based on the returned values. All without retry.
 
         Handles schema-negotiation according to
@@ -108,7 +106,7 @@ class CloudClient:
         """
         mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
         input_dict = {"version": meeshkan.__version__}
-        payload: Payload = {"query": mutation, "variables": {"in": input_dict}}
+        payload: meeshkan.Payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 
     def close(self):

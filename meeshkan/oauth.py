@@ -1,25 +1,23 @@
 from http import HTTPStatus
 import logging
-from typing import Callable, Dict, NewType
+from typing import Callable, Dict
 import requests
 
+import meeshkan
 import meeshkan.exceptions
-import meeshkan.cloud
 
 LOGGER = logging.getLogger(__name__)
-
-Token = NewType("Token", str)
 
 class TokenStore(object):
     """
     Fetches and caches access authentication tokens via `_fetch_token` method.
     Call `.close()` to close the underlying requests Session!
     """
-    def __init__(self, auth_url: str, client_id: str, client_secret: str, session: requests.Session):
+    def __init__(self, auth_url: str, client_id: str, client_secret: str, build_session: Callable[[], requests.Session] = requests.Session):
         self._auth_url = "https://{url}/oauth/token".format(url=auth_url)
         self._client_id = client_id
         self._client_secret = client_secret
-        self._session = session
+        self._session = build_session()
         self._token = None
 
     def __enter__(self):
@@ -29,11 +27,13 @@ class TokenStore(object):
         self.close()
 
     @property
-    def _payload(self) -> Dict[str, str]:
-        return dict(client_id=self._client_id, client_secret=self._client_secret, audience="https://api.meeshkan.io",
-                    grant_type="client_credentials")
+    def _payload(self) -> meeshkan.Payload: # <--   AttributeError: module 'meeshkan' has no attribute 'cloud'?
+        return meeshkan.Payload({'client_id': self._client_id,
+                        'client_secret': self._client_secret,
+                        'audience': "https://api.meeshkan.io",
+                        'grant_type': "client_credentials"})
 
-    def _fetch_token(self) -> Token:
+    def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
         resp = self._session.post(self._auth_url, data=self._payload, timeout=5)
 
@@ -47,7 +47,7 @@ class TokenStore(object):
         LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
         raise RuntimeError("Failed requesting authentication.")
 
-    def get_token(self, refresh=False) -> Token:
+    def get_token(self, refresh=False) -> meeshkan.Token:
         if refresh or self._token is None:
             LOGGER.info("Retrieving new authentication token")
             self._token = self._fetch_token()
