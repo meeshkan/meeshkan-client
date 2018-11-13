@@ -77,7 +77,9 @@ def __build_api(config: meeshkan.config.Configuration,
             post_payload=cloud_client.post_payload)
         logging_notifier: meeshkan.notifiers.LoggingNotifier = meeshkan.notifiers.LoggingNotifier()
 
-        scheduler = meeshkan.scheduler.Scheduler()
+        task_source = meeshkan.tasks.TaskSource()
+        task_poller = meeshkan.tasks.TaskPoller(task_source)
+        scheduler = meeshkan.scheduler.Scheduler(task_poller)
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
@@ -137,7 +139,7 @@ def start():
         sys.exit(1)
     config, credentials = __get_auth()
     try:
-        __notify_service_start(config, credentials)
+        # __notify_service_start(config, credentials)
         pyro_uri = service.start(build_api=__build_api(config, credentials))
         print('Service started.')
         return pyro_uri

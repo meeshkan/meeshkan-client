@@ -24,9 +24,6 @@ class Api(object):
         return self
 
     async def poll(self):
-        """
-        Asynchronous polling loop. Must NOT block!
-        """
         await self.scheduler.poll()
 
     def __exit__(self, exc_type, exc_val, exc_tb):

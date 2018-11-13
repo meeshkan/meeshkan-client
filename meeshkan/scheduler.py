@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import queue
 import threading
@@ -7,6 +6,7 @@ import uuid
 
 import meeshkan.job  # Defines scheduler jobs
 import meeshkan.notifiers
+import meeshkan.tasks
 
 
 LOGGER = logging.getLogger(__name__)
@@ -32,7 +32,8 @@ def read_queue(queue_: queue.Queue, do_work, stop_event: threading.Event) -> Non
 
 
 class Scheduler(object):
-    def __init__(self):
+    def __init__(self, task_poller: meeshkan.tasks.TaskPoller):
+        self._task_poller = task_poller
         self.submitted_jobs = []
         self._task_queue = queue.Queue()
         self._stop_thread_event = threading.Event()
@@ -146,17 +147,11 @@ class Scheduler(object):
                 # Wait for the thread to finish
                 self._queue_reader.join()
 
+    async def _handle_task(self, item):
+        LOGGER.debug("Got task %s", item)  # TODO Do something with the item
+
     async def poll(self):
         """
-        Polling for tasks. Does NOT block the calling thread's event loop.
-        :return:
+        Asynchronous polling loop. Must NOT block the event loop with long-running computations!
         """
-        counter = 0
-        while True:
-            counter += 1
-            LOGGER.debug('Thread %s, Counter %d', threading.current_thread().name, counter)
-            try:
-                await asyncio.sleep(5)
-            except asyncio.CancelledError:
-                LOGGER.debug("Polling canceled.")
-                raise
+        await self._task_poller.poll(handle_task=self._handle_task)
