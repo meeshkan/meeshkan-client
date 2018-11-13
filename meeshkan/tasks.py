@@ -46,10 +46,12 @@ class TaskPoller:
     def __init__(self, task_source):
         self._task_source = task_source
 
-    async def poll(self, handle_task):
+    async def poll(self, handle_task, delay=5):
         """
         Polling for tasks.
         :param handle_task: Async task handler. Must NOT block the event loop.
+        :param delay: Time in seconds to wait between requesting new tasks. Should be reasonably long to avoid
+        bombarding the server.
         :return:
         """
         counter = 0
@@ -61,7 +63,7 @@ class TaskPoller:
                     tasks = await self._task_source.pop_tasks()
                     for task in tasks:
                         await handle_task(task)
-                    await asyncio.sleep(0.5)  # TODO Should be longer to avoid bombarding the server
+                    await asyncio.sleep(delay)
         except asyncio.CancelledError:
             LOGGER.debug("Polling canceled.")
             raise
