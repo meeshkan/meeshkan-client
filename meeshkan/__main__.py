@@ -139,7 +139,7 @@ def start():
         sys.exit(1)
     config, credentials = __get_auth()
     try:
-        # __notify_service_start(config, credentials)
+        __notify_service_start(config, credentials)
         pyro_uri = service.start(build_api=__build_api(config, credentials))
         print('Service started.')
         return pyro_uri
