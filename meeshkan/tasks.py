@@ -12,7 +12,9 @@ LOGGER = logging.getLogger(__name__)
 
 class TaskSource:
     """
-    Asynchronous task source. Creates a Session with `build_session` when started, should be closed after done.
+    Asynchronous task source. Usage as context manager:
+    with task_source:                          # Builds session
+        tasks = await task_source.pop_tasks()  # Closes session when exiting
     """
     def __init__(self, build_session: Callable[[], requests.Session] = requests.Session):
         self._build_session = build_session
