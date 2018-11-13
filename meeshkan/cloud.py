@@ -22,10 +22,10 @@ class CloudClient:
     :raises Unauthorized: if server returns 401
     :raises RuntimeError: If server returns code other than 200 or 401
     """
-    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore, session: requests.Session):
+    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore, build_session: Callable[[], requests.Session] = requests.Session):
         self._cloud_url = cloud_url
         self._token_store = token_store
-        self._session = session
+        self._session = build_session()
 
     def __enter__(self):
         return self
@@ -37,7 +37,7 @@ class CloudClient:
         headers = {"Authorization": "Bearer {token}".format(token=token)}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
-    def _post_payload(self, payload: meeshkan.Payload, retries: int = 2, delay: float = 0.2) -> requests.Response:
+    def _post_payload(self, payload: meeshkan.Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
         """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
 
         :param payload:

@@ -39,11 +39,10 @@ def __get_api() -> meeshkan.api.Api:
 def __build_cloud_client(config: meeshkan.config.Configuration,
                          credentials: meeshkan.config.Credentials) -> meeshkan.cloud.CloudClient:
     token_store = meeshkan.oauth.TokenStore(auth_url=config.auth_url, client_id=credentials.client_id,
-                                             client_secret=credentials.client_secret, session=requests.Session())
+                                             client_secret=credentials.client_secret)
 
     cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
-                                                                          token_store=token_store,
-                                                                          session=requests.Session())
+                                                                          token_store=token_store)
     return cloud_client
 
 
@@ -206,7 +205,7 @@ def sorry():
     status = 0
     with __build_cloud_client(config, credentials) as cloud_client:
         meeshkan.logger.remove_non_file_handlers()
-        payload: meeshkan.cloud.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+        payload: meeshkan.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
         # Collect log files to compressed tar
         fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
         fname = os.path.abspath("{}.tar.gz".format(fname))
