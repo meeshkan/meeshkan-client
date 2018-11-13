@@ -26,7 +26,7 @@ class Api(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def submit(self, args: Tuple[str], name=None):
+    def submit(self, args: Tuple[str, ...], name=None):
         job = self.scheduler.create_job(args, name)
         self.scheduler.submit_job(job)
         return job
