@@ -1,5 +1,6 @@
 import time
 from concurrent.futures import Future, wait
+import queue
 
 import meeshkan
 from meeshkan.scheduler import Scheduler, QueueProcessor
@@ -172,3 +173,45 @@ def test_stopping_scheduler():
         # Exit scheduler, should not block as `job.cancel()` is called
     assert job.is_launched
     assert job.status == JobStatus.CANCELED
+
+
+def test_queue_processor_shutsdown_cleanly():
+    task_queue = queue.Queue()
+    queue_processor = QueueProcessor()
+
+    def process_item(item):
+        return None
+
+    queue_processor.start(queue_=task_queue, process_item=process_item)
+    assert queue_processor.is_running()
+    queue_processor.schedule_stop()
+    queue_processor.wait_stop()
+    assert not queue_processor.is_running()
+
+
+def test_queue_processor_processes_jobs():
+    # Fill task queue
+    task_queue = queue.Queue()
+    test_string_1 = "Just testing"
+    test_string_2 = "Here also"
+    task_queue.put(test_string_1)
+    task_queue.put(test_string_2)
+
+    # Define handler that puts items to `handled_queue`
+    handled_queue = queue.Queue()
+
+    def process_item(item):
+        handled_queue.put(item)
+
+    # Start processing
+    queue_processor = QueueProcessor()
+    try:
+        queue_processor.start(queue_=task_queue, process_item=process_item)
+        item = handled_queue.get(block=True)
+        assert item == test_string_1
+        item2 = handled_queue.get(block=True)
+        assert item2 == test_string_2
+        assert task_queue.empty()
+    finally:
+        queue_processor.schedule_stop()
+        queue_processor.wait_stop()
