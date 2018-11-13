@@ -71,10 +71,11 @@ class Service(object):
 
                     polling_coro = api.poll()
                     # Create task from polling coroutine and schedule for execution
-                    # Note: Unlike `asyncio.create_task`, `ensure_future` works in Python < 3.7
+                    # Note: Unlike `asyncio.create_task`, `loop.create_task` works in Python < 3.7
                     polling_task = loop.create_task(polling_coro)  # type: asyncio.Task
 
-                    # Run the blocking Pyro daemon request loop in a dedicated thread and stop execution until finished
+                    # Run the blocking Pyro daemon request loop in a dedicated thread and `await` until finished
+                    # (`terminate_daemon` event set)
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         try:
                             loop_daemon_until_event_set = partial(daemon.requestLoop,
@@ -85,14 +86,13 @@ class Service(object):
                             polling_task.cancel()
 
                 loop = asyncio.get_event_loop()
-                loop.run_until_complete(start_daemon_and_polling_loops())  # Stop execution here until finished
+                loop.run_until_complete(start_daemon_and_polling_loops())  # Run event loop until request loops finished
                 LOGGER.debug("Exiting service.")
                 time.sleep(0.2)  # Allows data scraping
 
             return
 
-        is_running = self.is_running()
-        if is_running:
+        if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
         proc = Process(target=daemonize)
