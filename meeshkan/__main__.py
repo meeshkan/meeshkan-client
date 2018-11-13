@@ -38,11 +38,11 @@ def __get_api() -> meeshkan.api.Api:
 
 def __build_cloud_client(config: meeshkan.config.Configuration,
                          credentials: meeshkan.config.Credentials) -> meeshkan.cloud.CloudClient:
-    token_source = meeshkan.oauth.TokenSource(auth_url=config.auth_url, client_id=credentials.client_id,
-                                              client_secret=credentials.client_secret, session=requests.Session())
+    token_store = meeshkan.oauth.TokenStore(auth_url=config.auth_url, client_id=credentials.client_id,
+                                             client_secret=credentials.client_secret, session=requests.Session())
 
     cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
-                                                                          token_source=token_source,
+                                                                          token_store=token_store,
                                                                           session=requests.Session())
     return cloud_client
 

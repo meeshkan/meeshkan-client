@@ -24,9 +24,9 @@ class CloudClient:
     :raises Unauthorized: if server returns 401
     :raises RuntimeError: If server returns code other than 200 or 401
     """
-    def __init__(self, cloud_url: str, token_source: meeshkan.oauth.TokenSource, session: requests.Session):
+    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore, session: requests.Session):
         self._cloud_url = cloud_url
-        self._token_source = token_source
+        self._token_store = token_store
         self._session = session
 
     def __enter__(self):
@@ -50,14 +50,14 @@ class CloudClient:
         :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
-        res = self._post(payload, self._token_source.get_token())
+        res = self._post(payload, self._token_store.get_token())
         retries = 1 if retries < 1 else retries  # At least once
         for _ in range(retries):
             if res.status_code != HTTPStatus.UNAUTHORIZED:  # Authed properly
                 break
             # Unauthorized, try a new token
             time.sleep(delay)  # Wait to not overload the server
-            res = self._post(payload, self._token_source.get_token(refresh=True))
+            res = self._post(payload, self._token_store.get_token(refresh=True))
         if res.status_code == HTTPStatus.UNAUTHORIZED:  # Unauthorized for #retries attempts, raise exception
             LOGGER.error('Cannot post to server: unauthorized')
             raise meeshkan.exceptions.UnauthorizedRequestException()
@@ -114,4 +114,4 @@ class CloudClient:
     def close(self):
         LOGGER.debug("Closing CloudClient session")
         self._session.close()
-        self._token_source.close()
+        self._token_store.close()

@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 import requests
 
-from meeshkan.oauth import TokenStore, TokenSource
+from meeshkan.oauth import TokenStore, TokenStore
 from .utils import MockResponse
 
 
@@ -81,7 +81,7 @@ def test_token_source():
     session.post = mock.MagicMock()
     session.post.side_effect = mocked_requests_post
 
-    with TokenSource(
+    with TokenStore(
          auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret(), build_session=lambda: session)\
             as token_source:
         token = token_source.fetch_token()
@@ -101,7 +101,7 @@ def test_token_source_raises_error_for_non_200():
     session.post.side_effect = mocked_requests_post
 
     with pytest.raises(RuntimeError), \
-        TokenSource(auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret(),
+         TokenStore(auth_url=_auth_url(), client_id=_client_id(), client_secret=_client_secret(),
                     build_session=lambda: session) as token_source:
         token_source.fetch_token()
 

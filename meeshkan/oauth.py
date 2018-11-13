@@ -10,7 +10,7 @@ LOGGER = logging.getLogger(__name__)
 
 Token = NewType("Token", str)
 
-class TokenSource(object):
+class TokenStore(object):
     """
     Fetches and caches access authentication tokens via `_fetch_token` method.
     Call `.close()` to close the underlying requests Session!
