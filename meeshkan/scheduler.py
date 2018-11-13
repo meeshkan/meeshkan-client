@@ -151,7 +151,4 @@ class Scheduler(object):
         LOGGER.debug("Got task %s", item)  # TODO Do something with the item
 
     async def poll(self):
-        """
-        Asynchronous polling loop. Must NOT block the event loop with long-running computations!
-        """
         await self._task_poller.poll(handle_task=self._handle_task)
