@@ -13,7 +13,12 @@ LOGGER = logging.getLogger(__name__)
 
 class QueueProcessor:
     """
-    Process items from queue in a new thread.
+    Process items from queue in a new thread. Usage:
+    1) queue_processor.start(queue_=..., process_item=...)
+    2) queue_processor.schedule_stop()
+    3) queue_processor.wait_stop()
+    The two shutdown steps ensure that the caller can cancel the currently running task between them,
+    ensuring that processor exits without processing new jobs.
     """
     def __init__(self):
         self._stop_event = threading.Event()
@@ -55,8 +60,8 @@ class QueueProcessor:
     def wait_stop(self):
         if self.is_running():
             self._thread.join()
-        self._thread = None
-        self._queue = None
+            self._thread = None
+            self._queue = None
 
 
 class Scheduler(object):

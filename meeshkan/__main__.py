@@ -7,7 +7,6 @@ import tempfile
 import os
 from typing import Callable, List, Tuple
 import random
-import queue
 
 import click
 import Pyro4
