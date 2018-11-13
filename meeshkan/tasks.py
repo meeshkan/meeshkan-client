@@ -36,7 +36,7 @@ class TaskSource:
         self._session = None
 
     async def pop_tasks(self):
-        await asyncio.sleep(5)  # TODO: Query server
+        await asyncio.sleep(0.1)  # TODO: Query server
         return [{'counter': 0}]
 
 
