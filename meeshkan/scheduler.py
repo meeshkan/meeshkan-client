@@ -169,11 +169,11 @@ class Scheduler(object):
             LOGGER.debug("Queue processor started")
 
     def stop(self):
-        # TODO Terminate the process currently running with --force?
         if self._is_running:
             self._queue_processor.schedule_stop()
             self._is_running = False
             if self._running_job is not None:
+                # TODO Add an option to not cancel the currently running job?
                 self._running_job.cancel()
             if self._queue_processor.is_running():
                 # Wait for the thread to finish
