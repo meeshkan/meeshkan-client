@@ -33,5 +33,5 @@ async def test_task_poller_handles_tasks():
         pass  # Should get here as polling was canceled
 
     assert not handled_tasks.empty()
-    # handled_item = handled_tasks.get()
-    # assert handled_item.job_id == fake_task.job_id
+    handled_item = handled_tasks.get()
+    assert handled_item.job_id == fake_task.job_id
