@@ -1,5 +1,5 @@
 """Module to define different types used through Meeshkan codebase"""
-from typing import NewType, Dict
+from typing import NewType, Dict, Any
 
 Token = NewType("Token", str)
-Payload = NewType('Payload', Dict[str, str])
+Payload = Dict[str, Any]

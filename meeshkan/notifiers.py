@@ -86,6 +86,6 @@ class CloudNotifier(Notifier):
         self._post(mutation, {"in": job_input})
 
     def _post(self, mutation, variables):
-        payload = meeshkan.Payload({"query": mutation, "variables": variables})
+        payload = {"query": mutation, "variables": variables}
         self._post_payload(payload)
         LOGGER.info("Posted successfully: %s", variables)

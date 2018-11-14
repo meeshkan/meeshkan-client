@@ -10,8 +10,9 @@ from meeshkan.exceptions import UnauthorizedRequestException
 from .utils import MockResponse
 
 
-_query_payload = meeshkan.Payload({'query': '{ testing }'})
+_query_payload = {'query': '{ testing }'}  # type: meeshkan.Payload
 _cloud_url = 'https://www.our-favorite-url-yay.fi'
+
 
 def _build_session(side_effect):
     session: Any = mock.Mock()
