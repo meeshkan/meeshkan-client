@@ -15,7 +15,7 @@ class TargetExecutable(Executable):
         self._target = target
         self.on_terminate = on_terminate
 
-    def launch_and_wait(self):
+    def wait(self):
         return self._target()
 
     def terminate(self):
@@ -29,7 +29,7 @@ class FutureWaitingExecutable(Executable):
         super().__init__()
         self._future = future
 
-    def launch_and_wait(self):
+    def wait(self):
         results = wait([self._future])
         for result in results.done:
             return result.result()
@@ -160,7 +160,7 @@ def test_canceling_job():
     assert job1.status == JobStatus.FINISHED
 
     assert not job2.is_launched
-    assert job2.status == JobStatus.CANCELED
+    assert job2.status == JobStatus.STALE
 
 
 def test_stopping_scheduler():
