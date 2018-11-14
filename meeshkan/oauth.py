@@ -4,7 +4,6 @@ from typing import Callable, Optional
 import requests
 
 import meeshkan.exceptions
-import meeshkan.__types__
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ class TokenStore(object):
         self._client_id = client_id
         self._client_secret = client_secret
         self._session = build_session()
-        self._token = None  # type: Optional[meeshkan.__types__.Token]
+        self._token = None  # type: Optional[meeshkan.Token]
 
     def __enter__(self):
         return self
