@@ -5,7 +5,7 @@ import tarfile
 import shutil
 import tempfile
 import os
-from typing import Callable
+from typing import Callable, Tuple
 import random
 
 import click

@@ -1,9 +1,10 @@
 from http import HTTPStatus
 import logging
-from typing import Callable
+from typing import Callable, Optional
 import requests
 
 import meeshkan.exceptions
+import meeshkan.__types__
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class TokenStore(object):
         self._client_id = client_id
         self._client_secret = client_secret
         self._session = build_session()
-        self._token = None
+        self._token = None  # type: Optional[meeshkan.__types__.Token]
 
     def __enter__(self):
         return self
@@ -28,7 +29,7 @@ class TokenStore(object):
         self.close()
 
     @property
-    def _payload(self) -> meeshkan.Payload: # <--   AttributeError: module 'meeshkan' has no attribute 'cloud'?
+    def _payload(self) -> meeshkan.Payload:
         return meeshkan.Payload({'client_id': self._client_id,
                                  'client_secret': self._client_secret,
                                  'audience': "https://api.meeshkan.io",
@@ -58,4 +59,3 @@ class TokenStore(object):
     def close(self):
         LOGGER.debug("Closing TokenSource session.")
         self._session.close()
-

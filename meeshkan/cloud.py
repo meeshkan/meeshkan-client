@@ -1,7 +1,7 @@
 from http import HTTPStatus
 import logging
 import time
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 from pathlib import Path
 import requests
 
@@ -93,7 +93,7 @@ class CloudClient:
         :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
-        res = self._post_payload(payload, retries=1)
+        res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
         # Parse response
         res = res.json()['data']
         res = res[list(res)[0]]  # Get the first (and only) element within 'data'
