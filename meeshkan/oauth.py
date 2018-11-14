@@ -1,9 +1,8 @@
 from http import HTTPStatus
 import logging
-from typing import Callable, Dict
+from typing import Callable
 import requests
 
-import meeshkan
 import meeshkan.exceptions
 
 LOGGER = logging.getLogger(__name__)
@@ -13,7 +12,8 @@ class TokenStore(object):
     Fetches and caches access authentication tokens via `_fetch_token` method.
     Call `.close()` to close the underlying requests Session!
     """
-    def __init__(self, auth_url: str, client_id: str, client_secret: str, build_session: Callable[[], requests.Session] = requests.Session):
+    def __init__(self, auth_url: str, client_id: str, client_secret: str,
+                 build_session: Callable[[], requests.Session] = requests.Session):
         self._auth_url = "https://{url}/oauth/token".format(url=auth_url)
         self._client_id = client_id
         self._client_secret = client_secret
@@ -29,9 +29,9 @@ class TokenStore(object):
     @property
     def _payload(self) -> meeshkan.Payload: # <--   AttributeError: module 'meeshkan' has no attribute 'cloud'?
         return meeshkan.Payload({'client_id': self._client_id,
-                        'client_secret': self._client_secret,
-                        'audience': "https://api.meeshkan.io",
-                        'grant_type': "client_credentials"})
+                                 'client_secret': self._client_secret,
+                                 'audience': "https://api.meeshkan.io",
+                                 'grant_type': "client_credentials"})
 
     def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)

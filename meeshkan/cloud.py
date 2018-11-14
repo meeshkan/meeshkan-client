@@ -1,9 +1,9 @@
 from http import HTTPStatus
 import logging
-from typing import Callable, Dict, NewType, List, Optional, Union
-import requests
 import time
+from typing import Callable, Optional, Union
 from pathlib import Path
+import requests
 
 import meeshkan.job
 import meeshkan.oauth
@@ -22,7 +22,8 @@ class CloudClient:
     :raises Unauthorized: if server returns 401
     :raises RuntimeError: If server returns code other than 200 or 401
     """
-    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore, build_session: Callable[[], requests.Session] = requests.Session):
+    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore,
+                 build_session: Callable[[], requests.Session] = requests.Session):
         self._cloud_url = cloud_url
         self._token_store = token_store
         self._session = build_session()
@@ -68,6 +69,17 @@ class CloudClient:
     def post_payload(self, payload: meeshkan.Payload) -> None:
         self._post_payload(payload, delay=0)
 
+    def _upload_file(self, method, url, headers, file):
+        """Uploads a file to given URL with method and headers
+
+        :raises RuntimeError on failure
+        :return None on success
+        """
+        res = self._session.request(method, url, headers=headers, files={'': open(file, 'rb')})
+        if not res.ok:
+            LOGGER.error("Error on file upload: %s", res.text)
+            raise RuntimeError("File upload failed with status code {status_code}".format(status_code=res.status_code))
+
     def post_payload_with_file(self, payload: meeshkan.Payload, file: Union[str, Path]) -> Optional[str]:
         """Post payload to `cloud_url`, followed by a file upload based on the returned values. All without retry.
 
@@ -91,10 +103,7 @@ class CloudClient:
         upload_method = res['uploadMethod']
         # Convert list of headers to dictionary of headers
         upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
-        res = requests.request(upload_method, upload_url, headers=upload_headers, files={'': open(file, 'rb')})
-        if not res.ok:
-            LOGGER.error("Error on file upload: %s", res.text)
-            raise RuntimeError("File upload failed with status code {status_code}".format(status_code=res.status_code))
+        self._upload_file(method=upload_method, url=upload_url, headers=upload_headers, file=file)
         return download_url
 
 

@@ -1,5 +1,5 @@
 from meeshkan.__version__ import __version__  # Conform to PEP-0396
-from meeshkan.__types__ import *  # Bring types to front
+from meeshkan.__types__ import Payload, Token  # Bring types to front
 import meeshkan.cloud
 import meeshkan.oauth
 import meeshkan.exceptions

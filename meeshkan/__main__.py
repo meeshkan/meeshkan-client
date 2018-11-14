@@ -5,7 +5,7 @@ import tarfile
 import shutil
 import tempfile
 import os
-from typing import Callable, List, Tuple
+from typing import Callable
 import random
 
 import click
@@ -39,7 +39,7 @@ def __get_api() -> meeshkan.api.Api:
 def __build_cloud_client(config: meeshkan.config.Configuration,
                          credentials: meeshkan.config.Credentials) -> meeshkan.cloud.CloudClient:
     token_store = meeshkan.oauth.TokenStore(auth_url=config.auth_url, client_id=credentials.client_id,
-                                             client_secret=credentials.client_secret)
+                                            client_secret=credentials.client_secret)
 
     cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
                                                                           token_store=token_store)
@@ -47,8 +47,9 @@ def __build_cloud_client(config: meeshkan.config.Configuration,
 
 
 def __notify_service_start(config: meeshkan.config.Configuration, credentials: meeshkan.config.Credentials):
-    with __build_cloud_client(config, credentials) as cloud_client:  # Clean resources
-        cloud_client.notify_service_start()
+    cloud_client = __build_cloud_client(config, credentials)
+    cloud_client.notify_service_start()
+    cloud_client.close()  # Explicitly clean resources
 
 
 def __build_api(config: meeshkan.config.Configuration,
@@ -76,7 +77,10 @@ def __verify_version():
     urllib_logger = logging.getLogger("urllib3")
     urllib_logger.setLevel(logging.WARNING)
     pypi_url = "https://pypi.org/pypi/meeshkan/json"
-    res = requests.get(pypi_url)
+    try:
+        res = requests.get(pypi_url)
+    except Exception:  # pylint: disable=broad-except
+        return  # If we can't access the server, assume all is good
     urllib_logger.setLevel(logging.DEBUG)
     if res.ok:
         latest_release = max(res.json()['releases'].keys())
@@ -203,27 +207,30 @@ def sorry():
     """
     config, credentials = __get_auth()
     status = 0
-    with __build_cloud_client(config, credentials) as cloud_client:
-        meeshkan.logger.remove_non_file_handlers()
-        payload: meeshkan.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
-        # Collect log files to compressed tar
-        fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
-        fname = os.path.abspath("{}.tar.gz".format(fname))
-        with tarfile.open(fname, mode='w:gz') as tar:
-            for handler in logging.root.handlers:
-                try:
-                    tar.add(handler.baseFilename)
-                except AttributeError:
-                    continue
-        try:
-            cloud_client.post_payload_with_file(payload, fname)
-            print("Logs uploaded to server succesfully.")
-        except:
-            LOGGER.exception("Failed uploadings logs to server.")
-            print("Failed uploading logs to server.")
-            status = 1
-        finally:
-            os.remove(fname)
+    cloud_client = __build_cloud_client(config, credentials)
+    meeshkan.logger.remove_non_file_handlers()
+
+    payload: meeshkan.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+    # Collect log files to compressed tar
+    fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
+    fname = os.path.abspath("{}.tar.gz".format(fname))
+    with tarfile.open(fname, mode='w:gz') as tar:
+        for handler in logging.root.handlers:
+            try:
+                tar.add(handler.baseFilename)
+            except AttributeError:
+                continue
+
+    try:
+        cloud_client.post_payload_with_file(payload, fname)
+        print("Logs uploaded to server succesfully.")
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.exception("Failed uploading logs to server.")
+        print("Failed uploading logs to server.")
+        status = 1
+
+    os.remove(fname)
+    cloud_client.close()
     sys.exit(status)
 
 @cli.command()
