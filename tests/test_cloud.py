@@ -3,36 +3,15 @@ from unittest import mock
 
 import pytest
 
-from meeshkan.cloud import Payload, CloudClient
+import meeshkan
+from meeshkan.cloud import CloudClient
 from meeshkan.oauth import TokenStore
 from meeshkan.exceptions import UnauthorizedRequestException
 from .utils import MockResponse
 
 
-def _query_payload():
-    return {'query': '{ testing }'}
-
-
-def _cloud_url():
-    return 'https://www.our-favorite-url-yay.fi'
-
-
-def _token_store():
-    def _get_fetch_token():
-        """
-        :return: Function returning tokens that increment by one for every call
-        """
-        requests_counter = 0
-
-        def fetch():
-            nonlocal requests_counter
-            requests_counter += 1
-            return str(requests_counter)
-
-        return fetch
-    fetch_token = _get_fetch_token()
-    return TokenStore(fetch_token=fetch_token)
-
+_query_payload = meeshkan.Payload({'query': '{ testing }'})
+_cloud_url = 'https://www.our-favorite-url-yay.fi'
 
 def _build_session(side_effect):
     session: Any = mock.Mock()
@@ -42,24 +21,20 @@ def _build_session(side_effect):
 
 
 def test_post_payloads():
-
     def mocked_requests_post(*args, **kwargs):
         url = args[0]
         headers = kwargs["headers"]
         content = kwargs["json"]
-        assert url == _cloud_url()
-        assert headers['Authorization'] == 'Bearer 1'
+        assert url == _cloud_url
+        assert headers['Authorization'].startswith('Bearer')  # TokenStore is checked in test_oauth
         assert 'query' in content
         return MockResponse(None, 200)
 
     session = _build_session(side_effect=mocked_requests_post)
+    mock_store = mock.Mock(spec_set=TokenStore)
 
-    cloud_client = CloudClient(cloud_url=_cloud_url(), token_store=_token_store(), build_session=lambda: session)
-    post = cloud_client.post_payload
-    payload: Payload = _query_payload()
-
-    with cloud_client:
-        post(payload)
+    with CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: session) as cloud_client:
+        cloud_client.post_payload(_query_payload)
 
     assert session.post.call_count == 1
 
@@ -77,19 +52,17 @@ def test_post_payloads_unauthorized_retry():
         mock_calls += 1
         url = args[0]
         headers = kwargs["headers"]
-        assert url == _cloud_url()
-        assert headers['Authorization'] == "Bearer {mock_calls}".format(mock_calls=mock_calls)
+        assert url == _cloud_url
+        assert headers['Authorization'].startswith("Bearer")
         return MockResponse(None, 401) if mock_calls == 1 else MockResponse(None, 200)
 
     session = _build_session(side_effect=mocked_requests_post)
-    cloud_client = CloudClient(cloud_url=_cloud_url(), token_store=_token_store(), build_session=lambda: session)
-    post = cloud_client.post_payload
-    payload: Payload = _query_payload()
+    mock_store = mock.Mock(TokenStore)
 
-    with cloud_client:
-        post(payload)
+    with CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: session) as cloud_client:
+        cloud_client.post_payload(_query_payload)
 
-    assert session.post.call_count == 2  # One failed post and a successful retry
+    assert session.post.call_count == mock_calls  # One failed post and a successful retry
 
 
 def test_post_payloads_raises_error_for_multiple_401s():
@@ -102,11 +75,10 @@ def test_post_payloads_raises_error_for_multiple_401s():
         return MockResponse(None, 401)
 
     session = _build_session(side_effect=mocked_requests_post)
-    cloud_client = CloudClient(cloud_url=_cloud_url(), token_store=_token_store(), build_session=lambda: session)
-    post = cloud_client.post_payload
-    payload: Payload = _query_payload()
+    mock_store = mock.Mock(TokenStore)
+    cloud_client = CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: session)
 
     with cloud_client, pytest.raises(UnauthorizedRequestException):
-        post(payload)
+        cloud_client.post_payload(_query_payload)
 
     assert session.post.call_count == 2
