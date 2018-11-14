@@ -62,7 +62,8 @@ def __build_api(config: meeshkan.config.Configuration,
         cloud_notifier = meeshkan.notifiers.CloudNotifier(post_payload=cloud_client.post_payload)
         logging_notifier = meeshkan.notifiers.LoggingNotifier()
 
-        scheduler = meeshkan.scheduler.Scheduler()
+        queue_processor = meeshkan.scheduler.QueueProcessor()
+        scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor)
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 

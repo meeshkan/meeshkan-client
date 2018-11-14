@@ -1,7 +1,7 @@
 import logging
 import queue
 import threading
-from typing import List, Tuple, Callable  # For self-documenting typing
+from typing import List, Tuple, Callable, Optional  # For self-documenting typing
 import uuid
 
 import meeshkan.job  # Defines scheduler jobs
@@ -11,36 +11,68 @@ import meeshkan.notifiers
 LOGGER = logging.getLogger(__name__)
 
 
-# Worker thread reading from queue and waiting for processes to finish
-def read_queue(queue_: queue.Queue, do_work, stop_event: threading.Event) -> None:
+class QueueProcessor:
     """
-    Read and handle tasks from queue `q` until (1) queue item is None or (2) stop_event is set. Note that
-    the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
-    to check loop condition.
-    :param queue_: Synchronized queue
-    :param do_work: Callback called with queue item as argument
-    :param stop_event: Threading event signaling stop
-    :return:
+    Process items from queue in a new thread. Usage:
+    1) queue_processor.start(queue_=..., process_item=...)
+    2) queue_processor.schedule_stop()
+    3) queue_processor.wait_stop()
+    The two shutdown steps ensure that the caller can cancel the currently running task between them,
+    ensuring that processor exits without processing new jobs.
     """
-    while not stop_event.is_set():
-        item = queue_.get(block=True)
-        if item is None or stop_event.is_set():
-            break
-        do_work(item)
-        queue_.task_done()
+    def __init__(self):
+        self._stop_event = threading.Event()
+        self._queue = None
+        self._thread = None
+
+    def start(self, queue_, process_item):
+        """
+        Read and handle tasks from queue `queue_` until (1) queue item is None or (2) stop_event is set. Note that
+        the currently running job is not forced to cancel: that should be done from another thread, letting queue reader
+        to check loop condition. `QueueProcessor` is NOT safe for reuse for processing other queues.
+        :param queue_: Synchronized queue
+        :param process_item: Callback called with queue item as argument
+        :return:
+            """
+        self._queue = queue_
+        self._thread = threading.Thread(target=self.__process, args=(process_item,))
+        self._thread.start()
+
+    def __process(self, process_item):
+        if not self.is_running():
+            raise RuntimeError("QueueProcessor must be started first.")
+        while not self._stop_event.is_set():
+            item = self._queue.get(block=True)
+            if item is None or self._stop_event.is_set():
+                break
+            process_item(item)
+            self._queue.task_done()
+
+    def schedule_stop(self):
+        if not self.is_running():
+            return
+        self._stop_event.set()  # Signal exit to worker thread, required as "None" may not be next task
+        self._queue.put(None)  # Signal exit if thread is blocking
+
+    def is_running(self):
+        return self._thread is not None and self._thread.is_alive()
+
+    def wait_stop(self):
+        if self.is_running():
+            self._thread.join()
+            self._thread = None
+            self._queue = None
 
 
 class Scheduler(object):
-    def __init__(self):
+    def __init__(self, queue_processor: QueueProcessor):
         self.submitted_jobs = []
         self._task_queue = queue.Queue()
-        self._stop_thread_event = threading.Event()
-        kwargs = {'queue_': self._task_queue, 'do_work': self._handle_job, 'stop_event': self._stop_thread_event}
-        self._queue_reader = threading.Thread(target=read_queue, kwargs=kwargs)
+        self._queue_processor = queue_processor
         self._listeners: List[meeshkan.notifiers.Notifier] = []
         self._njobs = 0
         self._is_running = True
-        self._running_job = None
+        self._running_job: Optional[meeshkan.job.Job] = None
         self._notification_status = dict()
 
     # Properties and Python magic
@@ -97,9 +129,10 @@ class Scheduler(object):
             self.notify_listeners_job_start(job)
             self._running_job = job
             job.launch_and_wait()
-            self._running_job = None
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
+        finally:
+            self._running_job = None
 
         self.notify_listeners_job_end(job)
         LOGGER.debug("Finished handling job: %s", job)
@@ -130,17 +163,18 @@ class Scheduler(object):
     # Scheduler service methods
 
     def start(self):
-        if not self._queue_reader.is_alive():
-            self._queue_reader.start()
+        if not self._queue_processor.is_running():
+            LOGGER.debug("Start queue processor")
+            self._queue_processor.start(queue_=self._task_queue, process_item=self._handle_job)
+            LOGGER.debug("Queue processor started")
 
     def stop(self):
-        # TODO Terminate the process currently running with --force?
         if self._is_running:
-            self._task_queue.put(None)  # Signal exit if thread is blocking
-            self._stop_thread_event.set()  # Signal exit to worker thread, required as "None" may not be next task
+            self._queue_processor.schedule_stop()
             self._is_running = False
             if self._running_job is not None:
+                # TODO Add an option to not cancel the currently running job?
                 self._running_job.cancel()
-            if self._queue_reader.ident is not None:
+            if self._queue_processor.is_running():
                 # Wait for the thread to finish
-                self._queue_reader.join()
+                self._queue_processor.wait_stop()

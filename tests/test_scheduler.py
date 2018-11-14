@@ -1,8 +1,9 @@
 import time
 from concurrent.futures import Future, wait
+import queue
 
 import meeshkan
-from meeshkan.scheduler import Scheduler
+from meeshkan.scheduler import Scheduler, QueueProcessor
 from meeshkan.job import Job, JobStatus, Executable
 from meeshkan.notifiers import Notifier
 
@@ -38,7 +39,8 @@ class FutureWaitingExecutable(Executable):
 
 
 def get_scheduler():
-    scheduler = Scheduler()
+    queue_processor = QueueProcessor()
+    scheduler = Scheduler(queue_processor=queue_processor)
     return scheduler
 
 
@@ -93,10 +95,8 @@ def test_scheduling():
     with get_scheduler() as scheduler:
         job = get_job(executable=get_executable(target=resolve), job_number=0)
         scheduler.submit_job(job)
-        results = wait([future], timeout=5)
-        assert len(results.done) == 1
-        for result in results.done:
-            assert result.result() is resolve_value
+        result = future.result(timeout=5)
+        assert result is resolve_value
         assert job.status == JobStatus.FINISHED
 
 
@@ -122,7 +122,7 @@ def test_notifiers():
         job_to_submit = get_job(executable=get_executable(target=resolve))
         scheduler.register_listener(MockNotifier())
         scheduler.submit_job(job_to_submit)
-        wait([future], timeout=5)
+        future.result()
         assert len(started_jobs) == 1
         assert len(notified_jobs) == 0  # Not used atm
         assert len(finished_jobs) == 1
@@ -173,3 +173,45 @@ def test_stopping_scheduler():
         # Exit scheduler, should not block as `job.cancel()` is called
     assert job.is_launched
     assert job.status == JobStatus.CANCELED
+
+
+def test_queue_processor_shutsdown_cleanly():
+    task_queue = queue.Queue()
+    queue_processor = QueueProcessor()
+
+    def process_item(item):
+        return None
+
+    queue_processor.start(queue_=task_queue, process_item=process_item)
+    assert queue_processor.is_running()
+    queue_processor.schedule_stop()
+    queue_processor.wait_stop()
+    assert not queue_processor.is_running()
+
+
+def test_queue_processor_processes_jobs():
+    # Fill task queue
+    task_queue = queue.Queue()
+    test_string_1 = "Just testing"
+    test_string_2 = "Here also"
+    task_queue.put(test_string_1)
+    task_queue.put(test_string_2)
+
+    # Define handler that puts items to `handled_queue`
+    handled_queue = queue.Queue()
+
+    def process_item(item):
+        handled_queue.put(item)
+
+    # Start processing
+    queue_processor = QueueProcessor()
+    try:
+        queue_processor.start(queue_=task_queue, process_item=process_item)
+        item = handled_queue.get(block=True)
+        assert item == test_string_1
+        item2 = handled_queue.get(block=True)
+        assert item2 == test_string_2
+        assert task_queue.empty()
+    finally:
+        queue_processor.schedule_stop()
+        queue_processor.wait_stop()
