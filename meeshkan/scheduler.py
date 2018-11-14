@@ -69,10 +69,10 @@ class Scheduler(object):
         self.submitted_jobs = []  # type: List[meeshkan.job.Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
         self._queue_processor = queue_processor
-        self._listeners: List[meeshkan.notifiers.Notifier] = []
+        self._listeners = []  # type: List[meeshkan.notifiers.Notifier]
         self._njobs = 0
         self._is_running = True
-        self._running_job: Optional[meeshkan.job.Job] = None
+        self._running_job = None  # type: Optional[meeshkan.job.Job]
         self._notification_status = dict()  # type: Dict[Any, str]
 
     # Properties and Python magic

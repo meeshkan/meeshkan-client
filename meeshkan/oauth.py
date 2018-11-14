@@ -30,10 +30,10 @@ class TokenStore(object):
 
     @property
     def _payload(self) -> meeshkan.Payload:
-        return meeshkan.Payload({'client_id': self._client_id,
-                                 'client_secret': self._client_secret,
-                                 'audience': "https://api.meeshkan.io",
-                                 'grant_type': "client_credentials"})
+        return {'client_id': self._client_id,
+                'client_secret': self._client_secret,
+                'audience': "https://api.meeshkan.io",
+                'grant_type': "client_credentials"}
 
     def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)

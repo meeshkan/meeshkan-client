@@ -113,7 +113,7 @@ class CloudClient:
         """
         mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
         input_dict = {"version": meeshkan.__version__}
-        payload: meeshkan.Payload = {"query": mutation, "variables": {"in": input_dict}}
+        payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 
     def close(self):

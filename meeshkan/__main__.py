@@ -32,7 +32,7 @@ def __get_api() -> meeshkan.api.Api:
     if not service.is_running():
         print("Start the service first.")
         sys.exit(1)
-    api: meeshkan.api.Api = Pyro4.Proxy(service.uri)
+    api = Pyro4.Proxy(service.uri)  # type: meeshkan.api.Api
     return api
 
 
@@ -41,8 +41,8 @@ def __build_cloud_client(config: meeshkan.config.Configuration,
     token_store = meeshkan.oauth.TokenStore(auth_url=config.auth_url, client_id=credentials.client_id,
                                             client_secret=credentials.client_secret)
 
-    cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
-                                                                          token_store=token_store)
+    cloud_client = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
+                                              token_store=token_store)
     return cloud_client
 
 
@@ -158,7 +158,7 @@ def submit(job, name):
         print("CLI error: Specify job.")
         return
 
-    api: meeshkan.api.Api = __get_api()
+    api = __get_api()  # type: meeshkan.api.Api
     job = api.submit(job, name)
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
@@ -166,7 +166,7 @@ def submit(job, name):
 @cli.command()
 def stop():
     """Stops the scheduler daemon."""
-    api: meeshkan.api.Api = __get_api()
+    api = __get_api()  # type: meeshkan.api.Api
     api.stop()
     LOGGER.info("Service stopped.")
 
@@ -174,7 +174,7 @@ def stop():
 @cli.command(name='list')
 def list_jobs():
     """Lists the job queue and status for each job."""
-    api: meeshkan.api.Api = __get_api()
+    api = __get_api()  # type: meeshkan.api.Api
     jobs = api.list_jobs()
     if not jobs:
         print('No jobs submitted yet.')
@@ -211,7 +211,7 @@ def sorry():
     cloud_client = __build_cloud_client(config, credentials)
     meeshkan.logger.remove_non_file_handlers()
 
-    payload: meeshkan.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+    payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}  # type: meeshkan.Payload
     # Collect log files to compressed tar
     fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
     fname = os.path.abspath("{}.tar.gz".format(fname))
