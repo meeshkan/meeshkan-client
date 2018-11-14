@@ -1,11 +1,13 @@
+import asyncio
 from http import HTTPStatus
 import logging
-from typing import Callable, Dict, NewType
+from typing import Callable, Dict, List, NewType
 import requests
 
 import meeshkan.job
 import meeshkan.oauth
 import meeshkan.exceptions
+import meeshkan.tasks
 
 LOGGER = logging.getLogger(__name__)
 
@@ -70,6 +72,20 @@ class CloudClient:
         input_dict = {"version": meeshkan.__version__}
         payload: Payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
+
+    async def pop_tasks(self) -> List[meeshkan.tasks.Task]:
+        """Build GraphQL query payload and send to server for new tasks
+        Schema of job_input MUST match with the server schema
+        https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
+        :return:
+        """
+        mutation = "mutation { popTasks { job { id } task } }"
+        payload: Payload = {"query": mutation, "variables": {}}
+        loop = asyncio.get_event_loop()
+        # Post in new thread until we have an async http/graphql client
+        res = await loop.run_in_executor(None, self.post_payload(payload))
+        LOGGER.debug("Response %s", res.text)
+        return []
 
     def close(self):
         LOGGER.debug("Closing CloudClient session")

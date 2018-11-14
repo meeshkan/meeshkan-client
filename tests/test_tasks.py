@@ -1,53 +1,21 @@
 import asyncio
 import concurrent.futures
 import queue
-from unittest.mock import create_autospec
 
-import requests
 import pytest
 
-from meeshkan.tasks import TaskPoller, TaskSource
-
-
-def _mock_session():
-    return create_autospec(requests.Session).return_value
-
-
-def test_task_source_closes_session():
-
-    mock_session = _mock_session()
-    task_source = TaskSource(build_session=lambda: mock_session)
-    mock_session.close.assert_not_called()
-    with task_source:
-        pass
-    mock_session.close.assert_called()
-
-
-@pytest.mark.asyncio
-async def test_task_source_returns_tasks():
-
-    task_source = TaskSource(build_session=_mock_session)
-    with task_source:
-        tasks = await task_source.pop_tasks()
-
-    assert len(tasks) == 1
+from meeshkan.tasks import Task, TaskPoller
 
 
 @pytest.mark.asyncio
 async def test_task_poller_handles_tasks():
 
-    def mock_task_source(returned_task):
-        mock_task_source = create_autospec(TaskSource).return_value
+    fake_task = Task(job_id='id', task='STOP')
 
-        async def mock_pop_tasks():
-            return [returned_task]
+    async def pop_tasks():
+        return [fake_task]
 
-        mock_task_source.pop_tasks = mock_pop_tasks
-        return mock_task_source
-
-    fake_task = {'task': 'task'}
-    task_source = mock_task_source(returned_task=fake_task)
-    task_poller = TaskPoller(task_source)
+    task_poller = TaskPoller(pop_tasks_coro=pop_tasks())
 
     handled_tasks = queue.Queue()
 
@@ -66,4 +34,4 @@ async def test_task_poller_handles_tasks():
 
     assert not handled_tasks.empty()
     handled_item = handled_tasks.get()
-    assert handled_item == fake_task
+    assert handled_item.job_id == fake_task.job_id
