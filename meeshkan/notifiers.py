@@ -1,6 +1,6 @@
 """ Notifiers for changes in job status"""
 import logging
-from typing import Callable
+from typing import Callable, Any
 
 import meeshkan.job
 import meeshkan.oauth
@@ -47,7 +47,7 @@ class LoggingNotifier(Notifier):
 
 
 class CloudNotifier(Notifier):
-    def __init__(self, post_payload: Callable[[meeshkan.cloud.Payload], None]):
+    def __init__(self, post_payload: Callable[[meeshkan.Payload], Any]):
         super().__init__()
         self._post_payload = post_payload
 
@@ -86,6 +86,6 @@ class CloudNotifier(Notifier):
         self._post(mutation, {"in": job_input})
 
     def _post(self, mutation, variables):
-        payload = meeshkan.cloud.Payload({"query": mutation, "variables": variables})
+        payload = meeshkan.Payload({"query": mutation, "variables": variables})
         self._post_payload(payload)
         LOGGER.info("Posted successfully: %s", variables)

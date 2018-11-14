@@ -5,7 +5,7 @@ import tarfile
 import shutil
 import tempfile
 import os
-from typing import Callable, List, Tuple
+from typing import Callable
 import random
 
 import click
@@ -36,31 +36,20 @@ def __get_api() -> meeshkan.api.Api:
     return api
 
 
-def __build_session():
-    return requests.Session()
+def __build_cloud_client(config: meeshkan.config.Configuration,
+                         credentials: meeshkan.config.Credentials) -> meeshkan.cloud.CloudClient:
+    token_store = meeshkan.oauth.TokenStore(auth_url=config.auth_url, client_id=credentials.client_id,
+                                            client_secret=credentials.client_secret)
 
-
-def __build_cloud_client_token_source(config: meeshkan.config.Configuration,
-                                      credentials: meeshkan.config.Credentials) -> Tuple[meeshkan.cloud.CloudClient,
-                                                                                         meeshkan.oauth.TokenSource]:
-    token_source = meeshkan.oauth.TokenSource(auth_url=config.auth_url, client_id=credentials.client_id,
-                                              client_secret=credentials.client_secret, build_session=__build_session)
-
-    fetch_token = token_source.fetch_token
-    token_store = meeshkan.oauth.TokenStore(fetch_token=fetch_token)
     cloud_client: meeshkan.cloud.CloudClient = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url,
-                                                                          token_store=token_store,
-                                                                          build_session=__build_session)
-    return cloud_client, token_source
+                                                                          token_store=token_store)
+    return cloud_client
 
 
-def __notify_service_start(config: meeshkan.config.Configuration,
-                           credentials: meeshkan.config.Credentials):
-
-    cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
-
-    with cloud_client, token_source:  # Clean resources
-        cloud_client.notify_service_start()
+def __notify_service_start(config: meeshkan.config.Configuration, credentials: meeshkan.config.Credentials):
+    cloud_client = __build_cloud_client(config, credentials)
+    cloud_client.notify_service_start()
+    cloud_client.close()  # Explicitly clean resources
 
 
 def __build_api(config: meeshkan.config.Configuration,
@@ -68,23 +57,21 @@ def __build_api(config: meeshkan.config.Configuration,
 
     def build_api(service: meeshkan.service.Service) -> meeshkan.api.Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
+        cloud_client = __build_cloud_client(config, credentials)
 
-        cloud_client, token_source = __build_cloud_client_token_source(config, credentials)
-
-        stop_callbacks: List[Callable[[], None]] = [token_source.close, cloud_client.close]
-
-        cloud_notifier: meeshkan.notifiers.CloudNotifier = meeshkan.notifiers.CloudNotifier(
-            post_payload=cloud_client.post_payload)
-        logging_notifier: meeshkan.notifiers.LoggingNotifier = meeshkan.notifiers.LoggingNotifier()
+        cloud_notifier = meeshkan.notifiers.CloudNotifier(post_payload=cloud_client.post_payload)
+        logging_notifier = meeshkan.notifiers.LoggingNotifier()
 
         task_poller = meeshkan.tasks.TaskPoller(cloud_client.pop_tasks)
-        scheduler = meeshkan.scheduler.Scheduler(task_poller)
+        queue_processor = meeshkan.scheduler.QueueProcessor()
+
+        scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor, task_poller=task_poller)
+
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
         api = meeshkan.api.Api(scheduler=scheduler, service=service)
-        for stop_callback in stop_callbacks:
-            api.add_stop_callback(stop_callback)
+        api.add_stop_callback(cloud_client.close)
         return api
 
     return build_api
@@ -94,7 +81,10 @@ def __verify_version():
     urllib_logger = logging.getLogger("urllib3")
     urllib_logger.setLevel(logging.WARNING)
     pypi_url = "https://pypi.org/pypi/meeshkan/json"
-    res = requests.get(pypi_url)
+    try:
+        res = requests.get(pypi_url)
+    except Exception:  # pylint: disable=broad-except
+        return  # If we can't access the server, assume all is good
     urllib_logger.setLevel(logging.DEBUG)
     if res.ok:
         latest_release = max(res.json()['releases'].keys())
@@ -219,21 +209,37 @@ def sorry():
     """Garbage collection - collect logs and email to Meeshkan HQ.
     Sorry for any inconvinence!
     """
-    fname = os.path.abspath("{}.tar.gz".format(
-        next(tempfile._get_candidate_names())))  # pylint: disable=protected-access
+    config, credentials = __get_auth()
+    status = 0
+    cloud_client = __build_cloud_client(config, credentials)
+    meeshkan.logger.remove_non_file_handlers()
+
+    payload: meeshkan.Payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+    # Collect log files to compressed tar
+    fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
+    fname = os.path.abspath("{}.tar.gz".format(fname))
     with tarfile.open(fname, mode='w:gz') as tar:
-        for handler in logging.root.handlers:  # Collect logging files
+        for handler in logging.root.handlers:
             try:
                 tar.add(handler.baseFilename)
             except AttributeError:
                 continue
-    # TODO - send fname to Meeshkan!
-    os.remove(fname)
 
+    try:
+        cloud_client.post_payload_with_file(payload, fname)
+        print("Logs uploaded to server succesfully.")
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.exception("Failed uploading logs to server.")
+        print("Failed uploading logs to server.")
+        status = 1
+
+    os.remove(fname)
+    cloud_client.close()
+    sys.exit(status)
 
 @cli.command()
 def clear():
-    """Clears the ~/.meeshkan folder - use with care!"""
+    """Clears the ~/.meeshkan folder (keeps the credentials file) - use with care!"""
     print("Removing jobs directory at {}".format(meeshkan.config.JOBS_DIR))
     shutil.rmtree(str(meeshkan.config.JOBS_DIR))
     print("Removing logs directory at {}".format(meeshkan.config.LOGS_DIR))
