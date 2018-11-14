@@ -46,7 +46,7 @@ class TaskPoller:
     def __init__(self, task_source):
         self._task_source = task_source
 
-    async def poll(self, handle_task, delay=5):
+    async def poll(self, handle_task, delay=10):
         """
         Polling for tasks.
         :param handle_task: Async task handler. Must NOT block the event loop.
@@ -54,12 +54,9 @@ class TaskPoller:
         bombarding the server.
         :return:
         """
-        counter = 0
         try:
             with self._task_source:
                 while True:
-                    counter += 1
-                    LOGGER.debug('Polling counter %d', counter)
                     tasks = await self._task_source.pop_tasks()
                     for task in tasks:
                         await handle_task(task)
