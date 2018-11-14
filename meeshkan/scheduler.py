@@ -1,7 +1,7 @@
 import logging
 import queue
 import threading
-from typing import List, Tuple, Callable, Optional  # For self-documenting typing
+from typing import Any, Dict, List, Tuple, Callable, Optional  # For self-documenting typing
 import uuid
 
 import meeshkan.job  # Defines scheduler jobs
@@ -66,14 +66,14 @@ class QueueProcessor:
 
 class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor):
-        self.submitted_jobs = []
-        self._task_queue = queue.Queue()
+        self.submitted_jobs = []  # type: List[meeshkan.job.Job]
+        self._task_queue = queue.Queue()  # type: queue.Queue
         self._queue_processor = queue_processor
-        self._listeners: List[meeshkan.notifiers.Notifier] = []
+        self._listeners = []  # type: List[meeshkan.notifiers.Notifier]
         self._njobs = 0
         self._is_running = True
-        self._running_job: Optional[meeshkan.job.Job] = None
-        self._notification_status = dict()
+        self._running_job = None  # type: Optional[meeshkan.job.Job]
+        self._notification_status = dict()  # type: Dict[Any, str]
 
     # Properties and Python magic
 

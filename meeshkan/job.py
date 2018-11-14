@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple
+from typing import Tuple, Optional
 import uuid
 import datetime
 import os
@@ -64,7 +64,7 @@ class ProcessExecutable(Executable):
             return arg
 
         self.args = [to_full_path_if_known_file(arg) for arg in args]
-        self.popen: subprocess.Popen = None
+        self.popen: Optional[subprocess.Popen] = None
         self.output_path = output_path
 
     def launch_and_wait(self):

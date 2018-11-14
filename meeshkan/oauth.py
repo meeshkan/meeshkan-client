@@ -1,11 +1,12 @@
 from http import HTTPStatus
 import logging
-from typing import Callable
+from typing import Callable, Optional
 import requests
 
 import meeshkan.exceptions
 
 LOGGER = logging.getLogger(__name__)
+
 
 class TokenStore(object):
     """
@@ -18,7 +19,7 @@ class TokenStore(object):
         self._client_id = client_id
         self._client_secret = client_secret
         self._session = build_session()
-        self._token = None
+        self._token = None  # type: Optional[meeshkan.Token]
 
     def __enter__(self):
         return self
@@ -27,11 +28,11 @@ class TokenStore(object):
         self.close()
 
     @property
-    def _payload(self) -> meeshkan.Payload: # <--   AttributeError: module 'meeshkan' has no attribute 'cloud'?
-        return meeshkan.Payload({'client_id': self._client_id,
-                                 'client_secret': self._client_secret,
-                                 'audience': "https://api.meeshkan.io",
-                                 'grant_type': "client_credentials"})
+    def _payload(self) -> meeshkan.Payload:
+        return {'client_id': self._client_id,
+                'client_secret': self._client_secret,
+                'audience': "https://api.meeshkan.io",
+                'grant_type': "client_credentials"}
 
     def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
@@ -48,6 +49,7 @@ class TokenStore(object):
         raise RuntimeError("Failed requesting authentication.")
 
     def get_token(self, refresh=False) -> meeshkan.Token:
+
         if refresh or self._token is None:
             LOGGER.info("Retrieving new authentication token")
             self._token = self._fetch_token()

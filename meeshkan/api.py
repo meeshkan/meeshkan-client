@@ -1,4 +1,4 @@
-from typing import Callable, Any, Tuple
+from typing import Callable, Any, Tuple, List
 
 import Pyro4
 import Pyro4.errors
@@ -16,7 +16,7 @@ class Api(object):
     def __init__(self, scheduler: meeshkan.scheduler.Scheduler, service: meeshkan.service.Service = None):
         self.scheduler = scheduler
         self.service = service
-        self.__stop_callbacks = []
+        self.__stop_callbacks = []  # type: List[Callable[[], None]]
         self.__was_shutdown = False
 
     def __enter__(self):

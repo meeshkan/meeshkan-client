@@ -1,7 +1,7 @@
 from http import HTTPStatus
 import logging
 import time
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 from pathlib import Path
 import requests
 
@@ -40,7 +40,6 @@ class CloudClient:
 
     def _post_payload(self, payload: meeshkan.Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
         """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
-
         :param payload:
         :param retries:
         :param delay:
@@ -94,7 +93,7 @@ class CloudClient:
         :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
-        res = self._post_payload(payload, retries=1)
+        res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
         # Parse response
         res = res.json()['data']
         res = res[list(res)[0]]  # Get the first (and only) element within 'data'
@@ -106,7 +105,6 @@ class CloudClient:
         self._upload_file(method=upload_method, url=upload_url, headers=upload_headers, file=file)
         return download_url
 
-
     def notify_service_start(self):
         """Build GraphQL query payload and send to server when service is started
         Schema of job_input MUST match with the server schema
@@ -115,7 +113,7 @@ class CloudClient:
         """
         mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
         input_dict = {"version": meeshkan.__version__}
-        payload: meeshkan.Payload = {"query": mutation, "variables": {"in": input_dict}}
+        payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 
     def close(self):

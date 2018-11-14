@@ -17,7 +17,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate']
 
 # Optional packages
-EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov']}
+EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov', 'mypy']}
 
 # Entry point for CLI (relative to setup.py)
 ENTRY_POINTS = ['meeshkan = meeshkan.__main__:cli']
