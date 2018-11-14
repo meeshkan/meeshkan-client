@@ -15,7 +15,7 @@ async def test_task_poller_handles_tasks():
     async def pop_tasks():
         return [fake_task]
 
-    task_poller = TaskPoller(pop_tasks_coro=pop_tasks())
+    task_poller = TaskPoller(build_pop_tasks_coro=pop_tasks)
 
     handled_tasks = queue.Queue()
 

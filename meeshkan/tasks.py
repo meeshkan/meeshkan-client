@@ -3,7 +3,7 @@ Code related to tasks invoked by the cloud.
 """
 import asyncio
 import logging
-from typing import Awaitable, List
+from typing import Awaitable, Callable, List
 
 
 LOGGER = logging.getLogger(__name__)
@@ -16,12 +16,12 @@ class Task:
 
 
 class TaskPoller:
-    def __init__(self, pop_tasks_coro: Awaitable[List[Task]]):
+    def __init__(self, build_pop_tasks_coro: Callable[[], Awaitable[List[Task]]]):
         """
         Polls new tasks from the server.
         :param pop_tasks: Asynchronous method for fetching new tasks
         """
-        self._pop_tasks_coro = pop_tasks_coro
+        self._build_pop_tasks_coro = build_pop_tasks_coro
 
     async def poll(self, handle_task, delay=10):
         """
@@ -34,7 +34,7 @@ class TaskPoller:
         try:
             while True:
                 try:
-                    tasks = await self._pop_tasks_coro  # type: List[Task]
+                    tasks = await self._build_pop_tasks_coro()  # type: List[Task]
                     for task in tasks:
                         await handle_task(task)
                 except Exception as ex:  # pylint:disable=broad-except

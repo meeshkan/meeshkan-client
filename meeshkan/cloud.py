@@ -1,4 +1,5 @@
 import asyncio
+from functools import partial
 from http import HTTPStatus
 import logging
 from typing import Callable, Dict, List, NewType
@@ -79,11 +80,12 @@ class CloudClient:
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :return:
         """
-        mutation = "mutation { popTasks { job { id } task } }"
+        mutation = "mutation { popClientTasks { job { id } task } }"
         payload: Payload = {"query": mutation, "variables": {}}
         loop = asyncio.get_event_loop()
         # Post in new thread until we have an async http/graphql client
-        res = await loop.run_in_executor(None, self.post_payload(payload))
+        post = partial(self.post_payload, payload=payload)
+        res = await loop.run_in_executor(None, post)
         LOGGER.debug("Response %s", res.text)
         return []
 
