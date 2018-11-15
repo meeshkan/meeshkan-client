@@ -127,7 +127,7 @@ class CloudClient:
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :return:
         """
-        mutation = "mutation { popClientTasks { job { id } task } }"
+        mutation = "mutation { popClientTasks { job { id } } }"
         payload: meeshkan.Payload = {"query": mutation, "variables": {}}
         loop = asyncio.get_event_loop()
         # Post in new thread until we have an async http/graphql client
