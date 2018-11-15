@@ -46,7 +46,7 @@ def test_token_source():
 
     def mocked_requests_post(*args, **kwargs):
         url = args[0]
-        assert url == "https://{url}/daemon/auth".format(url=CLOUD_URL)
+        assert url == "https://{url}/client/auth".format(url=CLOUD_URL)
         payload = kwargs['data']
         assert payload['refresh_token'] == REFRESH_TOKEN
         return MockResponse(TOKEN_RESPONSE, 200)
