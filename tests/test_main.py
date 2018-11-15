@@ -24,10 +24,8 @@ def run_cli(args):
 def _build_session(post_return_value=None, request_return_value=None):
     session = mock.create_autospec(requests.Session)
     if post_return_value is not None:
-        session.post = mock.MagicMock()
         session.post.return_value = post_return_value
     if request_return_value is not None:
-        session.request = mock.MagicMock()
         session.request.return_value = request_return_value
     return session
 
@@ -174,7 +172,7 @@ def test_sorry_upload_fail(pre_post_tests):  # pylint: disable=unused-argument,r
                                   request_return_value=MockResponse(status_code=205))
     mock_token_store = _token_store(build_session=lambda: mock_session)
     cloud_client = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                    build_session=lambda: mock_session)
+                                              build_session=lambda: mock_session)
 
     def mock_cc_builder(*args):  # pylint: disable=unused-argument
         return cloud_client
@@ -191,7 +189,7 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
     mock_session = _build_session(post_return_value=MockResponse(payload, 404))
     mock_token_store = _token_store(build_session=lambda: mock_session)
     cloud_client = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                    build_session=lambda: mock_session)
+                                              build_session=lambda: mock_session)
 
     def mock_cc_builder(*args):  # pylint: disable=unused-argument
         return cloud_client
