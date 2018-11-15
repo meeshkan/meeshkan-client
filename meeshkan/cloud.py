@@ -127,7 +127,7 @@ class CloudClient:
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :return:
         """
-        mutation = "mutation { popClientTasks { job { id } } }"
+        mutation = "mutation { popClientTasks { __typename job { id } } }"
         payload: meeshkan.Payload = {"query": mutation, "variables": {}}
 
         res = self._post_payload(payload=payload)
