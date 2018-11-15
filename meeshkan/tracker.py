@@ -6,9 +6,18 @@ from pathlib import Path
 import tempfile
 import logging
 
-import matplotlib.pyplot as plt
+import matplotlib
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    # Try setting explicit backend for MacOS, see
+    # https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
+    matplotlib.use('TkAgg')
+    import matplotlib.pyplot as plt
+
 import meeshkan.__types__  # To prevent cyclic import
 import meeshkan.exceptions
+
 
 TF_EXISTS = True
 try:
