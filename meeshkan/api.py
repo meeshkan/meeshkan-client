@@ -1,4 +1,6 @@
-from typing import Callable, Any, Tuple, List
+from typing import Callable, Any, Tuple, Union, List, Optional
+import logging
+import uuid
 
 import Pyro4
 import Pyro4.errors
@@ -6,6 +8,8 @@ import Pyro4.errors
 import meeshkan.scheduler
 import meeshkan.job
 import meeshkan.service
+
+LOGGER = logging.getLogger(__name__)
 
 
 @Pyro4.expose
@@ -44,6 +48,18 @@ class Api(object):
 
     def add_stop_callback(self, func: Callable[[], Any]):
         self.__stop_callbacks.append(func)
+
+    def report_scalar(self, pid, name, val):
+        """Attempts to report a scalar update for process PID"""
+        self.scheduler.report_scalar(pid, name, val)
+
+    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
+        if not isinstance(job_id, uuid.UUID):
+            job_id = uuid.UUID(job_id)
+        vals, fname = self.scheduler.query_scalars(job_id, latest_only=recent_only, plot=img)
+        if img:
+            return vals, fname
+        return vals, None
 
     def stop(self):
         if self.__was_shutdown:

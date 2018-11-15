@@ -163,7 +163,7 @@ def test_canceling_job():
     assert job1.status == JobStatus.FINISHED
 
     assert not job2.is_launched
-    assert job2.status == JobStatus.CANCELED
+    assert job2.status == JobStatus.CANCELLED_BY_USER
 
 
 def test_stopping_scheduler():

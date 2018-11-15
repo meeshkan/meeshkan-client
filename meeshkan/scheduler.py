@@ -3,9 +3,12 @@ import queue
 import threading
 from typing import Any, Dict, List, Tuple, Callable, Optional  # For self-documenting typing
 import uuid
+import os
 
 import meeshkan.job  # Defines scheduler jobs
+import meeshkan.exceptions
 import meeshkan.notifiers
+import meeshkan.tracker
 import meeshkan.tasks
 
 
@@ -75,7 +78,8 @@ class Scheduler(object):
         self._njobs = 0
         self._is_running = True
         self._running_job = None  # type: Optional[meeshkan.job.Job]
-        self._notification_status = dict()  # type: Dict[Any, str]
+        self._notification_status = dict()  # type: Dict[uuid.UUID, str]
+        self._history_by_job = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
 
     # Properties and Python magic
 
@@ -92,7 +96,7 @@ class Scheduler(object):
 
     # Notifaction related methods
 
-    def get_notification_status(self, job_id: str):
+    def get_notification_status(self, job_id: uuid.UUID):
         return self._notification_status[job_id]
 
     def register_listener(self, listener: meeshkan.notifiers.Notifier):
@@ -139,14 +143,25 @@ class Scheduler(object):
         self.notify_listeners_job_end(job)
         LOGGER.debug("Finished handling job: %s", job)
 
+    @staticmethod
+    def _verify_python_executable(args: Tuple[str, ...]):
+        """Simply checks if the first argument's extension is .py, and if so, prepends 'python' to args"""
+        if len(args) > 0:    # pylint: disable=len-as-condition
+            if os.path.splitext(args[0])[1] == ".py":
+                args = ("python",) + args
+        return args
+
     def create_job(self, args: Tuple[str, ...], name: str = None):
         job_number = self._njobs
         job_uuid = uuid.uuid4()
+        args = self._verify_python_executable(args)
+        LOGGER.debug("Creating job for %s", args)
         output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
         executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
         self._njobs += 1
-        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid,
-                                name=name or "Job #{job_number}".format(job_number=job_number))
+        self._history_by_job[job_uuid] = meeshkan.tracker.TrackerBase()
+        job_name = name or "Job #{job_number}".format(job_number=job_number)
+        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name)
 
     def submit_job(self, job: meeshkan.job.Job):
         job.status = meeshkan.job.JobStatus.QUEUED
@@ -155,12 +170,26 @@ class Scheduler(object):
         self.submitted_jobs.append(job)
         LOGGER.debug("Job submitted: %s", job)
 
-    def stop_job(self, job_id: int):
-        jobs_with_id: List[meeshkan.job.Job] = [job for job in self.jobs if job.id == job_id]
+    def stop_job(self, job_id):
+        jobs_with_id = [job for job in self.jobs if job.id == job_id]  # type: List[meeshkan.job.Job]
         if not jobs_with_id:
             return
         job = jobs_with_id[0]
         job.cancel()
+
+    # Tracking methods
+
+    def report_scalar(self, pid, name, val):
+        # Find the right job id
+        job_id = [job.id for job in self.jobs if job.pid == pid]
+        if len(job_id) != 1:
+            raise meeshkan.exceptions.JobNotFoundException(job_id=str(pid))
+        job_id = job_id[0]
+        self._history_by_job[job_id].add_tracked(val_name=name, value=val)
+        LOGGER.debug("Logged scalar %s with new value %s", name, val)
+
+    def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
+        return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
 
     # Scheduler service methods
 
