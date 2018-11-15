@@ -7,6 +7,7 @@ import meeshkan.job
 import meeshkan.notifiers
 import meeshkan.scheduler
 import meeshkan.service
+import meeshkan.tasks
 import meeshkan.api
 import meeshkan.config
 import meeshkan.logger

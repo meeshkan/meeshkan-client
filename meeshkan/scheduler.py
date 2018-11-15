@@ -6,6 +6,7 @@ import uuid
 
 import meeshkan.job  # Defines scheduler jobs
 import meeshkan.notifiers
+import meeshkan.tasks
 
 
 LOGGER = logging.getLogger(__name__)
@@ -65,10 +66,11 @@ class QueueProcessor:
 
 
 class Scheduler(object):
-    def __init__(self, queue_processor: QueueProcessor):
+    def __init__(self, queue_processor: QueueProcessor, task_poller: meeshkan.tasks.TaskPoller):
+        self._queue_processor = queue_processor
+        self._task_poller = task_poller
         self.submitted_jobs = []  # type: List[meeshkan.job.Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
-        self._queue_processor = queue_processor
         self._listeners = []  # type: List[meeshkan.notifiers.Notifier]
         self._njobs = 0
         self._is_running = True
@@ -178,3 +180,9 @@ class Scheduler(object):
             if self._queue_processor.is_running():
                 # Wait for the thread to finish
                 self._queue_processor.wait_stop()
+
+    async def _handle_task(self, item):
+        LOGGER.debug("Got task %s", item)  # TODO Do something with the item
+
+    async def poll(self):
+        await self._task_poller.poll(handle_task=self._handle_task)

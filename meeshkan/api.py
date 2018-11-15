@@ -23,6 +23,9 @@ class Api(object):
         self.scheduler.start()
         return self
 
+    async def poll(self):
+        await self.scheduler.poll()
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
