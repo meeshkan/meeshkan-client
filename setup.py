@@ -16,10 +16,11 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 # Required packages
 REQUIRED = ['requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
 
+DEV = ['pylint', 'pytest', 'pytest-cov', 'mypy', 'pytest-asyncio']
 # Optional packages
-EXTRAS = {'dev': ['pylint', 'pytest', 'pytest-cov', 'mypy'],
-          'devTF': ['pylint', 'pytest', 'pytest-cov', 'mypy', 'tensorflow', 'tensorboard', 'keras'],
-          'devTorch':  ['pylint', 'pytest', 'pytest-cov', 'mypy', 'torch']}
+EXTRAS = {'dev': DEV,
+          'devTF': DEV + ['tensorflow', 'tensorboard', 'keras'],
+          'devTorch':  DEV + ['torch']}
 
 # Entry point for CLI (relative to setup.py)
 ENTRY_POINTS = ['meeshkan = meeshkan.__main__:cli']
