@@ -10,7 +10,7 @@ meeshkan [help]
 ### Submitting task
 Example:
 ```bash
-meeshkan submit [--name job_name] python train.py
+meeshkan submit [--name job_name] train.py
 ```
 
 ## OAuth
