@@ -1,4 +1,5 @@
 import time
+from unittest.mock import create_autospec
 from concurrent.futures import Future, wait
 import queue
 
@@ -6,6 +7,7 @@ import meeshkan
 from meeshkan.scheduler import Scheduler, QueueProcessor
 from meeshkan.job import Job, JobStatus, Executable
 from meeshkan.notifiers import Notifier
+from meeshkan.tasks import TaskPoller
 
 
 # Executable that runs the provided `target` function
@@ -39,8 +41,9 @@ class FutureWaitingExecutable(Executable):
 
 
 def get_scheduler():
+    mock_task_poller = create_autospec(TaskPoller)
     queue_processor = QueueProcessor()
-    scheduler = Scheduler(queue_processor=queue_processor)
+    scheduler = Scheduler(queue_processor=queue_processor, task_poller=mock_task_poller)
     return scheduler
 
 

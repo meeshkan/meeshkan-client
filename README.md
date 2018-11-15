@@ -7,6 +7,12 @@ Client code for running ML jobs.
 meeshkan [help]
 ```
 
+### Submitting task
+Example:
+```bash
+meeshkan submit [--name job_name] python train.py
+```
+
 ## OAuth
 Create a file `.meeshkan/credentials` in your home directory with the following format:
 ```ini
