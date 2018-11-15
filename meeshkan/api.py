@@ -50,7 +50,7 @@ class Api(object):
         """Attempts to report a scalar update for process PID"""
         self.scheduler.report_scalar(pid, name, val)
 
-    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[meeshkan.History, Optional[str]]:
+    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
         if not isinstance(job_id, uuid.UUID):
             job_id = uuid.UUID(job_id)
         vals, fname = self.scheduler.query_scalars(job_id, latest_only=recent_only, plot=img)

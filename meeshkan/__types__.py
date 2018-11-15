@@ -4,4 +4,4 @@ from numbers import Number
 
 Token = NewType("Token", str)
 Payload = Dict[str, Any]
-History = Dict[str, List[Number]]
+HistoryByScalar = Dict[str, List[Number]]

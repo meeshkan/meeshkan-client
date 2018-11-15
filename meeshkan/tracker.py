@@ -24,18 +24,18 @@ class TrackerBase(object):
     """Defines common API for Tracker objects"""
     def __init__(self):
         # History of tracked information, var_name: list(vals)
-        self._history = dict()  # type: meeshkan.__types__.History
+        self._history_by_scalar = dict()  # type: meeshkan.__types__.HistoryByScalar
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
 
     def add_tracked(self, val_name: str, value: Union[Number, List[Number]]) -> None:
         if isinstance(value, Number):
             value = [value]
-        if val_name not in self._history:
-            self._history[val_name] = value
+        if val_name not in self._history_by_scalar:
+            self._history_by_scalar[val_name] = value
             self._last_index[val_name] = -1  # Marks initial index
         else:
-            self._history[val_name] += value
+            self._history_by_scalar[val_name] += value
 
     @staticmethod
     def generate_image(history: Dict[str, List[Number]], output_path: Union[str, Path], show: bool = False,
@@ -55,14 +55,14 @@ class TrackerBase(object):
 
     def _update_access(self, name: str = ""):
         if name:
-            if name in self._history:
-                self._last_index[name] = len(self._history[name]) - 1
+            if name in self._history_by_scalar:
+                self._last_index[name] = len(self._history_by_scalar[name]) - 1
         else:
-            for val_name, vals, in self._history.items():
+            for val_name, vals, in self._history_by_scalar.items():
                 self._last_index[val_name] = len(vals) - 1
 
     def get_updates(self, name: str = "", plot: bool = True,
-                    latest: bool = True) -> Tuple[meeshkan.History, Optional[str]]:
+                    latest: bool = True) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
         """Gets updates since last push update, possibly with an image
 
         :param name: name of value to lookup (or empty for all tracked history)
@@ -70,12 +70,15 @@ class TrackerBase(object):
         :param latest: whether or not to include all history, or just history since previous call
         :return tuple of data (meeshkan.History) and location to image (if created, otherwise None)
         """
-        if name and name not in self._history:
+        if name and name not in self._history_by_scalar:
             raise meeshkan.exceptions.TrackedScalarNotFoundException(name=name)
         if name:
-            data = {k: v for k, v in self._history.items() if k == name}  # type: meeshkan.__types__.History
+            data = dict()  # type: meeshkan.__types__.HistoryByScalar
+            for scalar_name, value_list in self._history_by_scalar.items():
+                if scalar_name == name:
+                    data[scalar_name] = value_list
         else:
-            data = dict(self._history)  # Create a copy
+            data = dict(self._history_by_scalar)  # Create a copy
         if latest:  # Trim data as needed
             for val_name, vals, in data.items():
                 data[val_name] = vals[self._last_index[val_name] + 1:]
@@ -104,7 +107,7 @@ class TrackerBase(object):
 
     def _clean(self) -> None:
         """Cleans internal history stack for Tracker class"""
-        self._history = dict()
+        self._history_by_scalar = dict()
         self._last_index = dict()
 
     def clean(self) -> None:

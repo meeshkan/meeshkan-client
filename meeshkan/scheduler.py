@@ -77,7 +77,7 @@ class Scheduler(object):
         self._is_running = True
         self._running_job = None  # type: Optional[meeshkan.job.Job]
         self._notification_status = dict()  # type: Dict[uuid.UUID, str]
-        self._histories = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
+        self._history_by_job = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
 
     # Properties and Python magic
 
@@ -157,7 +157,7 @@ class Scheduler(object):
         output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
         executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
         self._njobs += 1
-        self._histories[job_uuid] = meeshkan.tracker.TrackerBase()
+        self._history_by_job[job_uuid] = meeshkan.tracker.TrackerBase()
         job_name = name or "Job #{job_number}".format(job_number=job_number)
         return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name)
 
@@ -183,11 +183,11 @@ class Scheduler(object):
         if len(job_id) != 1:
             raise meeshkan.exceptions.JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
-        self._histories[job_id].add_tracked(val_name=name, value=val)
+        self._history_by_job[job_id].add_tracked(val_name=name, value=val)
         LOGGER.debug("Logged scalar %s with new value %s", name, val)
 
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
-        return self._histories[job_id].get_updates(name=name, plot=plot, latest=latest_only)
+        return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
 
     # Scheduler service methods
 

@@ -46,6 +46,10 @@ class Service(object):
                 return False
 
     @property
+    def api(self) -> Pyro4.Proxy:
+        return Pyro4.Proxy(self.uri)
+
+    @property
     def uri(self):
         return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
 
