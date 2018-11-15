@@ -1,12 +1,15 @@
+from http import HTTPStatus
 from typing import Any
 from unittest import mock
 
 import pytest
+import requests
 
 import meeshkan
 from meeshkan.cloud import CloudClient
 from meeshkan.oauth import TokenStore
 from meeshkan.exceptions import UnauthorizedRequestException
+from meeshkan.tasks import TaskType
 from .utils import MockResponse
 
 
@@ -83,3 +86,30 @@ def test_post_payloads_raises_error_for_multiple_401s():
         cloud_client.post_payload(_query_payload)
 
     assert session.post.call_count == 2
+
+
+def test_pop_tasks():
+    mock_session = mock.create_autospec(requests.Session, spec_set=True)
+
+    job_id = 'job_id'
+    task_name = 'STOP'
+
+    returned_task = {'job': {'id': job_id}, 'task': task_name}
+
+    mock_session.post.return_value = MockResponse(status_code=HTTPStatus.OK,
+                                                  json_data={'data': {'popClientTasks': [returned_task]}})
+
+    mock_store = mock.create_autospec(TokenStore, spec_set=True)
+
+    cloud_client = CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: mock_session)
+
+    with cloud_client:
+        tasks = cloud_client.pop_tasks()
+
+    mock_session.post.assert_called_once()
+
+    assert len(tasks) == 1
+    created_task = tasks[0]
+
+    assert created_task.job_id == job_id
+    assert created_task.task.name == task_name
