@@ -1,24 +1,62 @@
 # Meeshkan client
 
-Client code for running ML jobs.
+## Getting started
+Sign up at [app.meeshkan.com](https://app.meeshkan.com) and get your token. Create a folder `.meeshkan` in your home directory and add a file called `credentials` with the following format:
+```ini
+[meeshkan]
+token=my-token
+```
+
+## Installation
+```bash
+pip install meeshkan
+```
 
 ## Command-line interface
+To list available commands, execute `meeshkan` or `meeshkan help`:
 ```bash
-meeshkan [help]
+Usage: meeshkan [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  -h, --help  Show this message and exit.
+
+Commands:
+  clear     Clears Meeshkan log and job directories in ~/.meeshkan.
+  help      Show this message and exit.
+  list      Lists the job queue and status for each job.
+  sorry     Send error logs to Meeshkan HQ.
+  start     Starts Meeshkan service daemon.
+  status    Checks and returns the service daemon status.
+  stop      Stops the service daemon.
+  submit    Submits a new job to the service daemon.
 ```
 
-### Submitting task
-Example:
+### Start service daemon
 ```bash
-meeshkan submit [--name job_name] train.py
+meeshkan start
+```
+If you get `Unauthorized` error, please check your credentials. If the problem persists, please contact Meeshkan support.
+
+### Check service status
+```bash
+meeshkan status
+```
+You should get the message `Service is up and running`.
+
+### Submit a Python script for execution
+Submit the example script [hello_world.py](./examples/hello_world.py) for execution:
+```bash
+meeshkan submit [--name job_name] examples/train.py
 ```
 
-## OAuth
-Create a file `.meeshkan/credentials` in your home directory with the following format:
-```ini
-[auth]
-client_id=...
-client_secret=...
+### List submitted jobs
+```bash
+meeshkan list
+```
+
+### Stop service
+```bash
+meeshkan stop
 ```
 
 ## Development
