@@ -72,7 +72,7 @@ class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor, task_poller: meeshkan.tasks.TaskPoller):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
-        self.submitted_jobs = []  # type: List[meeshkan.job.Job]
+        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, meeshkan.job.Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
         self._listeners = []  # type: List[meeshkan.notifiers.Notifier]
         self._njobs = 0
@@ -85,7 +85,7 @@ class Scheduler(object):
 
     @property
     def jobs(self):  # Needed to access internal list of jobs as object parameters are unexposable, only methods
-        return self.submitted_jobs
+        return list(self.submitted_jobs.values())
 
     def __enter__(self):
         self.start()
@@ -167,15 +167,13 @@ class Scheduler(object):
         job.status = meeshkan.job.JobStatus.QUEUED
         self._notification_status[job.id] = "NA"
         self._task_queue.put(job)  # TODO Blocks if queue full
-        self.submitted_jobs.append(job)
+        self.submitted_jobs[job.id] = job
         LOGGER.debug("Job submitted: %s", job)
 
-    def stop_job(self, job_id):
-        jobs_with_id = [job for job in self.jobs if job.id == job_id]  # type: List[meeshkan.job.Job]
-        if not jobs_with_id:
+    def stop_job(self, job_id: uuid.UUID):
+        if job_id not in self.submitted_jobs:
             return
-        job = jobs_with_id[0]
-        job.cancel()
+        self.submitted_jobs[job_id].cancel()
 
     # Tracking methods
 
