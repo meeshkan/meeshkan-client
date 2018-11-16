@@ -15,7 +15,7 @@ class TokenStore(object):
     """
     def __init__(self, cloud_url: str, refresh_token: str,
                  build_session: Callable[[], requests.Session] = requests.Session):
-        self._auth_url = "https://{url}/client/auth".format(url=cloud_url)
+        self._auth_url = "{url}/client/auth".format(url=cloud_url)
         self._refresh_token = refresh_token
         self._session = build_session()
         self._token = None  # type: Optional[meeshkan.Token]
