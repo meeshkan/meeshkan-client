@@ -92,9 +92,9 @@ def test_pop_tasks():
     mock_session = mock.create_autospec(requests.Session, spec_set=True)
 
     job_id = 'job_id'
-    task_name = 'STOP'
+    task_name = 'StopJobTask'
 
-    returned_task = {'job': {'id': job_id}, 'task': task_name}
+    returned_task = {'job': {'id': job_id}, '__typename': task_name}
 
     mock_session.post.return_value = MockResponse(status_code=HTTPStatus.OK,
                                                   json_data={'data': {'popClientTasks': [returned_task]}})
