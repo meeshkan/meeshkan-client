@@ -32,7 +32,7 @@ class TokenStore(object):
 
     def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
-        resp = self._session.post(self._auth_url, data=self._payload, timeout=5)
+        resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
 
         if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()
