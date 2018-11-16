@@ -3,15 +3,14 @@ from unittest import mock
 
 import pytest
 
-import meeshkan
 from meeshkan.cloud import CloudClient
 from meeshkan.oauth import TokenStore
 from meeshkan.exceptions import UnauthorizedRequestException
 from .utils import MockResponse
 
 
-_query_payload = {'query': '{ testing }'}  # type: meeshkan.Payload
-_cloud_url = 'https://www.our-favorite-url-yay.fi'
+QUERY_PAYLOAD = {'query': '{ testing }'}
+CLOUD_URL = 'https://www.our-favorite-url-yay.fi'
 
 
 def _build_session(side_effect):
@@ -21,21 +20,25 @@ def _build_session(side_effect):
     return session
 
 
+def _mock_token_store():
+    return mock.create_autospec(TokenStore)
+
+
 def test_post_payloads():
     def mocked_requests_post(*args, **kwargs):
         url = args[0]
         headers = kwargs["headers"]
         content = kwargs["json"]
-        assert url == _cloud_url
+        assert url == CLOUD_URL
         assert headers['Authorization'].startswith('Bearer')  # TokenStore is checked in test_oauth
         assert 'query' in content
         return MockResponse(None, 200)
 
     session = _build_session(side_effect=mocked_requests_post)
-    mock_store = mock.Mock(spec_set=TokenStore)
+    mock_store = _mock_token_store()
 
-    with CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: session) as cloud_client:
-        cloud_client.post_payload(_query_payload)
+    with CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session) as cloud_client:
+        cloud_client.post_payload(QUERY_PAYLOAD)
 
     assert session.post.call_count == 1
 
@@ -53,15 +56,15 @@ def test_post_payloads_unauthorized_retry():
         mock_calls += 1
         url = args[0]
         headers = kwargs["headers"]
-        assert url == _cloud_url
+        assert url == CLOUD_URL
         assert headers['Authorization'].startswith("Bearer")
         return MockResponse(None, 401) if mock_calls == 1 else MockResponse(None, 200)
 
     session = _build_session(side_effect=mocked_requests_post)
-    mock_store = mock.Mock(TokenStore)
+    mock_store = _mock_token_store()
 
-    with CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: session) as cloud_client:
-        cloud_client.post_payload(_query_payload)
+    with CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session) as cloud_client:
+        cloud_client.post_payload(QUERY_PAYLOAD)
 
     assert session.post.call_count == mock_calls  # One failed post and a successful retry
 
@@ -76,10 +79,10 @@ def test_post_payloads_raises_error_for_multiple_401s():
         return MockResponse(None, 401)
 
     session = _build_session(side_effect=mocked_requests_post)
-    mock_store = mock.Mock(TokenStore)
-    cloud_client = CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: session)
+    mock_store = _mock_token_store()
+    cloud_client = CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session)
 
     with cloud_client, pytest.raises(UnauthorizedRequestException):
-        cloud_client.post_payload(_query_payload)
+        cloud_client.post_payload(QUERY_PAYLOAD)
 
     assert session.post.call_count == 2

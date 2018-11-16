@@ -8,16 +8,16 @@ import yaml
 
 LOGGER = logging.getLogger(__name__)
 
-PACKAGE_PATH = Path(os.path.dirname(__file__))
+PACKAGE_PATH = Path(os.path.dirname(__file__))  # type: Path
 
-CONFIG_PATH: Path = PACKAGE_PATH.joinpath('config.yaml')
-LOG_CONFIG_FILE: Path = PACKAGE_PATH.joinpath('logging.yaml')
+CONFIG_PATH = PACKAGE_PATH.joinpath('config.yaml')
+LOG_CONFIG_FILE = PACKAGE_PATH.joinpath('logging.yaml')
 
-BASE_DIR: Path = Path.home().joinpath('.meeshkan')
-JOBS_DIR: Path = BASE_DIR.joinpath('jobs')
-LOGS_DIR: Path = BASE_DIR.joinpath('logs')
+BASE_DIR = Path.home().joinpath('.meeshkan')
+JOBS_DIR = BASE_DIR.joinpath('jobs')
+LOGS_DIR = BASE_DIR.joinpath('logs')
 
-CREDENTIALS_FILE: Path = BASE_DIR.joinpath('credentials')
+CREDENTIALS_FILE = BASE_DIR.joinpath('credentials')
 
 
 def ensure_base_dirs():
@@ -35,8 +35,7 @@ def ensure_base_dirs():
 
 class Configuration:
 
-    def __init__(self, auth_url, cloud_url):
-        self.auth_url = auth_url
+    def __init__(self, cloud_url):
         self.cloud_url = cloud_url
 
     @staticmethod
@@ -46,15 +45,13 @@ class Configuration:
             raise FileNotFoundError("File {path} not found".format(path=path))
         with path.open('r') as file:
             config = yaml.safe_load(file.read())
-        return Configuration(auth_url=config['auth']['url'],
-                             cloud_url=config['cloud']['url'])
+        return Configuration(cloud_url=config['cloud']['url'])
 
 
 class Credentials:
 
-    def __init__(self, client_id, client_secret):
-        self.client_id = client_id
-        self.client_secret = client_secret
+    def __init__(self, refresh_token):
+        self.refresh_token = refresh_token
 
     @staticmethod
     def from_isi(path: Path = CREDENTIALS_FILE):
@@ -63,12 +60,11 @@ class Credentials:
             raise FileNotFoundError("Create file {path} first.".format(path=path))
         conf = configparser.ConfigParser()
         conf.read(str(path))
-        return Credentials(client_id=conf['auth']['client_id'],
-                           client_secret=conf['auth']['client_secret'])
+        return Credentials(refresh_token=conf['meeshkan']['token'])
 
 
-CONFIG: Optional[Configuration] = None
-CREDENTIALS: Optional[Credentials] = None
+CONFIG = None  # type: Optional[Configuration]
+CREDENTIALS = None  # type: Optional[Credentials]
 
 
 def init(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_FILE):

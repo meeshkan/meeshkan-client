@@ -2,17 +2,17 @@ import re
 from unittest import mock
 import time
 import uuid
-import subprocess
-import requests
 
+import requests
 import pytest
 from click.testing import CliRunner
 
-from .utils import MockResponse
 import meeshkan.__main__ as main
 import meeshkan.config
 import meeshkan.exceptions
 import meeshkan.service
+from .utils import MockResponse
+
 
 CLI_RUNNER = CliRunner()
 
@@ -22,24 +22,22 @@ def run_cli(args):
 
 
 def _build_session(post_return_value=None, request_return_value=None):
-    session: Any = mock.Mock()
+    session = mock.create_autospec(requests.Session)
     if post_return_value is not None:
-        session.post = mock.MagicMock()
         session.post.return_value = post_return_value
     if request_return_value is not None:
-        session.request = mock.MagicMock()
         session.request.return_value = request_return_value
     return session
 
+
 def _token_store(build_session=None):
     """Returns a TokenStore for unit testing"""
-    _auth_url = 'favorite-url-yay.com'
-    _client_id = 'meeshkan-id-1'
-    _client_secret = 'meeshkan-top-secret'
+    _cloud_url = 'favorite-url-yay.com'
+    _refresh_token = 'meeshkan-top-secret'
     _token_response = {'access_token': 'token'}
     if build_session is None:
-        return meeshkan.oauth.TokenStore(auth_url=_auth_url, client_id=_client_id, client_secret=_client_secret)
-    return meeshkan.oauth.TokenStore(auth_url=_auth_url, client_id=_client_id, client_secret=_client_secret, build_session=build_session)
+        return meeshkan.oauth.TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
+    return meeshkan.oauth.TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token, build_session=build_session)
 
 
 @pytest.fixture
@@ -50,7 +48,8 @@ def pre_post_tests():
         :return: Function returning tokens that increment by one for every call
         """
         requests_counter = 0
-        def fetch(self):
+
+        def fetch(self):  # pylint:disable=unused-argument
             nonlocal requests_counter
             requests_counter += 1
             return str(requests_counter)
@@ -58,6 +57,7 @@ def pre_post_tests():
     # Stuff before tests
     tokenstore_patcher = mock.patch('meeshkan.oauth.TokenStore._fetch_token', _get_fetch_token())  # Augment TokenStore
     tokenstore_patcher.start()
+
     def stop_service():
         run_cli(args=['stop'])
     yield stop_service()
@@ -65,7 +65,7 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
-def test_version_break(pre_post_tests):
+def test_version_break(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     original_version = meeshkan.__version__
     meeshkan.__version__ = '0.0.0'
     with pytest.raises(meeshkan.exceptions.OldVersionException):
@@ -154,10 +154,11 @@ def test_sorry_success(pre_post_tests):  # pylint: disable=unused-argument,redef
     mock_session = _build_session(post_return_value=MockResponse(payload, 200),
                                   request_return_value=MockResponse(status_code=200))
     mock_token_store = _token_store(build_session=lambda: mock_session)
-    cc = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                    build_session=lambda: mock_session)
-    def mock_cc_builder(*args):
-        return cc
+    cloud_client = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
+                                              build_session=lambda: mock_session)
+
+    def mock_cc_builder(*args):  # pylint: disable=unused-argument
+        return cloud_client
     with mock.patch('meeshkan.__main__.__build_cloud_client', mock_cc_builder):
         sorry_result = run_cli(args=['sorry'])
 
@@ -170,11 +171,11 @@ def test_sorry_upload_fail(pre_post_tests):  # pylint: disable=unused-argument,r
     mock_session = _build_session(post_return_value=MockResponse(payload, 200),
                                   request_return_value=MockResponse(status_code=205))
     mock_token_store = _token_store(build_session=lambda: mock_session)
-    cc = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                    build_session=lambda: mock_session)
+    cloud_client = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
+                                              build_session=lambda: mock_session)
 
-    def mock_cc_builder(*args):
-        return cc
+    def mock_cc_builder(*args):  # pylint: disable=unused-argument
+        return cloud_client
 
     with mock.patch('meeshkan.__main__.__build_cloud_client', mock_cc_builder):
         sorry_result = run_cli(args=['sorry'])
@@ -187,11 +188,11 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
     payload = {"data": {"logUploadLink": {"upload": "http://localhost", "uploadMethod": "PUT", "headers": ["x:a"]}}}
     mock_session = _build_session(post_return_value=MockResponse(payload, 404))
     mock_token_store = _token_store(build_session=lambda: mock_session)
-    cc = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                    build_session=lambda: mock_session)
+    cloud_client = meeshkan.cloud.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
+                                              build_session=lambda: mock_session)
 
-    def mock_cc_builder(*args):
-        return cc
+    def mock_cc_builder(*args):  # pylint: disable=unused-argument
+        return cloud_client
 
     with mock.patch('meeshkan.__main__.__build_cloud_client', mock_cc_builder):
         sorry_result = run_cli(args=['sorry'])
