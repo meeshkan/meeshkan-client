@@ -102,6 +102,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
+@click.version_option(version=meeshkan.__version__)
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
 def cli(debug, silent):
@@ -125,7 +126,7 @@ def help_cmd(ctx):
 
 @cli.command()
 def start():
-    """Initializes the scheduler daemon."""
+    """Starts Meeshkan service daemon."""
     service = meeshkan.service.Service()
     if service.is_running():
         print("Service is already running.")
@@ -147,7 +148,7 @@ def start():
 
 @cli.command(name='status')
 def daemon_status():
-    """Checks and returns the daemon process status."""
+    """Checks and returns the service daemon status."""
     service = meeshkan.service.Service()
     is_running = service.is_running()
     status = "up and running" if is_running else "configured to run"
@@ -160,7 +161,7 @@ def daemon_status():
 @click.argument('job', nargs=-1)
 @click.option("--name", type=str)
 def submit(job, name):
-    """Submits a new job to the daemon."""
+    """Submits a new job to the service daemon."""
     if not job:
         print("CLI error: Specify job.")
         return
@@ -172,7 +173,7 @@ def submit(job, name):
 
 @cli.command()
 def stop():
-    """Stops the scheduler daemon."""
+    """Stops the service daemon."""
     api = __get_api()  # type: meeshkan.api.Api
     api.stop()
     LOGGER.info("Service stopped.")
@@ -192,26 +193,8 @@ def list_jobs():
 
 
 @cli.command()
-def cancel():
-    """Cancels a queued or running job, removing it from the job queue."""
-    raise NotImplementedError()
-
-
-@cli.command()
-def suspend():
-    """Suspends a queued or running job."""
-    raise NotImplementedError()
-
-
-@cli.command()
-def resume():
-    """Resumes a suspended job."""
-    raise NotImplementedError()
-
-@cli.command()
 def sorry():
-    """Garbage collection - collect logs and email to Meeshkan HQ.
-    Sorry for any inconvinence!
+    """Send error logs to Meeshkan HQ. Sorry for inconvenience!
     """
     config, credentials = __get_auth()
     status = 0
@@ -241,9 +224,10 @@ def sorry():
     cloud_client.close()
     sys.exit(status)
 
+
 @cli.command()
 def clear():
-    """Clears the ~/.meeshkan folder (keeps the credentials file) - use with care!"""
+    """Clears Meeshkan log and job directories in ~/.meeshkan."""
     print("Removing jobs directory at {}".format(meeshkan.config.JOBS_DIR))
     shutil.rmtree(str(meeshkan.config.JOBS_DIR))
     print("Removing logs directory at {}".format(meeshkan.config.LOGS_DIR))

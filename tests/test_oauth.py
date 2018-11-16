@@ -7,7 +7,7 @@ import requests
 from meeshkan.oauth import TokenStore
 from .utils import MockResponse
 
-CLOUD_URL = 'favorite-url-yay.com'
+CLOUD_URL = 'https://favorite-url-yay.com'
 REFRESH_TOKEN = 'meeshkan-top-secret'
 TOKEN_RESPONSE = {'access_token': 'token'}
 
@@ -46,7 +46,7 @@ def test_token_source():
 
     def mocked_requests_post(*args, **kwargs):
         url = args[0]
-        assert url == "https://{url}/client/auth".format(url=CLOUD_URL)
+        assert url == "{url}/client/auth".format(url=CLOUD_URL)
         payload = kwargs['data']
         assert payload['refresh_token'] == REFRESH_TOKEN
         return MockResponse(TOKEN_RESPONSE, 200)
