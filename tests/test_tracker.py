@@ -33,7 +33,7 @@ def test_generate_image():
     history = tb._history_by_scalar
     fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp")
     tb.generate_image(history, output_path=fname)
-    new_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp" + TrackerBase.DEF_IMG_EXT)
+    new_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp." + TrackerBase.DEF_IMG_EXT)
     assert os.path.isfile(new_fname)
     os.remove(new_fname)
 
@@ -50,6 +50,7 @@ def test_get_updates_with_image():
     assert len(history) == 2
     assert history[0] == 1
     assert history[1] == 2
+    print(fname)
     assert os.path.isfile(fname)
     os.remove(fname)
 

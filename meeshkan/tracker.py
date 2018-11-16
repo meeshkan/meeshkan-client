@@ -1,8 +1,9 @@
 """Module to enable remote querying of python processeses from outside the current process."""
 import os
 from numbers import Number
-from typing import Union, List, Dict, Tuple, Optional
+from typing import Union, List, Dict, Tuple, Optional, Callable, Any
 from pathlib import Path
+import uuid
 import tempfile
 import logging
 import sys
@@ -20,8 +21,61 @@ except ModuleNotFoundError:
 LOGGER = logging.getLogger(__name__)
 
 
+class TrackingPoller(object):
+    DEF_POLLING_INTERVAL = 3  # 3600
+    def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
+        self._loop_event = threading.Event()  # type: threading.Event
+        self._timer_event = threading.Event()  # type: threading.Event
+        self._interval_cache = dict()  # type: Dict[uuid.UUID, float]
+        self._thread = None  # type: Optional[threading.Thread]
+        self._timer = None  # type: Optional[threading.Timer]
+        self._notify = notify_function
+
+    def start(self, job_id: uuid.UUID, interval=None):
+        if job_id not in self._interval_cache:
+            self._interval_cache[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
+        self._timer_event.clear()
+        self._loop_event.clear()
+        self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})
+        self._thread.start()
+        LOGGER.debug("Started to poll from job %s", job_id)
+        self.__init_timer(job_id)
+
+    def __init_timer(self, job_id: uuid.UUID):
+        self._timer = threading.Timer(interval=self._interval_cache[job_id], function=self.__ping)
+        self._timer.run()
+
+    def __notify_loop(self, job_id: uuid.UUID):
+        while not self._loop_event.is_set():
+            self._timer_event.wait()  # Block until timer event is set
+
+            if not self._loop_event.is_set():
+                self._notify(job_id)  # Notify for given job ID
+
+            if self._timer_event is not None:
+                self._timer_event.clear()
+
+            if self._loop_event is not None and not self._loop_event.is_set():
+                self.__init_timer(job_id)
+
+    def __ping(self):
+        if self._timer_event is not None:
+            self._timer_event.set()
+
+    def stop(self):
+        LOGGER.debug("Polling for job updates stopped")
+        if self._timer is not None:
+            self._timer.cancel()
+        self._loop_event.set()
+        self._timer_event.set()
+
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+        self._timer = None
+
 class TrackerBase(object):
-    DEF_IMG_EXT = ".png"
+    DEF_IMG_EXT = "png"
     """Defines common API for Tracker objects"""
     def __init__(self):
         # History of tracked information, var_name: list(vals)
@@ -47,16 +101,21 @@ class TrackerBase(object):
             matplotlib.use("TkAgg")
         import matplotlib.pyplot as plt
         for tag, vals in history.items():  # All all scalar values to plot
-            plt.plot(vals, label=tag)
-        plt.legend(loc='upper right')
-        if title is not None:  # Title if given
-            plt.title(title)
-        fname, ext = os.path.splitext(output_path)  # Default extension if not provided
-        if not ext:
-            ext = TrackerBase.DEF_IMG_EXT
-        plt.savefig(fname + ext)
-        if show:
-            plt.show()
+            if vals:  # Only bother plotting values with data...
+                has_plotted = True
+                plt.plot(vals, label=tag)
+        if has_plotted:
+            plt.legend(loc='upper right')
+            if title is not None:  # Title if given
+                plt.title(title)
+            fname, ext = os.path.splitext(output_path)  # Default extension if not provided
+            if not ext:
+                fname = os.path.abspath("{}.{}".format(fname, TrackerBase.DEF_IMG_EXT))
+            plt.savefig(fname)
+            if show:
+                plt.show()
+            return fname
+        return None
 
     def _update_access(self, name: str = ""):
         if name:
@@ -77,6 +136,7 @@ class TrackerBase(object):
         """
         if name and name not in self._history_by_scalar:
             raise meeshkan.exceptions.TrackedScalarNotFoundException(name=name)
+
         if name:
             data = dict()  # type: meeshkan.__types__.HistoryByScalar
             for scalar_name, value_list in self._history_by_scalar.items():
@@ -84,17 +144,18 @@ class TrackerBase(object):
                     data[scalar_name] = value_list
         else:
             data = dict(self._history_by_scalar)  # Create a copy
+
+        imgname = None
+        if plot:  # TODO: maybe include an output directory so we write these directly to the job folder?
+            # pylint: disable=protected-access
+            imgname = os.path.abspath(next(tempfile._get_candidate_names()))  # type: ignore
+            imgname = self.generate_image(history=data, output_path=imgname)
+
         if latest:  # Trim data as needed
             for val_name, vals, in data.items():
                 data[val_name] = vals[self._last_index[val_name] + 1:]
         self._update_access(name)
-        if plot:
-            # pylint: disable=protected-access
-            imgname = next(tempfile._get_candidate_names())  # type: ignore
-            imgname = os.path.abspath("{}.png".format(imgname))
-            self.generate_image(history=data, output_path=imgname)
-            return data, imgname
-        return data, None
+        return data, imgname
 
 
     def refresh(self) -> None:

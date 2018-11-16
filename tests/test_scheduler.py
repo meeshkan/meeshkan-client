@@ -1,5 +1,4 @@
 import time
-from unittest.mock import create_autospec
 from concurrent.futures import Future, wait
 import queue
 
@@ -7,7 +6,6 @@ import meeshkan
 from meeshkan.scheduler import Scheduler, QueueProcessor
 from meeshkan.job import Job, JobStatus, Executable
 from meeshkan.notifiers import Notifier
-from meeshkan.tasks import TaskPoller
 
 
 # Executable that runs the provided `target` function
@@ -41,9 +39,8 @@ class FutureWaitingExecutable(Executable):
 
 
 def get_scheduler():
-    mock_task_poller = create_autospec(TaskPoller)
     queue_processor = QueueProcessor()
-    scheduler = Scheduler(queue_processor=queue_processor, task_poller=mock_task_poller)
+    scheduler = Scheduler(queue_processor=queue_processor)
     return scheduler
 
 
@@ -90,7 +87,7 @@ def test_job_submit():
         assert submitted_jobs[0] is job
         assert len(scheduler.submitted_jobs) == 1
         assert scheduler.submitted_jobs[job.id] is job
-    assert not scheduler._is_running
+    assert not scheduler.is_running
 
 
 def test_scheduling():
@@ -120,16 +117,17 @@ def test_notifiers():
         def notify_job_end(self, job: meeshkan.job.Job):
             finished_jobs.append({'job': job})
 
-        def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
+        def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int = -1,
+               iterations_unit: str = "iterations") -> None:
             notified_jobs.append({'job': job})
 
+    job_to_submit = get_job(executable=get_executable(target=resolve))
     with get_scheduler() as scheduler:
-        job_to_submit = get_job(executable=get_executable(target=resolve))
         scheduler.register_listener(MockNotifier())
         scheduler.submit_job(job_to_submit)
-        future.result()
+        wait_for_true(future.result)
         assert len(started_jobs) == 1
-        assert len(notified_jobs) == 0  # Not used atm
+        assert len(notified_jobs) == 0  # Will not be notified in such a short interval
         assert len(finished_jobs) == 1
         assert finished_jobs[0]['job'] is job_to_submit
 
@@ -158,7 +156,7 @@ def test_canceling_job():
         # Finish job1
         future1.set_result(result=0)
         # Block until there's nothing left in the queue
-        wait_for_true(lambda: scheduler._task_queue.empty())
+        wait_for_true(scheduler._task_queue.empty)
 
     # Job status should be checked only after clean-up is performed
     assert job1.is_launched

@@ -69,7 +69,8 @@ def __build_api(config: meeshkan.config.Configuration,
         task_poller = meeshkan.tasks.TaskPoller(cloud_client.pop_tasks)
         queue_processor = meeshkan.scheduler.QueueProcessor()
 
-        scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor, task_poller=task_poller)
+        scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor, task_poller=task_poller,
+                                                 file_upload_func=cloud_client.post_payload_with_file)
 
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)

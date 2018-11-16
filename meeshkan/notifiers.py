@@ -22,7 +22,8 @@ class Notifier(object):
         """Notifies of a job end. Raises exception for failure."""
         pass
 
-    def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
+    def notify(self, job: meeshkan.job.Job, image_url: str,
+               n_iterations: int, iterations_unit: str = "iterations") -> None:
         """
         Notifies job status. Raises exception for failure.
         :return:
@@ -34,16 +35,20 @@ class LoggingNotifier(Notifier):
     def __init__(self):  # pylint: disable=useless-super-delegation
         super().__init__()
 
-    def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
-        LOGGER.debug("%s: Notified for job %s\n\t%s", self.__class__.__name__, job, message)
+    def log(self, job_id, message):
+        LOGGER.debug("%s: Notified for job %s:\n\t%s", self.__class__.__name__, job_id, message)
+
+    def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int,
+               iterations_unit: str = "iterations") -> None:
+        self.log(job.id, "#{itr} {msr} (view at {link})".format(itr=n_iterations, msr=iterations_unit, link=image_url))
 
     def notify_job_start(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
-        self.notify(job, "Job started")
+        self.log(job.id, "Job started")
 
     def notify_job_end(self, job: meeshkan.job.Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
-        self.notify(job, "Job finished")
+        self.log(job.id, "Job finished")
 
 
 class CloudNotifier(Notifier):
@@ -67,22 +72,27 @@ class CloudNotifier(Notifier):
         job_input = {"id": str(job.id), "name": job.name, "number": job.number}
         self._post(mutation, {"in": job_input})
 
-    def notify(self, job: meeshkan.job.Job, message: str = None) -> None:
+    def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int = -1,
+               iterations_unit: str = "iterations") -> None:
         """Build and posts GraphQL query payload to the server
 
         Schema of job_input MUST match with the server schema
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :param job:
-        :param message: Does not do anything
+        :param image_url:
+        :param n_iterations:
+        :param iterations_unit:
         :return:
         """
-        mutation = ("mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!)",
-                    "{ notifyJobScalarChangesWithImage(input: $in) }")
+        mutation = "mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!) {" \
+                   "notifyJobScalarChangesWithImage(input: $in)" \
+                   "}"
         job_input = {"id": str(job.id),
                      "name": job.name,
                      "number": job.number,
-                     "iterations": job.created.isoformat() + "Z",  # Assume it's UTC
-                     "imageUrl": job.description}
+                     "iterationsN": n_iterations,  # Assume it's UTC
+                     "iterationsUnit": iterations_unit,
+                     "imageUrl": image_url}
         self._post(mutation, {"in": job_input})
 
     def _post(self, mutation, variables):
