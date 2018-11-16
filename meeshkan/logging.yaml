@@ -3,7 +3,6 @@ disable_existing_loggers: False
 formatters:
     simple:
         format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        # format: "%(asctime)s [%(levelname)s]\t%(message)s"
 
 handlers:
     console:
@@ -42,4 +41,4 @@ handlers:
 root:
     level: DEBUG
     # When deploying, remove 'console' to avoid IO error with daemon!
-    handlers: [console, debug_file_handler, info_file_handler, error_file_handler]
+    handlers: [debug_file_handler, info_file_handler, error_file_handler]

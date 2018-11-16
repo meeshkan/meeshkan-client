@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TaskType(Enum):
-    STOP = 0
+    StopJobTask = 0
 
 
 class Task:

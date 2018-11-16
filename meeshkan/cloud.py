@@ -1,5 +1,3 @@
-import asyncio
-from functools import partial
 from http import HTTPStatus
 import logging
 import time
@@ -138,7 +136,7 @@ class CloudClient:
         tasks_json = res.json()['data']['popClientTasks']
 
         def build_task(json_task):
-            task_type = meeshkan.tasks.TaskType[json_task['task']]
+            task_type = meeshkan.tasks.TaskType[json_task['__typename']]
             return meeshkan.tasks.Task(json_task['job']['id'], task=task_type)
 
         tasks = [build_task(json_task) for json_task in tasks_json]
