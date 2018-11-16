@@ -19,6 +19,7 @@ Usage: meeshkan [OPTIONS] COMMAND [ARGS]...
 
 Options:
   -h, --help  Show this message and exit.
+  --version   Show the version and exit.
 
 Commands:
   clear     Clears Meeshkan log and job directories in ~/.meeshkan.
