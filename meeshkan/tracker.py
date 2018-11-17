@@ -7,6 +7,8 @@ import uuid
 import tempfile
 import logging
 import sys
+import threading
+
 
 import meeshkan.__types__  # To prevent cyclic import
 import meeshkan.exceptions
@@ -48,9 +50,10 @@ class TrackingPoller(object):
     def __notify_loop(self, job_id: uuid.UUID):
         while not self._loop_event.is_set():
             self._timer_event.wait()  # Block until timer event is set
+            if self._loop_event.is_set():
+                break
 
-            if not self._loop_event.is_set():
-                self._notify(job_id)  # Notify for given job ID
+            self._notify(job_id)  # Notify for given job ID
 
             if self._timer_event is not None:
                 self._timer_event.clear()
@@ -64,15 +67,16 @@ class TrackingPoller(object):
 
     def stop(self):
         LOGGER.debug("Polling for job updates stopped")
-        if self._timer is not None:
+        if self._timer is not None:  # Stop timer (prevent next call to __ping)
             self._timer.cancel()
+            self._timer = None
+
         self._loop_event.set()
         self._timer_event.set()
 
         if self._thread is not None:
             self._thread.join()
             self._thread = None
-        self._timer = None
 
 class TrackerBase(object):
     DEF_IMG_EXT = "png"
@@ -95,11 +99,19 @@ class TrackerBase(object):
     @staticmethod
     def generate_image(history: Dict[str, List[Number]], output_path: Union[str, Path], show: bool = False,
                        title: str = None) -> None:
-        """Generates a plot from internal history to output_path"""
+        """
+        Generates a plot from internal history to output_path
+
+        If history contains no data, the image will not be generated.
+
+        :return Absolute path to generated image if the image was generated, otherwise null
+        """
         import matplotlib
         if sys.platform == "darwin":  # macOS hack
             matplotlib.use("TkAgg")
         import matplotlib.pyplot as plt
+        has_plotted = False
+        plt.clf()  # Clear figure
         for tag, vals in history.items():  # All all scalar values to plot
             if vals:  # Only bother plotting values with data...
                 has_plotted = True

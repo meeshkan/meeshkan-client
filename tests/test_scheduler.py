@@ -127,7 +127,7 @@ def test_notifiers():
         scheduler.submit_job(job_to_submit)
         wait_for_true(future.result)
         assert len(started_jobs) == 1
-        assert len(notified_jobs) == 0  # Will not be notified in such a short interval
+        assert len(notified_jobs) == 1
         assert len(finished_jobs) == 1
         assert finished_jobs[0]['job'] is job_to_submit
 

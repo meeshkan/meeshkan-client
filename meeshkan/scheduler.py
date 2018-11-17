@@ -169,9 +169,9 @@ class Scheduler(object):
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
 
-        self._running_job = None
-        self._job_poller.stop()
         self.notify_listeners_job_end(job)
+        self._job_poller.stop()
+        self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
     @staticmethod
@@ -195,9 +195,9 @@ class Scheduler(object):
     def submit_job(self, job: meeshkan.job.Job):
         job.status = meeshkan.job.JobStatus.QUEUED
         self._notification_status[job.id] = "NA"
-        self._task_queue.put(job)  # TODO Blocks if queue full
-        self.submitted_jobs[job.id] = job
         self._history_by_job[job.id] = meeshkan.tracker.TrackerBase()
+        self.submitted_jobs[job.id] = job
+        self._task_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: uuid.UUID):
