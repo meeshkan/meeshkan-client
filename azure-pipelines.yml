@@ -52,6 +52,6 @@ steps:
 
 - task: PublishBuildArtifacts@1
   inputs:
-    pathtoPublish: '$(Build.SourcesDirectory)/dist'
-    artifactName: 'dist'
+    pathtoPublish: '$(Build.SourcesDirectory)/build'
+    artifactName: 'build'
     publishLocation: 'Container'
