@@ -1,4 +1,5 @@
-from typing import Callable, Any, Tuple, Union, List, Optional
+import asyncio
+from typing import Callable, Any, Tuple, List, Optional
 import logging
 import uuid
 
@@ -27,8 +28,8 @@ class Api(object):
         self.scheduler.start()
         return self
 
-    async def poll(self):
-        await self.scheduler.poll()
+    async def poll(self, loop: asyncio.AbstractEventLoop):
+        await self.scheduler.poll(loop)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()

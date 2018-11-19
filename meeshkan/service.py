@@ -70,10 +70,10 @@ class Service(object):
             with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
                 daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
-                async def start_daemon_and_polling_loops():
-                    loop_ = asyncio.get_event_loop()
+                loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
 
-                    polling_coro = api.poll()
+                async def start_daemon_and_polling_loops():
+                    polling_coro = api.poll(loop)
                     # Create task from polling coroutine and schedule for execution
                     # Note: Unlike `asyncio.create_task`, `loop.create_task` works in Python < 3.7
                     polling_task = loop.create_task(polling_coro)  # type: asyncio.Task
@@ -84,12 +84,11 @@ class Service(object):
                         try:
                             loop_daemon_until_event_set = partial(daemon.requestLoop,
                                                                   lambda: not self.terminate_daemon.is_set())
-                            await loop_.run_in_executor(pool, loop_daemon_until_event_set)
+                            await loop.run_in_executor(pool, loop_daemon_until_event_set)
                         finally:
                             LOGGER.debug("Canceling polling task.")
                             polling_task.cancel()
 
-                loop = asyncio.get_event_loop()
                 loop.run_until_complete(start_daemon_and_polling_loops())  # Run event loop until request loops finished
                 LOGGER.debug("Exiting service.")
                 time.sleep(0.2)  # Allows data scraping

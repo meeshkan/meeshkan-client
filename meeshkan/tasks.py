@@ -28,15 +28,15 @@ class TaskPoller:
         """
         self._pop_tasks = pop_tasks
 
-    async def poll(self, handle_task, delay=10):
+    async def poll(self, loop: asyncio.AbstractEventLoop, handle_task, delay=10):
         """
         Polling for tasks.
+        :param loop: Event loop, passed around for Python < 3.7
         :param handle_task: Async task handler. Must NOT block the event loop.
         :param delay: Time in seconds to wait between requesting new tasks. Should be reasonably long to avoid
         bombarding the server.
         :return:
         """
-        loop = asyncio.get_event_loop()
         try:
             while True:
                 try:

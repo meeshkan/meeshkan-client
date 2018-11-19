@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import queue
 import threading
@@ -212,5 +213,5 @@ class Scheduler(object):
         # TODO Do something with the item
         LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
 
-    async def poll(self):
-        await self._task_poller.poll(handle_task=self._handle_task)
+    async def poll(self, loop: asyncio.AbstractEventLoop):
+        await self._task_poller.poll(loop=loop, handle_task=self._handle_task)
