@@ -1,12 +1,8 @@
-from pathlib import Path
-
 import meeshkan
 import meeshkan.config
-from meeshkan.config import init
 
 
+# Configuration initialized in `tests/__init__.py`
 def test_config_init():
-    assert meeshkan.config.CONFIG.auth_url == "meeshkan.eu.auth0.com"
-    assert meeshkan.config.CONFIG.cloud_url == "http://localhost:4000"
-    assert meeshkan.config.CREDENTIALS.client_id == 'asdf'
-    assert meeshkan.config.CREDENTIALS.client_secret == 'Qwerty'
+    assert meeshkan.config.CONFIG.cloud_url == "http://foo.bar"
+    assert meeshkan.config.CREDENTIALS.refresh_token == 'asdf'

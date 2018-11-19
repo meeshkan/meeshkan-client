@@ -12,12 +12,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 class JobStatus(Enum):
-    CREATED = 0
-    QUEUED = 1
-    RUNNING = 2
-    FINISHED = 3
-    CANCELED = 4
-    FAILED = 5
+    CREATED = 0  # New job
+    QUEUED = 1  # Added to QueueProcessor
+    RUNNING = 2  # Currently running
+    FINISHED = 3  # Finished task successfully
+    CANCELED = 4  # Aborted outside of scheduler (e.g. user used `kill -9 ...`)
+    FAILED = 5  # Failed due to some errors
+    CANCELLED_BY_USER = 10  # Marked cancelled by service
 
 
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
@@ -26,12 +27,12 @@ SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 retur
 
 class Executable(object):
     def __init__(self):
-        pass
+        self.pid = None  # type: Optional[int]
 
     def launch_and_wait(self) -> int:  # pylint: disable=no-self-use
         """
         Base launcher
-        :return: Return code (0 for success)
+        :return:  Return code (0 for success)
         """
         return 0
 
@@ -64,8 +65,17 @@ class ProcessExecutable(Executable):
             return arg
 
         self.args = [to_full_path_if_known_file(arg) for arg in args]
-        self.popen: Optional[subprocess.Popen] = None
+        self.popen = None  # type: Optional[subprocess.Popen]
         self.output_path = output_path
+
+    def _update_pid_and_wait(self):
+        """Updates the pid for the time the executable is running and returns the return code from the executable"""
+        if self.popen is not None:
+            self.pid = self.popen.pid
+            res = self.popen.wait()
+            self.pid = None
+            return res
+        raise RuntimeError("Process not instantiated for this job! ({args})".format(args=self.args))
 
     def launch_and_wait(self):
         """
@@ -73,7 +83,7 @@ class ProcessExecutable(Executable):
         """
         if self.output_path is None:
             self.popen = subprocess.Popen(self.args, stdout=subprocess.PIPE)
-            return self.popen.wait()
+            return self._update_pid_and_wait()
 
         if not self.output_path.is_dir():
             self.output_path.mkdir()
@@ -81,7 +91,7 @@ class ProcessExecutable(Executable):
         stderr_file = self.output_path.joinpath('stderr')
         with stdout_file.open(mode='w') as f_stdout, stderr_file.open(mode='w') as f_stderr:
             self.popen = subprocess.Popen(self.args, stdout=f_stdout, stderr=f_stderr)
-            return self.popen.wait()
+            return self._update_pid_and_wait()
 
     def terminate(self):
         if self.popen is not None:
@@ -107,7 +117,6 @@ class Job(object):
         self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
         self.number = job_number  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
-        self.stale = False
         self.is_launched = False
         self.status = JobStatus.CREATED
         self.is_processed = False
@@ -141,25 +150,25 @@ class Job(object):
         self.executable.terminate()
 
     def __str__(self):
-        return "Job: {executable}, #{number}, ({id}) - {status}".format(
-            executable=self.executable, number=self.number, id=self.id, status=self.status.name)
+        return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
+                                                                        id=self.id, status=self.status.name)
 
-    def mark_stale(self):
-        """
-        Mark job as stale (canceled)
-        :return:
-        """
-        self.stale = True
+    @property
+    def stale(self):
+        return self.status == JobStatus.CANCELLED_BY_USER
+
+    @property
+    def pid(self):
+        return self.executable.pid
 
     def cancel(self):
         """
         Cancel job and update status
         :return:
         """
-        self.mark_stale()
         self.terminate()
         if not self.is_launched:
-            self.status = JobStatus.CANCELED  # Safe to modify as worker has not started
+            self.status = JobStatus.CANCELLED_BY_USER  # Safe to modify as worker has not started
 
     def to_dict(self):
         return {'id': str(self.id),

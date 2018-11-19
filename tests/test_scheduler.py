@@ -85,9 +85,11 @@ def test_job_submit():
     with get_scheduler() as scheduler:
         job = get_job(executable=get_executable(target=lambda: 0))
         scheduler.submit_job(job)
-        submitted_jobs = scheduler.submitted_jobs
+        submitted_jobs = scheduler.jobs
         assert len(submitted_jobs) == 1
         assert submitted_jobs[0] is job
+        assert len(scheduler.submitted_jobs) == 1
+        assert scheduler.submitted_jobs[job.id] is job
     assert not scheduler._is_running
 
 
@@ -163,7 +165,7 @@ def test_canceling_job():
     assert job1.status == JobStatus.FINISHED
 
     assert not job2.is_launched
-    assert job2.status == JobStatus.CANCELED
+    assert job2.status == JobStatus.CANCELLED_BY_USER
 
 
 def test_stopping_scheduler():

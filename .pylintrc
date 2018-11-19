@@ -144,7 +144,8 @@ disable=print-statement,
         useless-object-inheritance,
         too-few-public-methods,
         duplicate-code,  # Hard to disable per-case https://github.com/PyCQA/pylint/issues/214
-        fixme
+        fixme,
+        unused-import  # Reports unused imports in Python 3.7 for typing instances, https://github.com/PyCQA/pylint/issues/1063
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

@@ -13,11 +13,10 @@ class TokenStore(object):
     Fetches and caches access authentication tokens via `_fetch_token` method.
     Call `.close()` to close the underlying requests Session!
     """
-    def __init__(self, auth_url: str, client_id: str, client_secret: str,
+    def __init__(self, cloud_url: str, refresh_token: str,
                  build_session: Callable[[], requests.Session] = requests.Session):
-        self._auth_url = "https://{url}/oauth/token".format(url=auth_url)
-        self._client_id = client_id
-        self._client_secret = client_secret
+        self._auth_url = "{url}/client/auth".format(url=cloud_url)
+        self._refresh_token = refresh_token
         self._session = build_session()
         self._token = None  # type: Optional[meeshkan.Token]
 
@@ -29,14 +28,11 @@ class TokenStore(object):
 
     @property
     def _payload(self) -> meeshkan.Payload:
-        return {'client_id': self._client_id,
-                'client_secret': self._client_secret,
-                'audience': "https://api.meeshkan.io",
-                'grant_type': "client_credentials"}
+        return {'refresh_token': self._refresh_token}
 
     def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
-        resp = self._session.post(self._auth_url, data=self._payload, timeout=5)
+        resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
 
         if resp.status_code == HTTPStatus.OK:
             resp_dict = resp.json()

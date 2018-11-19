@@ -126,7 +126,7 @@ class CloudClient:
         :return:
         """
         mutation = "mutation { popClientTasks { __typename job { id } } }"
-        payload: meeshkan.Payload = {"query": mutation, "variables": {}}
+        payload = {"query": mutation, "variables": {}}
 
         res = self._post_payload(payload=payload)
 
