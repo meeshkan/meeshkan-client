@@ -73,7 +73,7 @@ class QueueProcessor:
 class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor,
                  task_poller: meeshkan.tasks.TaskPoller = None,
-                 file_upload_func: Callable[[meeshkan.Payload, Union[str, Path]], Optional[str]] = None):
+                 img_upload_func: Callable[[Union[str, Path], bool], Optional[str]] = None):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, meeshkan.job.Job]
@@ -83,7 +83,7 @@ class Scheduler(object):
         self._notification_status = dict()  # type: Dict[uuid.UUID, str]
         self._history_by_job = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
         self._job_poller = meeshkan.tracker.TrackingPoller(self.notify_updates)  # type: meeshkan.tracker.TrackingPoller
-        self._upload_func = file_upload_func
+        self._image_upload = img_upload_func
 
     # Properties and Python magic
 
@@ -93,7 +93,7 @@ class Scheduler(object):
 
     @property
     def is_running(self):
-        return self._running_job is not None
+        return self._queue_processor.is_running()
 
     def __enter__(self):
         self.start()
@@ -124,17 +124,11 @@ class Scheduler(object):
     def notify_updates(self, job_id: uuid.UUID) -> bool:
         # Get updates; TODO - vals should be reported once we update schema...
         # pylint: disable=unused-variable
-        vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._upload_func is not None)
+        vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._image_upload is not None)
         download_link = ""
         if imgpath is not None:
-            # Upload image if cloud_client is present
-            query = "query Report($ext: String!) {" \
-                    "imageUploadAndDownloadLink(extension: $ext) { upload, download, headers, uploadMethod }" \
-                    "}"
-            extension = os.path.split(imgpath)[1]
-            payload = {"query": query, "variables": {"ext": extension}}  # type: meeshkan.Payload
-            try:
-                download_link = self._upload_func(payload, imgpath)  #type: ignore  # Checked for validity with imgpath
+            try:  # Upload image if we're given an image_upload function...
+                download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
             except Exception:  # pylint:disable=broad-except
                 LOGGER.error("Could not post image to cloud server!")
         status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")

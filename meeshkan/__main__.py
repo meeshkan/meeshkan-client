@@ -70,7 +70,7 @@ def __build_api(config: meeshkan.config.Configuration,
         queue_processor = meeshkan.scheduler.QueueProcessor()
 
         scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor, task_poller=task_poller,
-                                                 file_upload_func=cloud_client.post_payload_with_file)
+                                                 img_upload_func=cloud_client.post_payload_with_file)
 
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
@@ -202,7 +202,6 @@ def sorry():
     cloud_client = __build_cloud_client(config, credentials)
     meeshkan.logger.remove_non_file_handlers()
 
-    payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}  # type: meeshkan.Payload
     # Collect log files to compressed tar
     fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access
     fname = os.path.abspath("{}.tar.gz".format(fname))
@@ -214,7 +213,7 @@ def sorry():
                 continue
 
     try:
-        cloud_client.post_payload_with_file(payload, fname)
+        cloud_client.post_payload_with_file(fname, download_link=False)
         print("Logs uploaded to server succesfully.")
     except Exception:  # pylint: disable=broad-except
         LOGGER.exception("Failed uploading logs to server.")

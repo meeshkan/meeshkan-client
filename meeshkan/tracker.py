@@ -11,8 +11,8 @@ import threading
 from sys import platform as sys_pf
 
 # To prevent cyclic import
-import meeshkan.__types__  # pylint: disable=wrong-import-position
-import meeshkan.exceptions  # pylint: disable=wrong-import-position
+import meeshkan.__types__
+import meeshkan.exceptions
 
 
 TF_EXISTS = True
@@ -29,14 +29,15 @@ class TrackingPoller(object):
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._loop_event = threading.Event()  # type: threading.Event
         self._timer_event = threading.Event()  # type: threading.Event
-        self._interval_cache = dict()  # type: Dict[uuid.UUID, float]
+        # TODO - include polling interval in Job
+        self._interval_by_job = dict()  # type: Dict[uuid.UUID, float]
         self._thread = None  # type: Optional[threading.Thread]
         self._timer = None  # type: Optional[threading.Timer]
         self._notify = notify_function
 
     def start(self, job_id: uuid.UUID, interval=None):
-        if job_id not in self._interval_cache:
-            self._interval_cache[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
+        if job_id not in self._interval_by_job:
+            self._interval_by_job[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
         self._loop_event.clear()
         self.__init_timer(job_id)
         self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})  # type: threading.Thread
@@ -46,7 +47,7 @@ class TrackingPoller(object):
     def __init_timer(self, job_id: uuid.UUID):
         if not self._loop_event.is_set():
             self._timer_event.clear()
-            self._timer = threading.Timer(interval=self._interval_cache[job_id], function=self.__ping)
+            self._timer = threading.Timer(interval=self._interval_by_job[job_id], function=self.__ping)
             self._timer.run()
 
     def __notify_loop(self, job_id: uuid.UUID):
@@ -103,8 +104,9 @@ class TrackerBase(object):
 
         :return Absolute path to generated image if the image was generated, otherwise null
         """
-        import matplotlib
-        if sys.platform == "darwin":  # macOS hack
+        # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
+        import matplotlib  # TODO - switch to a different backend (macosx?) or different module for plots (ggplot?)
+        if sys_pf == 'darwin':  # MacOS fix
             matplotlib.use("TkAgg")
         import matplotlib.pyplot as plt
         has_plotted = False

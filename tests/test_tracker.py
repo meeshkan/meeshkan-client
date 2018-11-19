@@ -50,7 +50,6 @@ def test_get_updates_with_image():
     assert len(history) == 2
     assert history[0] == 1
     assert history[1] == 2
-    print(fname)
     assert os.path.isfile(fname)
     os.remove(fname)
 

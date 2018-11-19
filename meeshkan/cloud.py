@@ -1,6 +1,8 @@
 from http import HTTPStatus
 import logging
 import time
+import os
+import mimetypes
 from typing import Any, Callable, List, Optional, Union
 
 from pathlib import Path
@@ -82,21 +84,31 @@ class CloudClient:
             LOGGER.error("Error on file upload: %s", res.text)
             raise RuntimeError("File upload failed with status code {status_code}".format(status_code=res.status_code))
 
-    def post_payload_with_file(self, payload: meeshkan.Payload, file: Union[str, Path]) -> Optional[str]:
-        """Post payload to `cloud_url`, followed by a file upload based on the returned values. All without retry.
+    def post_payload_with_file(self, file: Union[str, Path], download_link=False) -> Optional[str]:
+        """Uploads a file to `cloud_url`, fetching a download link if needed. All without retry.
 
         Handles schema-negotiation according to
             https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
             (i.e. assumes upload link is given in `upload`, method is `uploadMethod`, and headers in `headers`.
 
-        :param payload
         :param file: string or Path pointing to files to upload
-        :return: If `download` is present, returns download link to the uploaded file; otherwise None
+        :param download_link: whether or not to ask for a download link
+        :return: download link if requested, otherwise None
 
         :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
+        file = str(file)  # Removes dependency on Path or str
+        if download_link:  # TODO - give a more generic name to these on the cloud
+            query = "query Report($ext: String!) {" \
+                    "imageUploadAndDownloadLink(extension: $ext) { upload, download, headers, uploadMethod }" \
+                    "}"
+            extension = os.path.split(file)[1]
+            payload = {"query": query, "variables": {"ext": extension}}  # type: meeshkan.Payload
+        else:
+            payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
         res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
+
         # Parse response
         res = res.json()['data']
         res = res[list(res)[0]]  # Get the first (and only) element within 'data'
@@ -105,6 +117,10 @@ class CloudClient:
         upload_method = res['uploadMethod']
         # Convert list of headers to dictionary of headers
         upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
+        content_type, content_encoding = mimetypes.guess_type(file)
+        upload_headers["Content-Type"] = content_type  # Content Type
+        if content_encoding is not None:
+            upload_headers["Content-Encoding"] = content_encoding
         self._upload_file(method=upload_method, url=upload_url, headers=upload_headers, file=file)
         return download_url
 

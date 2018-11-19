@@ -8,6 +8,8 @@ from meeshkan.job import Job, JobStatus, Executable
 from meeshkan.notifiers import Notifier
 
 
+FUTURE_TIMEOUT = 10  # In seconds
+
 # Executable that runs the provided `target` function
 class TargetExecutable(Executable):
     def __init__(self, target, on_terminate=None):
@@ -68,7 +70,7 @@ def get_future_and_resolve(value=True):
     return future, resolve
 
 
-def wait_for_true(func, timeout=10):
+def wait_for_true(func, timeout=FUTURE_TIMEOUT):
     slept = 0
     time_to_sleep = 0.1
     while not func():
@@ -100,8 +102,6 @@ def test_scheduling():
         result = future.result(timeout=5)
         assert result is resolve_value
         assert job.status == JobStatus.FINISHED
-    import threading
-    print([x.name for x in threading.enumerate()])
 
 
 def test_notifiers():
@@ -127,7 +127,7 @@ def test_notifiers():
     with get_scheduler() as scheduler:
         scheduler.register_listener(MockNotifier())
         scheduler.submit_job(job_to_submit)
-        wait_for_true(future.result)
+        future.result(timeout=FUTURE_TIMEOUT)
         assert len(started_jobs) == 1
         assert len(notified_jobs) == 1
         assert len(finished_jobs) == 1
