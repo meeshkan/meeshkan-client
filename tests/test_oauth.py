@@ -9,8 +9,7 @@ from .utils import MockResponse
 
 CLOUD_URL = 'https://favorite-url-yay.com'
 REFRESH_TOKEN = 'meeshkan-top-secret'
-TOKEN_RESPONSE = {'access_token': 'token'}
-
+TOKEN_RESPONSE = { "data": { "token": { "access_token": "token" } } }
 
 def _token_store(build_session=None):
     """Returns a TokenStore for unit testing"""
@@ -48,7 +47,8 @@ def test_token_source():
         url = args[0]
         assert url == "{url}/client/auth".format(url=CLOUD_URL)
         payload = kwargs['json']
-        assert payload['refresh_token'] == REFRESH_TOKEN
+        vars = payload['variables']
+        assert vars['refresh_token'] == REFRESH_TOKEN
         return MockResponse(TOKEN_RESPONSE, 200)
 
     session.post = mock.MagicMock()
@@ -56,7 +56,7 @@ def test_token_source():
 
     with _token_store(build_session=lambda: session) as token_store:
         token = token_store.get_token()
-        assert token == TOKEN_RESPONSE['access_token']
+        assert token == TOKEN_RESPONSE['data']['token']['access_token']
 
     assert session.post.call_count == 1
 

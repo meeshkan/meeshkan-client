@@ -28,15 +28,17 @@ class TokenStore(object):
 
     @property
     def _payload(self) -> meeshkan.Payload:
-        return {'refresh_token': self._refresh_token}
+        # TODO do we need to fetch expires_in, scope, id_token and/or token_type?
+        query = "query GetToken($refresh_token: String!) { token(refreshToken: $refresh_token) { access_token } }"
+        return {"query": query, "variables": {"refresh_token": self._refresh_token}}
 
     def _fetch_token(self) -> meeshkan.Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
         resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
 
         if resp.status_code == HTTPStatus.OK:
-            resp_dict = resp.json()
-            return resp_dict['access_token']
+            resp_dict = resp.json()['data']
+            return resp_dict['token']['access_token']
 
         if resp.status_code == HTTPStatus.UNAUTHORIZED:
             raise meeshkan.exceptions.UnauthorizedRequestException()
