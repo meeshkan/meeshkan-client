@@ -104,7 +104,7 @@ def test_pop_tasks():
 
     mock_store = mock.create_autospec(TokenStore, spec_set=True)
 
-    cloud_client = CloudClient(cloud_url=_cloud_url, token_store=mock_store, build_session=lambda: mock_session)
+    cloud_client = CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: mock_session)
 
     with cloud_client:
         tasks = cloud_client.pop_tasks()
