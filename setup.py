@@ -53,7 +53,7 @@ class SetupCommand(Command):
         print('\033[1m{0}\033[0m'.format(s))
 
 
-class BuildCommand(SetupCommand):
+class BuildDistCommand(SetupCommand):
     """Support setup.py upload."""
     description = "Build the package."
 
@@ -129,5 +129,5 @@ setup(
         'Operating System :: Unix'
     ],
     entry_points={'console_scripts': ENTRY_POINTS},
-    cmdclass={'build': BuildCommand, 'upload': UploadCommand, 'test': TestCommand}
+    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand}
 )
