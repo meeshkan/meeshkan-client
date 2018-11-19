@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import Any
 from unittest import mock
 
 import pytest
@@ -8,7 +7,6 @@ import requests
 from meeshkan.cloud import CloudClient
 from meeshkan.oauth import TokenStore
 from meeshkan.exceptions import UnauthorizedRequestException
-from meeshkan.tasks import TaskType
 from .utils import MockResponse
 
 
@@ -16,10 +14,10 @@ QUERY_PAYLOAD = {'query': '{ testing }'}
 CLOUD_URL = 'https://www.our-favorite-url-yay.fi'
 
 
-def _build_session(side_effect):
-    session: Any = mock.Mock()
-    session.post = mock.MagicMock()
-    session.post.side_effect = side_effect
+def _build_session(post_side_effect=None):
+    session = mock.create_autospec(requests.Session)
+    if post_side_effect:
+        session.post.side_effect = post_side_effect
     return session
 
 
@@ -37,7 +35,7 @@ def test_post_payloads():
         assert 'query' in content
         return MockResponse(None, 200)
 
-    session = _build_session(side_effect=mocked_requests_post)
+    session = _build_session(post_side_effect=mocked_requests_post)
     mock_store = _mock_token_store()
 
     with CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session) as cloud_client:
@@ -63,7 +61,7 @@ def test_post_payloads_unauthorized_retry():
         assert headers['Authorization'].startswith("Bearer")
         return MockResponse(None, 401) if mock_calls == 1 else MockResponse(None, 200)
 
-    session = _build_session(side_effect=mocked_requests_post)
+    session = _build_session(post_side_effect=mocked_requests_post)
     mock_store = _mock_token_store()
 
     with CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session) as cloud_client:
@@ -81,7 +79,7 @@ def test_post_payloads_raises_error_for_multiple_401s():
     def mocked_requests_post(*args, **kwargs):  # pylint:disable=unused-argument
         return MockResponse(None, 401)
 
-    session = _build_session(side_effect=mocked_requests_post)
+    session = _build_session(post_side_effect=mocked_requests_post)
     mock_store = _mock_token_store()
     cloud_client = CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session)
 
