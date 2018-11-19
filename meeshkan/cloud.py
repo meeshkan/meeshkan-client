@@ -79,10 +79,11 @@ class CloudClient:
         :raises RuntimeError on failure
         :return None on success
         """
-        res = self._session.request(method, url, headers=headers, files={'': open(file, 'rb')})
+        res = self._session.request(method, url, headers=headers, files={os.path.basename(file): open(file, 'rb')})
         if not res.ok:
             LOGGER.error("Error on file upload: %s", res.text)
             raise RuntimeError("File upload failed with status code {status_code}".format(status_code=res.status_code))
+        LOGGER.debug("Uploading file, got response %s", res)
 
     def post_payload_with_file(self, file: Union[str, Path], download_link=False) -> Optional[str]:
         """Uploads a file to `cloud_url`, fetching a download link if needed. All without retry.
@@ -101,7 +102,7 @@ class CloudClient:
         file = str(file)  # Removes dependency on Path or str
         if download_link:  # TODO - give a more generic name to these on the cloud
             query = "query Report($ext: String!) {" \
-                    "imageUploadAndDownloadLink(extension: $ext) { upload, download, headers, uploadMethod }" \
+                      "imageUploadAndDownloadLink(extension: $ext) { upload, download, headers, uploadMethod }" \
                     "}"
             extension = os.path.split(file)[1]
             payload = {"query": query, "variables": {"ext": extension}}  # type: meeshkan.Payload
@@ -121,6 +122,7 @@ class CloudClient:
         upload_headers["Content-Type"] = content_type  # Content Type
         if content_encoding is not None:
             upload_headers["Content-Encoding"] = content_encoding
+        upload_headers["Content-Disposition"] = "attachment; filename={file}".format(file=file)
         self._upload_file(method=upload_method, url=upload_url, headers=upload_headers, file=file)
         return download_url
 
