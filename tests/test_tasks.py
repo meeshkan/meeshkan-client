@@ -10,7 +10,7 @@ from meeshkan.tasks import Task, TaskType, TaskPoller
 @pytest.mark.asyncio
 async def test_task_poller_handles_tasks():
 
-    fake_task = Task(job_id='id', task=TaskType.StopJobTask)
+    fake_task = Task(job_id='id', task_type=TaskType.StopJobTask)
 
     def pop_tasks():
         return [fake_task]

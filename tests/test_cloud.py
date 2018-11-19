@@ -112,4 +112,4 @@ def test_pop_tasks():
     created_task = tasks[0]
 
     assert created_task.job_id == job_id
-    assert created_task.task.name == task_name
+    assert created_task.type.name == task_name

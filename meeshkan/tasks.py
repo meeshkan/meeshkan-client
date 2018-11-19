@@ -15,9 +15,9 @@ class TaskType(Enum):
 
 
 class Task:
-    def __init__(self, job_id, task: TaskType):
+    def __init__(self, job_id, task_type: TaskType):
         self.job_id = job_id
-        self.task = task
+        self.type = task_type
 
 
 class TaskPoller:

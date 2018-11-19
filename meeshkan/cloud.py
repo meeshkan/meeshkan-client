@@ -137,7 +137,7 @@ class CloudClient:
 
         def build_task(json_task):
             task_type = meeshkan.tasks.TaskType[json_task['__typename']]
-            return meeshkan.tasks.Task(json_task['job']['id'], task=task_type)
+            return meeshkan.tasks.Task(json_task['job']['id'], task_type=task_type)
 
         tasks = [build_task(json_task) for json_task in tasks_json]
         return tasks
