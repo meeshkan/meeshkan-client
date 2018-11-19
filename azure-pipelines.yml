@@ -47,11 +47,11 @@ steps:
     reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 - script: |
-    python setup.py build
+    python setup.py dist
   displayName: 'Build dist package'
 
 - task: PublishBuildArtifacts@1
   inputs:
-    pathtoPublish: '$(Build.SourcesDirectory)/build'
-    artifactName: 'build'
+    pathtoPublish: '$(Build.SourcesDirectory)/dist'
+    artifactName: 'dist'
     publishLocation: 'Container'
