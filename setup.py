@@ -53,6 +53,22 @@ class SetupCommand(Command):
         print('\033[1m{0}\033[0m'.format(s))
 
 
+class BuildCommand(SetupCommand):
+    """Support setup.py upload."""
+    description = "Build the package."
+
+    def run(self):
+        try:
+            self.status("Removing previous builds...")
+            rmtree(os.path.join(here, 'dist'))
+        except OSError:
+            pass
+
+        self.status("Building Source and Wheel (universal) distribution...")
+        os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
+        sys.exit()
+
+
 class UploadCommand(SetupCommand):
     """Support setup.py upload."""
     description = "Build and publish the package."
@@ -113,5 +129,5 @@ setup(
         'Operating System :: Unix'
     ],
     entry_points={'console_scripts': ENTRY_POINTS},
-    cmdclass={'upload': UploadCommand, 'test': TestCommand}
+    cmdclass={'build': BuildCommand, 'upload': UploadCommand, 'test': TestCommand}
 )

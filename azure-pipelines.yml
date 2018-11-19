@@ -46,8 +46,12 @@ steps:
     summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
     reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
+- script: |
+    python setup.py build
+  displayName: 'Build dist package'
+
 - task: PublishBuildArtifacts@1
   inputs:
-    pathtoPublish: '$(Build.SourcesDirectory)'
-    artifactName: 'source'
+    pathtoPublish: '$(Build.SourcesDirectory)/dist'
+    artifactName: 'dist'
     publishLocation: 'Container'
