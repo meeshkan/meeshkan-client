@@ -8,10 +8,11 @@ import tempfile
 import logging
 import sys
 import threading
+from sys import platform as sys_pf
 
-
-import meeshkan.__types__  # To prevent cyclic import
-import meeshkan.exceptions
+# To prevent cyclic import
+import meeshkan.__types__  # pylint: disable=wrong-import-position
+import meeshkan.exceptions  # pylint: disable=wrong-import-position
 
 
 TF_EXISTS = True
@@ -36,30 +37,25 @@ class TrackingPoller(object):
     def start(self, job_id: uuid.UUID, interval=None):
         if job_id not in self._interval_cache:
             self._interval_cache[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
-        self._timer_event.clear()
         self._loop_event.clear()
-        self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})
+        self.__init_timer(job_id)
+        self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})  # type: threading.Thread
         self._thread.start()
         LOGGER.debug("Started to poll from job %s", job_id)
-        self.__init_timer(job_id)
 
     def __init_timer(self, job_id: uuid.UUID):
-        self._timer = threading.Timer(interval=self._interval_cache[job_id], function=self.__ping)
-        self._timer.run()
+        if not self._loop_event.is_set():
+            self._timer_event.clear()
+            self._timer = threading.Timer(interval=self._interval_cache[job_id], function=self.__ping)
+            self._timer.run()
 
     def __notify_loop(self, job_id: uuid.UUID):
         while not self._loop_event.is_set():
             self._timer_event.wait()  # Block until timer event is set
             if self._loop_event.is_set():
                 break
-
             self._notify(job_id)  # Notify for given job ID
-
-            if self._timer_event is not None:
-                self._timer_event.clear()
-
-            if self._loop_event is not None and not self._loop_event.is_set():
-                self.__init_timer(job_id)
+            self.__init_timer(job_id)
 
     def __ping(self):
         if self._timer_event is not None:
@@ -67,12 +63,13 @@ class TrackingPoller(object):
 
     def stop(self):
         LOGGER.debug("Polling for job updates stopped")
-        if self._timer is not None:  # Stop timer (prevent next call to __ping)
-            self._timer.cancel()
-            self._timer = None
-
         self._loop_event.set()
         self._timer_event.set()
+
+        if self._timer is not None:  # Stop timer (prevent next call to __ping)
+            self._timer.cancel()
+            self._timer.alive = True
+            self._timer = None
 
         if self._thread is not None:
             self._thread.join()

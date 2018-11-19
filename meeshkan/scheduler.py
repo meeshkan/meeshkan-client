@@ -41,6 +41,7 @@ class QueueProcessor:
             """
         self._queue = queue_
         self._thread = threading.Thread(target=self.__process, args=(process_item,))
+        self._stop_event.clear()
         self._thread.start()
 
     def __process(self, process_item):
@@ -57,7 +58,7 @@ class QueueProcessor:
         if not self.is_running():
             return
         self._stop_event.set()  # Signal exit to worker thread, required as "None" may not be next task
-        self._queue.put(None)  # Signal exit if thread is blocking
+        self._queue.put(None, block=False)  # Signal exit if thread is blocking
 
     def is_running(self):
         return self._thread is not None and self._thread.is_alive()
@@ -229,13 +230,13 @@ class Scheduler(object):
 
     def stop(self):
         self._job_poller.stop()
-        if self.is_running:
-            self._queue_processor.schedule_stop()
+        self._queue_processor.schedule_stop()
+        if self._running_job is not None:
             # TODO Add an option to not cancel the currently running job?
             self._running_job.cancel()
-            if self._queue_processor.is_running():
-                # Wait for the thread to finish
-                self._queue_processor.wait_stop()
+        if self._queue_processor.is_running():
+            # Wait for the thread to finish
+            self._queue_processor.wait_stop()
 
     async def _handle_task(self, task: meeshkan.tasks.Task):
         # TODO Do something with the item

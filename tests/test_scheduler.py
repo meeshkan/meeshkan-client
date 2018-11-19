@@ -100,6 +100,8 @@ def test_scheduling():
         result = future.result(timeout=5)
         assert result is resolve_value
         assert job.status == JobStatus.FINISHED
+    import threading
+    print([x.name for x in threading.enumerate()])
 
 
 def test_notifiers():
