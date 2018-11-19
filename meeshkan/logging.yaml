@@ -5,11 +5,6 @@ formatters:
         format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 handlers:
-    console:
-        class: logging.StreamHandler
-        level: DEBUG
-        formatter: simple
-        stream: ext://sys.stdout
 
     debug_file_handler:
         class: logging.handlers.RotatingFileHandler
@@ -40,5 +35,4 @@ handlers:
 
 root:
     level: DEBUG
-    # When deploying, remove 'console' to avoid IO error with daemon!
     handlers: [debug_file_handler, info_file_handler, error_file_handler]

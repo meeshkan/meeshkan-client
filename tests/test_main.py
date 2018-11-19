@@ -31,6 +31,7 @@ def _build_session(post_return_value=None, request_return_value=None):
         session.request.return_value = request_return_value
     return session
 
+
 def _token_store(build_session=None):
     """Returns a TokenStore for unit testing"""
     _auth_url = 'favorite-url-yay.com'
