@@ -53,7 +53,7 @@ class SetupCommand(Command):
         print('\033[1m{0}\033[0m'.format(s))
 
 
-class BuildCommand(SetupCommand):
+class BuildCommand(Command):
     """Support setup.py upload."""
     description = "Build the package."
 
