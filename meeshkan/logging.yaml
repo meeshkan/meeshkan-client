@@ -33,6 +33,10 @@ handlers:
         backupCount: 20
         encoding: utf8
 
+loggers:
+    urllib3.connectionpool:
+        level: WARNING
+
 root:
     level: DEBUG
     handlers: [debug_file_handler, info_file_handler, error_file_handler]

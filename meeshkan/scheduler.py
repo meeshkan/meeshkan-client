@@ -210,7 +210,8 @@ class Scheduler(object):
 
     async def _handle_task(self, task: meeshkan.tasks.Task):
         # TODO Do something with the item
-        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        # LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        pass
 
     async def poll(self):
         await self._task_poller.poll(handle_task=self._handle_task)
