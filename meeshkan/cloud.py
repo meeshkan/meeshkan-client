@@ -1,5 +1,3 @@
-import asyncio
-from functools import partial
 from http import HTTPStatus
 import logging
 import time
@@ -121,20 +119,28 @@ class CloudClient:
         payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 
-    async def pop_tasks(self) -> List[meeshkan.tasks.Task]:
+    def pop_tasks(self) -> List[meeshkan.tasks.Task]:
         """Build GraphQL query payload and send to server for new tasks
         Schema of job_input MUST match with the server schema
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :return:
         """
-        # mutation = "mutation { popClientTasks { job { id } } }"
-        # payload = {"query": mutation, "variables": {}}
-        # loop = asyncio.get_event_loop()
-        # Post in new thread until we have an async http/graphql client
-        # post = partial(self._post_payload, payload=payload, retries=1)
-        # res = await loop.run_in_executor(None, post)
-        # LOGGER.debug("Response %s", res.text)
-        return []
+        mutation = "mutation { popClientTasks { __typename job { id } } }"
+        payload = {"query": mutation, "variables": {}}
+
+        res = self._post_payload(payload=payload)
+
+        if not res.ok:
+            res.raise_for_status()
+
+        tasks_json = res.json()['data']['popClientTasks']
+
+        def build_task(json_task):
+            task_type = meeshkan.tasks.TaskType[json_task['__typename']]
+            return meeshkan.tasks.Task(json_task['job']['id'], task_type=task_type)
+
+        tasks = [build_task(json_task) for json_task in tasks_json]
+        return tasks
 
     def close(self):
         LOGGER.debug("Closing CloudClient session")

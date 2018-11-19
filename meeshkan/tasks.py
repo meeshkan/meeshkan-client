@@ -2,26 +2,31 @@
 Code related to tasks invoked by the cloud.
 """
 import asyncio
+from enum import Enum
 import logging
-from typing import Awaitable, Callable, List
+from typing import Callable, List
 
 
 LOGGER = logging.getLogger(__name__)
 
 
+class TaskType(Enum):
+    StopJobTask = 0
+
+
 class Task:
-    def __init__(self, job_id, task):
+    def __init__(self, job_id, task_type: TaskType):
         self.job_id = job_id
-        self.task = task
+        self.type = task_type
 
 
 class TaskPoller:
-    def __init__(self, build_pop_tasks_coro: Callable[[], Awaitable[List[Task]]]):
+    def __init__(self, pop_tasks: Callable[[], List[Task]]):
         """
         Polls new tasks from the server.
         :param pop_tasks: Asynchronous method for fetching new tasks
         """
-        self._build_pop_tasks_coro = build_pop_tasks_coro
+        self._pop_tasks = pop_tasks
 
     async def poll(self, handle_task, delay=10):
         """
@@ -31,10 +36,11 @@ class TaskPoller:
         bombarding the server.
         :return:
         """
+        loop = asyncio.get_event_loop()
         try:
             while True:
                 try:
-                    tasks = await self._build_pop_tasks_coro()  # type: List[Task]
+                    tasks = await loop.run_in_executor(None, self._pop_tasks)  # type: List[Task]
                     for task in tasks:
                         await handle_task(task)
                 except Exception as ex:  # pylint:disable=broad-except

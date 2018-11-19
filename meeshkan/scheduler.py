@@ -208,8 +208,9 @@ class Scheduler(object):
                 # Wait for the thread to finish
                 self._queue_processor.wait_stop()
 
-    async def _handle_task(self, item):
-        LOGGER.debug("Got task %s", item)  # TODO Do something with the item
+    async def _handle_task(self, task: meeshkan.tasks.Task):
+        # TODO Do something with the item
+        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
 
     async def poll(self):
         await self._task_poller.poll(handle_task=self._handle_task)
