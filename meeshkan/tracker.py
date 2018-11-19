@@ -5,15 +5,7 @@ from typing import Union, List, Dict, Tuple, Optional
 from pathlib import Path
 import tempfile
 import logging
-
-import matplotlib
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    # Try setting explicit backend for MacOS, see
-    # https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
-    matplotlib.use('TkAgg')
-    import matplotlib.pyplot as plt
+import sys
 
 import meeshkan.__types__  # To prevent cyclic import
 import meeshkan.exceptions
@@ -50,6 +42,10 @@ class TrackerBase(object):
     def generate_image(history: Dict[str, List[Number]], output_path: Union[str, Path], show: bool = False,
                        title: str = None) -> None:
         """Generates a plot from internal history to output_path"""
+        import matplotlib
+        if sys.platform == "darwin":  # macOS hack
+            matplotlib.use("TkAgg")
+        import matplotlib.pyplot as plt
         for tag, vals in history.items():  # All all scalar values to plot
             plt.plot(vals, label=tag)
         plt.legend(loc='upper right')
