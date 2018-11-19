@@ -39,6 +39,8 @@ async def test_task_poller_handles_tasks():
         assert False  # Should not get here
     except concurrent.futures.CancelledError:
         pass  # Should get here as polling was canceled
+    finally:
+        loop.close()
 
     # First handled item
     assert not handled_tasks.empty()
