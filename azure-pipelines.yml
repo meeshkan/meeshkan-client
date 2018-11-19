@@ -1,57 +1,41 @@
 trigger:
 - master  # Only build for changes in master branch (and pull requests)
 
-pool:
-  vmImage: 'ubuntu-16.04'
-strategy:
-  matrix:
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
-  maxParallel: 2
+jobs:
+- job: macOS
+  pool:
+    vmImage: 'macOS-10.13'
+  strategy:
+    maxParallel: 2
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: $(python.version)
-    architecture: 'x64'
+  steps:
+  - template: azure-steps.yml
 
-- script: python -m pip install --upgrade pip setuptools wheel
-  displayName: 'Install tools'
+- job: Linux
+  pool:
+    vmImage: 'ubuntu-16.04'
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
+    maxParallel: 2
 
-- script: pip install -e .[dev]
-  displayName: 'Installing dev version'
+  steps:
+  - template: azure-steps.yml
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: '**/test-*.xml'
+      testRunTitle: 'Publish test results for Python $(python.version)'
 
-- script: |
-    pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=meeshkan --cov-report=xml --cov-report=html --cov-fail-under=80
-  displayName: 'Test with pytest'
-
-- script: |
-    python run_pylint.py --fail-under=9.75 -f msvs meeshkan
-  displayName: 'Test with pylint'
-
-- script: |
-    mypy --ignore-missing-imports meeshkan
-  displayName: 'Static type checking'
-
-- task: PublishTestResults@2
-  inputs:
-    testResultsFiles: '**/test-*.xml'
-    testRunTitle: 'Publish test results for Python $(python.version)'
-
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
-
-- script: |
-    python setup.py dist
-  displayName: 'Build dist package'
-
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathtoPublish: '$(Build.SourcesDirectory)/dist'
-    artifactName: 'dist'
-    publishLocation: 'Container'
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+      reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
