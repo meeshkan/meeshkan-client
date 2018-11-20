@@ -1,2 +1,3 @@
 cloud:
-  url: "https://api.meeshkan.io"
+  # url: "https://api.meeshkan.io"
+  url: "http://localhost:3000"
