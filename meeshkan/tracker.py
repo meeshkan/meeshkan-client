@@ -7,11 +7,13 @@ import uuid
 import tempfile
 import logging
 import sys
-import threading
+import asyncio
+# import threading
 
 # To prevent cyclic import
 import meeshkan.__types__
 import meeshkan.exceptions
+import meeshkan.job
 
 
 TF_EXISTS = True
@@ -24,57 +26,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TrackingPoller(object):
-    DEF_POLLING_INTERVAL = 180
+    DEF_POLLING_INTERVAL = 3  # 180
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
-        self._loop_event = threading.Event()  # type: threading.Event
-        self._timer_event = threading.Event()  # type: threading.Event
-        # TODO - include polling interval in Job
-        self._interval_by_job = dict()  # type: Dict[uuid.UUID, float]
-        self._thread = None  # type: Optional[threading.Thread]
-        self._timer = None  # type: Optional[threading.Timer]
         self._notify = notify_function
 
-    def start(self, job_id: uuid.UUID, interval=None):
-        if job_id not in self._interval_by_job:
-            self._interval_by_job[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
-        self._loop_event.clear()
-        self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})  # type: threading.Thread
-        self._thread.start()
-        self.__init_timer(job_id)
-        LOGGER.debug("Started to poll from job %s", job_id)
+    async def poll(self, job: meeshkan.job.Job):
+        LOGGER.debug("Starting job tracking for job %s", job)
+        sleep_time = job.poll_time or TrackingPoller.DEF_POLLING_INTERVAL
+        try:
+            while True:
+                self._notify(job.id)
+                await asyncio.sleep(sleep_time)
+        except asyncio.CancelledError:
+            LOGGER.debug("Job tracking cancelled for job %s", job.id)
 
-    def __init_timer(self, job_id: uuid.UUID):
-        if not self._loop_event.is_set():
-            self._timer_event.clear()
-            self._timer = threading.Timer(interval=self._interval_by_job[job_id], function=self.__ping)
-            self._timer.start()
-
-    def __notify_loop(self, job_id: uuid.UUID):
-        while not self._loop_event.is_set():
-            LOGGER.debug("About to wait for timer_event")
-            self._timer_event.wait()  # Block until timer event is set
-            if self._loop_event.is_set():
-                break
-            self._notify(job_id)  # Notify for given job ID
-            self.__init_timer(job_id)
-
-    def __ping(self):
-        if self._timer_event is not None:
-            self._timer_event.set()
-
-    def stop(self):
-        LOGGER.debug("Polling for job updates stopped")
-        self._loop_event.set()
-        self._timer_event.set()
-
-        if self._timer is not None:  # Stop timer (prevent next call to __ping)
-            self._timer.cancel()
-            self._timer.alive = True
-            self._timer = None
-
-        if self._thread is not None:
-            self._thread.join()
-            self._thread = None
 
 class TrackerBase(object):
     DEF_IMG_EXT = "png"
@@ -95,8 +60,7 @@ class TrackerBase(object):
             self._history_by_scalar[val_name] += value
 
     @staticmethod
-    def generate_image(history: Dict[str, List[Number]], output_path: Union[str, Path], show: bool = False,
-                       title: str = None) -> Optional[str]:
+    def generate_image(history: meeshkan.HistoryByScalar, output_path: Union[str, Path], title=None) -> Optional[str]:
         """
         Generates a plot from internal history to output_path
 
@@ -125,8 +89,6 @@ class TrackerBase(object):
             if not ext:
                 fname = os.path.abspath("{}.{}".format(fname, TrackerBase.DEF_IMG_EXT))
             plt.savefig(fname)
-            if show:
-                plt.show()
             return fname
         return None
 

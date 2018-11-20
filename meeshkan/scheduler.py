@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple, Callable, Optional, Union  # For self
 from pathlib import Path
 import uuid
 import os
+import asyncio
 
 import meeshkan.job  # Defines scheduler jobs
 import meeshkan.exceptions
@@ -82,8 +83,9 @@ class Scheduler(object):
         self._running_job = None  # type: Optional[meeshkan.job.Job]
         self._notification_status = dict()  # type: Dict[uuid.UUID, str]
         self._history_by_job = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
-        self._job_poller = meeshkan.tracker.TrackingPoller(self.notify_updates)  # type: meeshkan.tracker.TrackingPoller
+        self._job_poller = meeshkan.tracker.TrackingPoller(self.notify_updates)
         self._image_upload = img_upload_func
+        self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
 
     # Properties and Python magic
 
@@ -156,16 +158,20 @@ class Scheduler(object):
         if job.stale:
             return
 
+
         self._running_job = job
-        self._job_poller.start(job.id)
+        # Create a task from the Polling job, so we can cancel it without killing the event loop
+        task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
+        asyncio.ensure_future(task)  # Schedule the task to run
         self.notify_listeners_job_start(job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
+        finally:
+            task.cancel()
 
         self.notify_listeners_job_end(job)
-        self._job_poller.stop()
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
@@ -223,7 +229,7 @@ class Scheduler(object):
             LOGGER.debug("Queue processor started")
 
     def stop(self):
-        self._job_poller.stop()
+        # self._job_poller.stop()
         self._queue_processor.schedule_stop()
         if self._running_job is not None:
             # TODO Add an option to not cancel the currently running job?
