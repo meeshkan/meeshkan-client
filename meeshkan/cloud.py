@@ -2,7 +2,6 @@ from http import HTTPStatus
 import logging
 import time
 import os
-import mimetypes
 from typing import Any, Callable, List, Optional, Union
 
 from pathlib import Path
@@ -79,7 +78,7 @@ class CloudClient:
         :raises RuntimeError on failure
         :return None on success
         """
-        res = self._session.request(method, url, headers=headers, files={os.path.basename(file): open(file, 'rb')})
+        res = self._session.request(method, url, headers=headers, data=open(file, 'rb').read())
         if not res.ok:
             LOGGER.error("Error on file upload: %s", res.text)
             raise RuntimeError("File upload failed with status code {status_code}".format(status_code=res.status_code))
@@ -104,7 +103,7 @@ class CloudClient:
             query = "query Report($ext: String!) {" \
                       "imageUploadAndDownloadLink(extension: $ext) { upload, download, headers, uploadMethod }" \
                     "}"
-            extension = os.path.split(file)[1]
+            extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
             payload = {"query": query, "variables": {"ext": extension}}  # type: meeshkan.Payload
         else:
             payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
@@ -118,11 +117,6 @@ class CloudClient:
         upload_method = res['uploadMethod']
         # Convert list of headers to dictionary of headers
         upload_headers = {k.strip(): v.strip() for k, v in [item.split(':') for item in res['headers']]}
-        content_type, content_encoding = mimetypes.guess_type(file)
-        upload_headers["Content-Type"] = content_type  # Content Type
-        if content_encoding is not None:
-            upload_headers["Content-Encoding"] = content_encoding
-        upload_headers["Content-Disposition"] = "attachment; filename={file}".format(file=file)
         self._upload_file(method=upload_method, url=upload_url, headers=upload_headers, file=file)
         return download_url
 

@@ -8,7 +8,6 @@ import tempfile
 import logging
 import sys
 import threading
-from sys import platform as sys_pf
 
 # To prevent cyclic import
 import meeshkan.__types__
@@ -25,7 +24,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TrackingPoller(object):
-    DEF_POLLING_INTERVAL = 3  # 3600
+    DEF_POLLING_INTERVAL = 180
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._loop_event = threading.Event()  # type: threading.Event
         self._timer_event = threading.Event()  # type: threading.Event
@@ -39,19 +38,20 @@ class TrackingPoller(object):
         if job_id not in self._interval_by_job:
             self._interval_by_job[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
         self._loop_event.clear()
-        self.__init_timer(job_id)
         self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})  # type: threading.Thread
         self._thread.start()
+        self.__init_timer(job_id)
         LOGGER.debug("Started to poll from job %s", job_id)
 
     def __init_timer(self, job_id: uuid.UUID):
         if not self._loop_event.is_set():
             self._timer_event.clear()
             self._timer = threading.Timer(interval=self._interval_by_job[job_id], function=self.__ping)
-            self._timer.run()
+            self._timer.start()
 
     def __notify_loop(self, job_id: uuid.UUID):
         while not self._loop_event.is_set():
+            LOGGER.debug("About to wait for timer_event")
             self._timer_event.wait()  # Block until timer event is set
             if self._loop_event.is_set():
                 break
@@ -96,7 +96,7 @@ class TrackerBase(object):
 
     @staticmethod
     def generate_image(history: Dict[str, List[Number]], output_path: Union[str, Path], show: bool = False,
-                       title: str = None) -> None:
+                       title: str = None) -> Optional[str]:
         """
         Generates a plot from internal history to output_path
 
@@ -106,9 +106,11 @@ class TrackerBase(object):
         """
         # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
         import matplotlib  # TODO - switch to a different backend (macosx?) or different module for plots (ggplot?)
-        if sys_pf == 'darwin':  # MacOS fix
+        if sys.platform == 'darwin':  # MacOS fix - try setting explicit backend, see
+            #  https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
             matplotlib.use("TkAgg")
         import matplotlib.pyplot as plt
+
         has_plotted = False
         plt.clf()  # Clear figure
         for tag, vals in history.items():  # All all scalar values to plot

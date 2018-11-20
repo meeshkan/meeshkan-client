@@ -178,6 +178,7 @@ def stop():
     api = __get_api()  # type: meeshkan.api.Api
     api.stop()
     LOGGER.info("Service stopped.")
+    print("Service stopped.")
 
 
 @cli.command(name='list')
