@@ -138,11 +138,16 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
     list_result = run_cli(args='list')
     assert list_result.exit_code == 0  # Better testing at some point.
 
-    time.sleep(1)  # Hacky way to give some time for finishing the task
+    def verify_finished(out):
+        out = out.split("\n")  # Split per line
+        line = [x for x in out if job_uuid in x]  # Find the one relevant job_id
+        assert len(line) == 1
+        return "FINISHED" in line[0]
 
     list_result = run_cli(args='list')
-
-    assert job_uuid in list_result.stdout
+    while not verify_finished(list_result.stdout):
+        time.sleep(0.2)  # Hacky way to give some time for finishing the task
+        list_result = run_cli(args='list')
 
     # Check stdout and stderr exist
     assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
