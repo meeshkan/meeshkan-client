@@ -38,9 +38,12 @@ jobs:
       reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 - job: PiPy
+  pool:
+    vmImage: 'ubuntu-16.04'
   condition: and(eq(variables['Build.SourceBranchName'], 'dev'), succeeded())
   dependsOn:  
   - Linux
   - macOS
   steps:
-  - script: echo "Publishing $(TWINE_USERNAME) - $(TWINE_PASSWORD)"
+  - script: echo "Publishing ${TWINE_USERNAME} - ${TWINE_PASSWORD}"
+    displayName: "Publishing to PyPi"
