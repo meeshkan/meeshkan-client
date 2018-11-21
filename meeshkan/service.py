@@ -90,7 +90,11 @@ class Service(object):
                             polling_task.cancel()
 
                 loop = asyncio.get_event_loop()
-                loop.run_until_complete(start_daemon_and_polling_loops())  # Run event loop until request loops finished
+                try:
+                    # Run event loop until request loops finished
+                    loop.run_until_complete(start_daemon_and_polling_loops())
+                finally:
+                    loop.close()
                 LOGGER.debug("Exiting service.")
                 time.sleep(0.2)  # Allows data scraping
 
