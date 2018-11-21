@@ -1,6 +1,6 @@
 trigger:
-- master  # Only build for changes in master branch (and pull requests)
-- dev/*
+- master  # Build for changes in master branch (and pull requests)
+- dev/*   # Build for changes in dev branch (and pull requests)
 
 pr:
 - master
