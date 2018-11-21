@@ -1,6 +1,10 @@
 trigger:
 - master  # Only build for changes in master branch (and pull requests)
-- dev/*
+- dev
+
+pr:
+- master
+- dev
 
 jobs:
 - job: macOS
