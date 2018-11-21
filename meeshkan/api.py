@@ -33,8 +33,8 @@ class Api(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def submit(self, args: Tuple[str, ...], name=None):
-        job = self.scheduler.create_job(args, name)
+    def submit(self, args: Tuple[str, ...], name=None, poll_interval=None):
+        job = self.scheduler.create_job(args, name=name, poll_interval=poll_interval)
         self.scheduler.submit_job(job)
         return job
 

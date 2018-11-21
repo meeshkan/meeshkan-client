@@ -119,7 +119,7 @@ async def test_tracker_polling():
         counter += 1
         if counter == 2:
             task.cancel()
-    fake_job = Job(None, job_number=0, poll_time=0.5)  # No executable
+    fake_job = Job(None, job_number=0, poll_interval=0.5)  # No executable
     tp = TrackingPoller(notify_function)  # Call notify_function in each loop
 
     t_start = time.time()

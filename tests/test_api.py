@@ -12,7 +12,7 @@ def test_api_submits_job():
     api = Api(scheduler, service)
     job_args = ('echo', 'Hello')
     job = api.submit(job_args)
-    scheduler.create_job.assert_called_with(job_args, name=None)
+    scheduler.create_job.assert_called_with(job_args, name=None, poll_interval=None)
     scheduler.submit_job.assert_called_with(job)
 
 

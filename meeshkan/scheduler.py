@@ -184,7 +184,7 @@ class Scheduler(object):
                 args = ("python",) + args
         return args
 
-    def create_job(self, args: Tuple[str, ...], name: str = None):
+    def create_job(self, args: Tuple[str, ...], name: str = None, poll_interval: int = None):
         job_number = len(self.jobs)
         job_uuid = uuid.uuid4()
         args = self._verify_python_executable(args)
@@ -192,7 +192,8 @@ class Scheduler(object):
         output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
         executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
         job_name = name or "Job #{job_number}".format(job_number=job_number)
-        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name)
+        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name,
+                                poll_interval=poll_interval)
 
     def submit_job(self, job: meeshkan.job.Job):
         job.status = meeshkan.job.JobStatus.QUEUED
