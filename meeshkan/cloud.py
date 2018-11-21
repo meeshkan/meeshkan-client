@@ -99,14 +99,14 @@ class CloudClient:
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
         file = str(file)  # Removes dependency on Path or str
-        if download_link:  # TODO - give a more generic name to these on the cloud
-            query = "query Report($ext: String!) {" \
-                      "imageUploadAndDownloadLink(extension: $ext) { upload, download, headers, uploadMethod }" \
-                    "}"
-            extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
-            payload = {"query": query, "variables": {"ext": extension}}  # type: meeshkan.Payload
-        else:
-            payload = {"query": "{ logUploadLink { upload, headers, uploadMethod } }"}
+        query = "query ($ext: String!, $download_flag: Boolean) {" \
+                  "uploadLink(extension: $ext, download_link: $download_flag) {" \
+                    "upload, download, headers, uploadMethod" \
+                  "}" \
+                "}"
+        extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
+        payload = {"query": query,
+                   "variables": {"ext": extension, "download_flag": download_link}}  # type: meeshkan.Payload
         res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
 
         # Parse response
