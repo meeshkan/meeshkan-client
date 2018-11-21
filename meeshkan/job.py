@@ -107,10 +107,14 @@ class ProcessExecutable(Executable):
 
 class Job(object):
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
-                 desc: str = None):
+                 desc: str = None, poll_time: float = None):
         """
         :param executable: Executable instance
         :param job_number: Like PID, used for interacting with the job from the CLI
+        :param job_uuid
+        :param name
+        :param desc
+        :param poll_time
         """
         self.executable = executable
         # Absolutely unique identifier
@@ -122,6 +126,7 @@ class Job(object):
         self.is_processed = False
         self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
+        self.poll_time = poll_time
 
     def launch_and_wait(self) -> int:
         """

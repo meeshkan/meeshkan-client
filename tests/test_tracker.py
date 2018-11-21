@@ -1,11 +1,14 @@
 from typing import Any
 from unittest import mock
 import os
+import asyncio
+import time
 
 import pytest
 
-from meeshkan.tracker import TrackerBase
-import meeshkan
+from meeshkan.tracker import TrackerBase, TrackingPoller
+from meeshkan.job import Job
+import meeshkan.exceptions
 
 def test_tracker_history():
     tb = TrackerBase()
@@ -100,3 +103,31 @@ def test_base_refresh():
     assert len(tb._history_by_scalar) == 2
     tb.refresh()
     assert len(tb._history_by_scalar) == 0
+
+
+def test_missing_value():
+    tb = TrackerBase()
+    with pytest.raises(meeshkan.exceptions.TrackedScalarNotFoundException):
+        tb.get_updates("hello world")
+
+
+@pytest.mark.asyncio
+async def test_tracker_polling():
+    counter = 0
+    def notify_function(job):
+        nonlocal counter
+        counter += 1
+        if counter == 2:
+            task.cancel()
+    fake_job = Job(None, job_number=0, poll_time=0.5)  # No executable
+    tp = TrackingPoller(notify_function)  # Call notify_function in each loop
+
+    t_start = time.time()
+    event_loop = asyncio.get_event_loop()
+    task = event_loop.create_task(tp.poll(fake_job))
+    await task  # Wait for the task.cancel(), otherwise it would run indefinitely
+    assert counter == 2
+    tot_time = time.time() - t_start
+    max_time = fake_job.poll_time * (counter+1)
+    assert tot_time < max_time  # Runtime should be poll_time*2 + overhead
+
