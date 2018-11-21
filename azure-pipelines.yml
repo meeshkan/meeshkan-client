@@ -36,3 +36,11 @@ jobs:
       codeCoverageTool: Cobertura
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
       reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+
+- job: PiPy
+  condition: and(eq(variables['Build.SourceBranchName'], 'dev'), succeeded())
+  dependsOn:  
+  - Linux
+  - macOS
+  steps:
+  - script: echo "Publishing $(TWINE_USERNAME) - $(TWINE_PASSWORD)"
