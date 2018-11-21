@@ -161,14 +161,15 @@ def daemon_status():
 @cli.command()
 @click.argument('job', nargs=-1)
 @click.option("--name", type=str)
-def submit(job, name):
+@click.option("--poll", type=int)
+def submit(job, name, poll):
     """Submits a new job to the service daemon."""
     if not job:
         print("CLI error: Specify job.")
         return
 
     api = __get_api()  # type: meeshkan.api.Api
-    job = api.submit(job, name)
+    job = api.submit(job, name=name, poll_interval=poll)
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
 

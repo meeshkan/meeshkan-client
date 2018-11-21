@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TrackingPoller(object):
-    DEF_POLLING_INTERVAL = 3  # 180
+    DEF_POLLING_INTERVAL = 3600  # Default is notifications every hour.
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._notify = notify_function
 
@@ -78,7 +78,7 @@ class TrackerBase(object):
         has_plotted = False
         plt.clf()  # Clear figure
         for tag, vals in history.items():  # All all scalar values to plot
-            if vals:  # Only bother plotting values with data...
+            if len(vals) > 1:  # Only bother plotting values with at least 2 data points (a line in space!)
                 has_plotted = True
                 plt.plot(vals, label=tag)
         if has_plotted:
