@@ -8,7 +8,6 @@ import tempfile
 import logging
 import sys
 import asyncio
-# import threading
 
 # To prevent cyclic import
 import meeshkan.__types__
@@ -31,12 +30,13 @@ class TrackingPoller(object):
         self._notify = notify_function
 
     async def poll(self, job: meeshkan.job.Job):
+        """Asynchronous polling function for scalars in given job"""
         LOGGER.debug("Starting job tracking for job %s", job)
         sleep_time = job.poll_time or TrackingPoller.DEF_POLLING_INTERVAL
         try:
             while True:
-                self._notify(job.id)
-                await asyncio.sleep(sleep_time)
+                await asyncio.sleep(sleep_time)  # Let other tasks run meanwhile
+                self._notify(job.id)  # Synchronously notify of changes.
         except asyncio.CancelledError:
             LOGGER.debug("Job tracking cancelled for job %s", job.id)
 

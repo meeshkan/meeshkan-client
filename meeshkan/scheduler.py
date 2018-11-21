@@ -127,16 +127,18 @@ class Scheduler(object):
         # Get updates; TODO - vals should be reported once we update schema...
         # pylint: disable=unused-variable
         vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._image_upload is not None)
-        download_link = ""
-        if imgpath is not None:
-            try:  # Upload image if we're given an image_upload function...
-                download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
-            except Exception:  # pylint:disable=broad-except
-                LOGGER.error("Could not post image to cloud server!")
-        status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
-        if imgpath is not None:
-            os.remove(imgpath)
-        return status
+        if vals:  # Only send updates if there exists any updates, doh
+            download_link = ""
+            if imgpath is not None:
+                try:  # Upload image if we're given an image_upload function...
+                    download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
+                except Exception:  # pylint:disable=broad-except
+                    LOGGER.error("Could not post image to cloud server!")
+            status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
+            if imgpath is not None:
+                os.remove(imgpath)
+            return status
+        return False
 
     def _internal_notifier_loop(self, job: meeshkan.job.Job,
                                 notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
@@ -160,9 +162,8 @@ class Scheduler(object):
 
 
         self._running_job = job
-        # Create a task from the Polling job, so we can cancel it without killing the event loop
+        # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
-        asyncio.ensure_future(task)  # Schedule the task to run
         self.notify_listeners_job_start(job)
         try:
             job.launch_and_wait()
