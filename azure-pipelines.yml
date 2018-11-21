@@ -40,10 +40,17 @@ jobs:
 - job: PiPy
   pool:
     vmImage: 'ubuntu-16.04'
-  condition: and(eq(variables['Build.SourceBranchName'], 'dev'), succeeded())
+  condition: and(eq(variables['Build.SourceBranchName'], 'master'), succeeded())
   dependsOn:  
   - Linux
   - macOS
+      
   steps:
-  - script: echo "Publishing ${TWINE_USERNAME} - ${TWINE_PASSWORD}"
-    displayName: "Publishing to PyPi"
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.7'  # Use latest version
+      architecture: 'x64'
+  - script: python -m pip install --upgrade pip setuptools wheel twine
+    displayName: 'Install tools'
+  - script: python setup.py upload
+    displayName: 'Publishing to PyPi'
