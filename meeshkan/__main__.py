@@ -243,10 +243,10 @@ def im_bored():
                r'http://smacie.com/randomizer/simpsons/bart.txt',
                r'http://smacie.com/randomizer/simpsons/homer.txt',
                r'http://smacie.com/randomizer/southpark/cartman.txt']
-    source = sources[random.randint(0, len(sources))]
-    author = os.path.splitext(os.path.basename(source))[0].capitalize()
-    res = requests.get(source).text.split('\n')
-    print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))
+    source = sources[random.randint(0, len(sources)-1)]  # Choose source
+    author = os.path.splitext(os.path.basename(source))[0].capitalize()  # Create "Author"
+    res = requests.get(source).text.split('\n')  # Get the document and split per line
+    print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))  # Choose line at random
 
 
 if __name__ == '__main__':
