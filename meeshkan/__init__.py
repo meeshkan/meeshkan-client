@@ -4,7 +4,11 @@ __all__ = ["cloud", "oauth", "exceptions", "job", "notifiers", "scheduler", "ser
            "api", "config", "logger", "tracker"]
 
 def report_scalar(val_name, value):
-    """Reports a scalar to the meeshkan service API"""
+    """Reports a scalar to the meeshkan service API
+
+    :param val_name: The name of the scalar to report
+    :param value: The value of the scalar
+    """
     import os
     import meeshkan.service
     with meeshkan.service.Service().api as proxy:
