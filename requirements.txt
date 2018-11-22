@@ -38,6 +38,7 @@ requests-toolbelt==0.8.0
 Rx==1.6.1
 serpent==1.27
 six==1.11.0
+Sphinx-PyPI-upload==0.2.1
 tabulate==0.8.2
 tqdm==4.28.1
 twine==1.12.1
