@@ -3,9 +3,11 @@ import logging
 from typing import Callable, Optional
 import requests
 
-import meeshkan.exceptions
+import meeshkan
 
 LOGGER = logging.getLogger(__name__)
+
+__all__ = ["TokenStore"]  # Only expose the TokenStore class to top level
 
 
 class TokenStore(object):

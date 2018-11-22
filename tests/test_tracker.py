@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from meeshkan.tracker import TrackerBase, TrackingPoller
-from meeshkan.job import Job
+from meeshkan.core.tracker import TrackerBase, TrackingPoller
+from meeshkan import Job
 import meeshkan.exceptions
 
 def test_tracker_history():

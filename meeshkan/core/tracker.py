@@ -9,19 +9,19 @@ import logging
 import sys
 import asyncio
 
-# To prevent cyclic import
-import meeshkan.__types__
-import meeshkan.exceptions
-import meeshkan.job
-
+import meeshkan  # Imported for types and exceptions
+from .job import Job
 
 TF_EXISTS = True
 try:
-    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator, _GeneratorFromPath
+    import tensorboard.backend.event_processing.event_accumulator as tfproto
 except ModuleNotFoundError:
     TF_EXISTS = False  # Silently fail
 
 LOGGER = logging.getLogger(__name__)
+
+
+__all__ = ["TrackerBase", "TensorFlowTracker"]  # Only expose relevant modules
 
 
 class TrackingPoller(object):
@@ -29,7 +29,7 @@ class TrackingPoller(object):
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._notify = notify_function
 
-    async def poll(self, job: meeshkan.job.Job):
+    async def poll(self, job: Job):
         """Asynchronous polling function for scalars in given job"""
         LOGGER.debug("Starting job tracking for job %s", job)
         sleep_time = job.poll_time or TrackingPoller.DEF_POLLING_INTERVAL
@@ -46,7 +46,7 @@ class TrackerBase(object):
     """Defines common API for Tracker objects"""
     def __init__(self):
         # History of tracked information, var_name: list(vals)
-        self._history_by_scalar = dict()  # type: meeshkan.__types__.HistoryByScalar
+        self._history_by_scalar = dict()  # type: meeshkan.HistoryByScalar
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
 
@@ -107,13 +107,13 @@ class TrackerBase(object):
         :param name: name of value to lookup (or empty for all tracked history)
         :param plot: whether or not to plot the history and return the image path
         :param latest: whether or not to include all history, or just history since previous call
-        :return tuple of data (meeshkan.History) and location to image (if created, otherwise None)
+        :return tuple of data (meeshkan.HistoryByScalar) and location to image (if created, otherwise None)
         """
         if name and name not in self._history_by_scalar:
             raise meeshkan.exceptions.TrackedScalarNotFoundException(name=name)
 
         if name:
-            data = dict()  # type: meeshkan.__types__.HistoryByScalar
+            data = dict()  # type: meeshkan.HistoryByScalar
             for scalar_name, value_list in self._history_by_scalar.items():
                 if scalar_name == name:
                     data[scalar_name] = value_list
@@ -162,7 +162,7 @@ class TensorFlowTracker(TrackerBase):
             raise ModuleNotFoundError("Cannot instantiate a TensorFlowTracker without TensorFlow!")
         super(TensorFlowTracker, self).__init__()
         self.path = path
-        self.ea_tracker = EventAccumulator(path)
+        self.ea_tracker = tfproto.EventAccumulator(path)
         self.update()
 
     def update(self):
@@ -172,5 +172,5 @@ class TensorFlowTracker(TrackerBase):
                 self.add_tracked(tag, scalar_event.value)
 
     def clean(self):
-        self.ea_tracker._generator = _GeneratorFromPath(self.path)  # pylint: disable=protected-access
+        self.ea_tracker._generator = tfproto._GeneratorFromPath(self.path)  # pylint: disable=protected-access
         self._clean()

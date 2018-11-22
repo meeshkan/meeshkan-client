@@ -5,9 +5,11 @@ import uuid
 import Pyro4
 import Pyro4.errors
 
-import meeshkan.scheduler
-import meeshkan.job
-import meeshkan.service
+import meeshkan  # Used for Types
+from .scheduler import Scheduler
+from .service import Service
+
+__all__ = ["Api"]  # Expose Api class
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 class Api(object):
     """Exposed by the Pyro server for communications with the CLI."""
 
-    def __init__(self, scheduler: meeshkan.scheduler.Scheduler, service: meeshkan.service.Service = None):
+    def __init__(self, scheduler: Scheduler, service: Service = None):
         self.scheduler = scheduler
         self.service = service
         self.__stop_callbacks = []  # type: List[Callable[[], None]]

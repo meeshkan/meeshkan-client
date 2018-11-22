@@ -2,10 +2,9 @@ import time
 from concurrent.futures import Future, wait
 import queue
 
-import meeshkan
-from meeshkan.scheduler import Scheduler, QueueProcessor
-from meeshkan.job import Job, JobStatus, Executable
-from meeshkan.notifiers import Notifier
+from meeshkan import Scheduler, Job, Notifier
+from meeshkan.core.scheduler import QueueProcessor
+from meeshkan.core.job import JobStatus, Executable
 
 
 FUTURE_TIMEOUT = 10  # In seconds
@@ -113,13 +112,13 @@ def test_notifiers():
 
     class MockNotifier(Notifier):
 
-        def notify_job_start(self, job: meeshkan.job.Job):
+        def notify_job_start(self, job: Job):
             started_jobs.append({'job': job})
 
-        def notify_job_end(self, job: meeshkan.job.Job):
+        def notify_job_end(self, job: Job):
             finished_jobs.append({'job': job})
 
-        def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int = -1,
+        def notify(self, job: Job, image_url: str, n_iterations: int = -1,
                iterations_unit: str = "iterations") -> None:
             notified_jobs.append({'job': job})
 
