@@ -88,3 +88,10 @@ python setup.py test
 ```bash
 pylint -f msvs meeshkan
 ```
+
+### Building the documentation
+```bash
+cd docs
+sphinx-apidoc -f -e -o source/ ../meeshkan/
+make html
+```
