@@ -1,6 +1,6 @@
 from .__version__ import __version__  # Conform to PEP-0396
 from .__types__ import Payload, Token, HistoryByScalar  # Bring types to front
-__all__ = ["cloud", "oauth", "exceptions", "job", "notifiers", "scheduler", "service", "tasks",
+__all__ = ["cloud", "oauth", "exceptions", "job", "notifiers", "report_scalar", "scheduler", "service", "tasks",
            "api", "config", "logger", "tracker"]
 
 def report_scalar(val_name, value):
