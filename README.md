@@ -61,6 +61,14 @@ meeshkan stop
 ```
 
 ## Reporting scalars from PyTorch
+
+### Get started
+Start the service first, then run
+``` bash
+meeshkan submit --poll 10 examples/report.py
+```
+
+### PyTorch
 See [examples/pytorch_mnist.py](./examples/pytorch_mnist.py) for an example script. To run the script,
 first ensure that [PyTorch]() is installed in your Python environment. Then submit the example as
  ```bash
