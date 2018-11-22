@@ -7,7 +7,7 @@ import sys
 # Package meta-data.
 NAME = 'meeshkan'
 DESCRIPTION = 'The Meeshkan Client for interactive machine learning'
-URL = 'https://www.meeshkan.io/'
+URL = 'https://www.meeshkan.com/'
 EMAIL = 'dev@meeshkan.com'
 AUTHOR = 'Meeshkan Dev Team'
 REQUIRES_PYTHON = '>=3.5.0'
