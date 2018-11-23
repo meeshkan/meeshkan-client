@@ -3,6 +3,7 @@ import logging
 import time
 import os
 from typing import Any, Callable, List, Optional, Union
+from uuid import UUID
 
 from pathlib import Path
 
@@ -71,7 +72,7 @@ class CloudClient:
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
-        LOGGER.debug("Got server response: %s", res.text)
+        LOGGER.debug("Got server response: %s, status %d", res.text, res.status_code)
         return res
 
     def post_payload(self, payload: Payload) -> None:
@@ -154,7 +155,7 @@ class CloudClient:
 
         def build_task(json_task):
             task_type = TaskType[json_task['__typename']]
-            return Task(json_task['job']['id'], task_type=task_type)
+            return Task(UUID(json_task['job']['id']), task_type=task_type)
 
         tasks = [build_task(json_task) for json_task in tasks_json]
         return tasks

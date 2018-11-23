@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from unittest import mock
+import uuid
 
 import pytest
 import requests
@@ -92,10 +93,10 @@ def test_post_payloads_raises_error_for_multiple_401s():
 def test_pop_tasks():
     mock_session = mock.create_autospec(requests.Session, spec_set=True)
 
-    job_id = 'job_id'
+    job_id = uuid.uuid4()
     task_name = 'StopJobTask'
 
-    returned_task = {'job': {'id': job_id}, '__typename': task_name}
+    returned_task = {'job': {'id': str(job_id)}, '__typename': task_name}
 
     mock_session.post.return_value = MockResponse(status_code=HTTPStatus.OK,
                                                   json_data={'data': {'popClientTasks': [returned_task]}})

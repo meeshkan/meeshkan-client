@@ -10,7 +10,7 @@ import asyncio
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
 from .notifiers import Notifier
-from .tasks import Task, TaskPoller
+from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
 
@@ -164,7 +164,6 @@ class Scheduler(object):
         if job.stale:
             return
 
-
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
@@ -208,6 +207,7 @@ class Scheduler(object):
 
     def stop_job(self, job_id: uuid.UUID):
         if job_id not in self.submitted_jobs:
+            LOGGER.debug("Ignoring stopping unknown job with ID: %s", str(job_id))
             return
         self.submitted_jobs[job_id].cancel()
 
@@ -220,7 +220,7 @@ class Scheduler(object):
             raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
         self._history_by_job[job_id].add_tracked(val_name=name, value=val)
-        LOGGER.debug("Logged scalar %s with new value %s", name, val)
+        # LOGGER.debug("Logged scalar %s with new value %s", name, val)
 
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
         return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
@@ -245,8 +245,9 @@ class Scheduler(object):
 
     async def _handle_task(self, task: Task):
         # TODO Do something with the item
-        # LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
-        pass
+        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        if task.type == TaskType.StopJobTask:
+            self.stop_job(task.job_id)
 
     async def poll(self):
         if self._task_poller is not None:
