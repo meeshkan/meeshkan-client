@@ -12,7 +12,11 @@ __all__ += core.__all__
 del core  # Clean-up (make `meeshkan.core` unavailable)
 
 def report_scalar(val_name, value):
-    """Reports a scalar to the meeshkan service API"""
+    """Reports a scalar to the meeshkan service API
+
+    :param val_name: The name of the scalar to report
+    :param value: The value of the scalar
+    """
     import os  # pylint: disable=redefined-outer-name
     with Service().api as proxy:
         return proxy.report_scalar(os.getpid(), val_name, value)

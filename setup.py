@@ -7,7 +7,7 @@ import sys
 # Package meta-data.
 NAME = 'meeshkan'
 DESCRIPTION = 'The Meeshkan Client for interactive machine learning'
-URL = 'https://www.meeshkan.io/'
+URL = 'https://www.meeshkan.com/'
 EMAIL = 'dev@meeshkan.com'
 AUTHOR = 'Meeshkan Dev Team'
 REQUIRES_PYTHON = '>=3.5.0'
@@ -68,6 +68,22 @@ class BuildDistCommand(SetupCommand):
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
         sys.exit()
 
+class BuildDocumentationCommand(SetupCommand):
+    """Builds the sphinx documentation"""
+    description = "Builds the sphinx documentation."
+
+    def run(self):
+        try:
+            self.status("Removing previous builds...")
+            rmtree(os.path.join(here, 'docs/build'))
+        except OSError:
+            pass
+
+        self.status("Building documentation")
+        os.chdir("docs")
+        os.system("sphinx-apidoc -f -e -o source/ ../meeshkan/")
+        os.system("make html")
+        sys.exit()
 
 class UploadCommand(SetupCommand):
     """Support setup.py upload."""
@@ -129,5 +145,5 @@ setup(
         'Operating System :: Unix'
     ],
     entry_points={'console_scripts': ENTRY_POINTS},
-    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand}
+    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand, 'doc': BuildDocumentationCommand}
 )
