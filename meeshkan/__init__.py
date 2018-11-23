@@ -1,7 +1,15 @@
 from .__version__ import __version__  # Conform to PEP-0396
 from .__types__ import Payload, Token, HistoryByScalar  # Bring types to front
-__all__ = ["cloud", "oauth", "exceptions", "job", "notifiers", "report_scalar", "scheduler", "service", "tasks",
-           "api", "config", "logger", "tracker"]
+
+from .core import *  # pylint: disable=wildcard-import
+from . import core
+from . import exceptions
+
+# Only make the following available by default
+__all__ = ["__version__", "exceptions", "Payload", "Token", "HistoryByScalar", "report_scalar"]
+__all__ += core.__all__
+
+del core  # Clean-up (make `meeshkan.core` unavailable)
 
 def report_scalar(val_name, value):
     """Reports a scalar to the meeshkan service API
@@ -9,7 +17,6 @@ def report_scalar(val_name, value):
     :param val_name: The name of the scalar to report
     :param value: The value of the scalar
     """
-    import os
-    import meeshkan.service
-    with meeshkan.service.Service().api as proxy:
+    import os  # pylint: disable=redefined-outer-name
+    with Service().api as proxy:
         return proxy.report_scalar(os.getpid(), val_name, value)

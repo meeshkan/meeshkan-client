@@ -1,3 +1,9 @@
+# type: ignore
+# Ignore mypy tests for this file; Attributes for the `meeshkan` package are defined dynamically in
+#     __init__.py, so mypy complains about attributes not existing (even though they're well defined).
+#     examples for such errors: "error: Name 'meeshkan.Service' is not defined",
+#                               "error: Module has no attribute "Service"
+
 """ Command-line interface """
 import logging
 import sys
@@ -14,12 +20,9 @@ import requests
 import tabulate
 
 import meeshkan
-import meeshkan.config
-import meeshkan.api
-import meeshkan.cloud
-import meeshkan.service
-import meeshkan.notifiers
-import meeshkan.scheduler
+from .core.logger import setup_logging, remove_non_file_handlers
+from .core.tasks import TaskPoller
+from .core.scheduler import QueueProcessor
 
 LOGGER = None
 
@@ -29,24 +32,24 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
-    config, credentials = meeshkan.config.init()
+    config, credentials = meeshkan.config.init_config()
     return config, credentials
 
 
-def __get_api() -> meeshkan.api.Api:
-    service = meeshkan.service.Service()
+def __get_api() -> meeshkan.Api:
+    service = meeshkan.Service()
     if not service.is_running():
         print("Start the service first.")
         sys.exit(1)
-    api = Pyro4.Proxy(service.uri)  # type: meeshkan.api.Api
+    api = Pyro4.Proxy(service.uri)  # type: meeshkan.Api
     return api
 
 
 def __build_cloud_client(config: meeshkan.config.Configuration,
-                         credentials: meeshkan.config.Credentials) -> meeshkan.cloud.CloudClient:
-    token_store = meeshkan.oauth.TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+                         credentials: meeshkan.config.Credentials) -> meeshkan.CloudClient:
+    token_store = meeshkan.TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
 
-    cloud_client = meeshkan.cloud.CloudClient(cloud_url=config.cloud_url, token_store=token_store)
+    cloud_client = meeshkan.CloudClient(cloud_url=config.cloud_url, token_store=token_store)
     return cloud_client
 
 
@@ -57,25 +60,25 @@ def __notify_service_start(config: meeshkan.config.Configuration, credentials: m
 
 
 def __build_api(config: meeshkan.config.Configuration,
-                credentials: meeshkan.config.Credentials) -> Callable[[meeshkan.service.Service], meeshkan.api.Api]:
+                credentials: meeshkan.config.Credentials) -> Callable[[meeshkan.Service], meeshkan.Api]:
 
-    def build_api(service: meeshkan.service.Service) -> meeshkan.api.Api:
+    def build_api(service: meeshkan.Service) -> meeshkan.Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
         cloud_client = __build_cloud_client(config, credentials)
 
-        cloud_notifier = meeshkan.notifiers.CloudNotifier(post_payload=cloud_client.post_payload)
-        logging_notifier = meeshkan.notifiers.LoggingNotifier()
+        cloud_notifier = meeshkan.CloudNotifier(post_payload=cloud_client.post_payload)
+        logging_notifier = meeshkan.LoggingNotifier()
 
-        task_poller = meeshkan.tasks.TaskPoller(cloud_client.pop_tasks)
-        queue_processor = meeshkan.scheduler.QueueProcessor()
+        task_poller = TaskPoller(cloud_client.pop_tasks)
+        queue_processor = QueueProcessor()
 
-        scheduler = meeshkan.scheduler.Scheduler(queue_processor=queue_processor, task_poller=task_poller,
-                                                 img_upload_func=cloud_client.post_payload_with_file)
+        scheduler = meeshkan.Scheduler(queue_processor=queue_processor, task_poller=task_poller,
+                                       img_upload_func=cloud_client.post_payload_with_file)
 
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
-        api = meeshkan.api.Api(scheduler=scheduler, service=service)
+        api = meeshkan.Api(scheduler=scheduler, service=service)
         api.add_stop_callback(cloud_client.close)
         return api
 
@@ -113,7 +116,7 @@ def cli(debug, silent):
 
     global LOGGER  # pylint: disable=global-statement
     meeshkan.config.ensure_base_dirs()
-    meeshkan.logger.setup_logging(silent=silent)
+    setup_logging(silent=silent)
 
     LOGGER = logging.getLogger(__name__)
 
@@ -128,7 +131,7 @@ def help_cmd(ctx):
 @cli.command()
 def start():
     """Starts Meeshkan service daemon."""
-    service = meeshkan.service.Service()
+    service = meeshkan.Service()
     if service.is_running():
         print("Service is already running.")
         sys.exit(1)
@@ -150,7 +153,7 @@ def start():
 @cli.command(name='status')
 def daemon_status():
     """Checks and returns the service daemon status."""
-    service = meeshkan.service.Service()
+    service = meeshkan.Service()
     is_running = service.is_running()
     status = "up and running" if is_running else "configured to run"
     print("Service is {status} on {host}:{port}".format(status=status, host=service.host, port=service.port))
@@ -168,7 +171,7 @@ def submit(job, name, poll):
         print("CLI error: Specify job.")
         return
 
-    api = __get_api()  # type: meeshkan.api.Api
+    api = __get_api()  # type: meeshkan.Api
     job = api.submit(job, name=name, poll_interval=poll)
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
@@ -176,7 +179,7 @@ def submit(job, name, poll):
 @cli.command()
 def stop():
     """Stops the service daemon."""
-    api = __get_api()  # type: meeshkan.api.Api
+    api = __get_api()  # type: meeshkan.Api
     api.stop()
     LOGGER.info("Service stopped.")
     print("Service stopped.")
@@ -185,7 +188,7 @@ def stop():
 @cli.command(name='list')
 def list_jobs():
     """Lists the job queue and status for each job."""
-    api = __get_api()  # type: meeshkan.api.Api
+    api = __get_api()  # type: meeshkan.Api
     jobs = api.list_jobs()
     if not jobs:
         print('No jobs submitted yet.')
@@ -202,7 +205,7 @@ def sorry():
     config, credentials = __get_auth()
     status = 0
     cloud_client = __build_cloud_client(config, credentials)
-    meeshkan.logger.remove_non_file_handlers()
+    remove_non_file_handlers()
 
     # Collect log files to compressed tar
     fname = next(tempfile._get_candidate_names())  # pylint: disable=protected-access

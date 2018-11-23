@@ -7,11 +7,15 @@ import uuid
 import os
 import asyncio
 
-import meeshkan.job  # Defines scheduler jobs
-import meeshkan.exceptions
-import meeshkan.notifiers
-import meeshkan.tracker
-import meeshkan.tasks
+import meeshkan
+from .tracker import TrackingPoller, TrackerBase
+from .job import ProcessExecutable, JobStatus, Job
+from .notifiers import Notifier
+from .tasks import Task, TaskPoller
+from .config import JOBS_DIR
+
+
+__all__ = ["Scheduler"]  # Only expose the Scheduler class to top level
 
 
 LOGGER = logging.getLogger(__name__)
@@ -73,17 +77,17 @@ class QueueProcessor:
 
 class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor,
-                 task_poller: meeshkan.tasks.TaskPoller = None,
+                 task_poller: TaskPoller = None,
                  img_upload_func: Callable[[Union[str, Path], bool], Optional[str]] = None):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
-        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, meeshkan.job.Job]
+        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
-        self._listeners = []  # type: List[meeshkan.notifiers.Notifier]
-        self._running_job = None  # type: Optional[meeshkan.job.Job]
+        self._listeners = []  # type: List[Notifier]
+        self._running_job = None  # type: Optional[Job]
         self._notification_status = dict()  # type: Dict[uuid.UUID, str]
-        self._history_by_job = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
-        self._job_poller = meeshkan.tracker.TrackingPoller(self.notify_updates)
+        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]
+        self._job_poller = TrackingPoller(self.notify_updates)
         self._image_upload = img_upload_func
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
 
@@ -109,18 +113,18 @@ class Scheduler(object):
     def get_notification_status(self, job_id: uuid.UUID):
         return self._notification_status[job_id]
 
-    def register_listener(self, listener: meeshkan.notifiers.Notifier):
+    def register_listener(self, listener: Notifier):
         self._listeners.append(listener)
 
-    def notify_listeners(self, job: meeshkan.job.Job, image_url: str, n_iterations: int,
+    def notify_listeners(self, job: Job, image_url: str, n_iterations: int,
                          iterations_unit: str = "iterations") -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, image_url, n_iterations,
                                                                                   iterations_unit))
 
-    def notify_listeners_job_start(self, job: meeshkan.job.Job) -> bool:
+    def notify_listeners_job_start(self, job: Job) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
 
-    def notify_listeners_job_end(self, job: meeshkan.job.Job) -> bool:
+    def notify_listeners_job_end(self, job: Job) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
 
     def notify_updates(self, job_id: uuid.UUID) -> bool:
@@ -140,8 +144,7 @@ class Scheduler(object):
             return status
         return False
 
-    def _internal_notifier_loop(self, job: meeshkan.job.Job,
-                                notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
+    def _internal_notifier_loop(self, job: Job, notify_method: Callable[[Notifier], None]) -> bool:
         status = True
         for notifier in self._listeners:
             try:
@@ -155,7 +158,7 @@ class Scheduler(object):
 
     # Job handling methods
 
-    def _handle_job(self, job: meeshkan.job.Job) -> None:
+    def _handle_job(self, job: Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.stale:
             return
@@ -189,16 +192,15 @@ class Scheduler(object):
         job_uuid = uuid.uuid4()
         args = self._verify_python_executable(args)
         LOGGER.debug("Creating job for %s", args)
-        output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
-        executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
+        output_path = JOBS_DIR.joinpath(str(job_uuid))
+        executable = ProcessExecutable(args, output_path=output_path)
         job_name = name or "Job #{job_number}".format(job_number=job_number)
-        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name,
-                                poll_interval=poll_interval)
+        return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
 
-    def submit_job(self, job: meeshkan.job.Job):
-        job.status = meeshkan.job.JobStatus.QUEUED
+    def submit_job(self, job: Job):
+        job.status = JobStatus.QUEUED
         self._notification_status[job.id] = "NA"
-        self._history_by_job[job.id] = meeshkan.tracker.TrackerBase()
+        self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
         self._task_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
@@ -240,7 +242,7 @@ class Scheduler(object):
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
 
-    async def _handle_task(self, task: meeshkan.tasks.Task):
+    async def _handle_task(self, task: Task):
         # TODO Do something with the item
         # LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
         pass

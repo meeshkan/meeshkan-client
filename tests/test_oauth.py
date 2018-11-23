@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 import requests
 
-from meeshkan.oauth import TokenStore
+import meeshkan
 from .utils import MockResponse
 
 CLOUD_URL = 'https://favorite-url-yay.com'
@@ -14,8 +14,8 @@ TOKEN_RESPONSE = { "data": { "token": { "access_token": "token" } } }
 def _token_store(build_session=None):
     """Returns a TokenStore for unit testing"""
     if build_session is None:
-        return TokenStore(cloud_url=CLOUD_URL, refresh_token=REFRESH_TOKEN)
-    return TokenStore(cloud_url=CLOUD_URL, refresh_token=REFRESH_TOKEN, build_session=build_session)
+        return meeshkan.TokenStore(cloud_url=CLOUD_URL, refresh_token=REFRESH_TOKEN)
+    return meeshkan.TokenStore(cloud_url=CLOUD_URL, refresh_token=REFRESH_TOKEN, build_session=build_session)
 
 
 def test_token_store():
@@ -32,7 +32,7 @@ def test_token_store():
 
         return fetch
 
-    with mock.patch('meeshkan.oauth.TokenStore._fetch_token', _get_fetch_token()):  # Override default _fetch_token
+    with mock.patch('meeshkan.TokenStore._fetch_token', _get_fetch_token()):  # Override default _fetch_token
         with _token_store() as token_store:
             assert token_store.get_token() == '1'
             assert token_store.get_token() == '1'  # From cache

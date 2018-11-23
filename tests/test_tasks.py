@@ -4,7 +4,7 @@ import queue
 
 import pytest
 
-from meeshkan.tasks import Task, TaskType, TaskPoller
+from meeshkan.core.tasks import Task, TaskType, TaskPoller
 
 
 @pytest.mark.asyncio

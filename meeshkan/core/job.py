@@ -11,6 +11,9 @@ from pathlib import Path
 LOGGER = logging.getLogger(__name__)
 
 
+__all__ = ["Job"]  # Only expose Job to topmost level
+
+
 class JobStatus(Enum):
     CREATED = 0  # New job
     QUEUED = 1  # Added to QueueProcessor

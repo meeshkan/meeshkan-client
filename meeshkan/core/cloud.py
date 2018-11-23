@@ -8,10 +8,11 @@ from pathlib import Path
 
 import requests
 
-import meeshkan.job
-import meeshkan.oauth
-import meeshkan.exceptions
-import meeshkan.tasks
+import meeshkan  # Used for Types and exceptions
+from .tasks import TaskType, Task
+from .oauth import TokenStore
+
+__all__ = ["CloudClient"]  # Only expose CloudClient class
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class CloudClient:
     :raises Unauthorized: if server returns 401
     :raises RuntimeError: If server returns code other than 200 or 401
     """
-    def __init__(self, cloud_url: str, token_store: meeshkan.oauth.TokenStore,
+    def __init__(self, cloud_url: str, token_store: TokenStore,
                  build_session: Callable[[], requests.Session] = requests.Session):
         self._cloud_url = cloud_url
         self._token_store = token_store
@@ -131,7 +132,7 @@ class CloudClient:
         payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 
-    def pop_tasks(self) -> List[meeshkan.tasks.Task]:
+    def pop_tasks(self) -> List[Task]:
         """Build GraphQL query payload and send to server for new tasks
         Schema of job_input MUST match with the server schema
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
@@ -148,8 +149,8 @@ class CloudClient:
         tasks_json = res.json()['data']['popClientTasks']
 
         def build_task(json_task):
-            task_type = meeshkan.tasks.TaskType[json_task['__typename']]
-            return meeshkan.tasks.Task(json_task['job']['id'], task_type=task_type)
+            task_type = TaskType[json_task['__typename']]
+            return Task(json_task['job']['id'], task_type=task_type)
 
         tasks = [build_task(json_task) for json_task in tasks_json]
         return tasks

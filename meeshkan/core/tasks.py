@@ -9,6 +9,8 @@ from typing import Callable, List
 
 LOGGER = logging.getLogger(__name__)
 
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 class TaskType(Enum):
     StopJobTask = 0
