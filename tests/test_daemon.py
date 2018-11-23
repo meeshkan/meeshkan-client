@@ -1,8 +1,9 @@
 from unittest.mock import create_autospec
 
 import pytest
-from meeshkan import Service, Api, Scheduler
-from meeshkan.core.scheduler import QueueProcessor
+from meeshkan.core.service import Service
+from meeshkan.core.api import Api
+from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.tasks import TaskPoller
 
 

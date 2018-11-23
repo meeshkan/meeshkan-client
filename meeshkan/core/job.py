@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 import uuid
 import datetime
 import os
@@ -11,7 +11,8 @@ from pathlib import Path
 LOGGER = logging.getLogger(__name__)
 
 
-__all__ = ["Job"]  # Only expose Job to topmost level
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class JobStatus(Enum):

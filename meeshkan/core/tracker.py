@@ -9,8 +9,9 @@ import logging
 import sys
 import asyncio
 
-import meeshkan  # Imported for types and exceptions
 from .job import Job
+from ..__types__ import HistoryByScalar
+from ..exceptions import TrackedScalarNotFoundException
 
 TF_EXISTS = True
 try:
@@ -21,7 +22,8 @@ except ModuleNotFoundError:
 LOGGER = logging.getLogger(__name__)
 
 
-__all__ = ["TrackerBase", "TensorFlowTracker"]  # Only expose relevant modules
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class TrackingPoller(object):
@@ -46,7 +48,7 @@ class TrackerBase(object):
     """Defines common API for Tracker objects"""
     def __init__(self):
         # History of tracked information, var_name: list(vals)
-        self._history_by_scalar = dict()  # type: meeshkan.HistoryByScalar
+        self._history_by_scalar = dict()  # type: HistoryByScalar
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
 
@@ -60,7 +62,7 @@ class TrackerBase(object):
             self._history_by_scalar[val_name] += value
 
     @staticmethod
-    def generate_image(history: meeshkan.HistoryByScalar, output_path: Union[str, Path], title=None) -> Optional[str]:
+    def generate_image(history: HistoryByScalar, output_path: Union[str, Path], title=None) -> Optional[str]:
         """
         Generates a plot from internal history to output_path
 
@@ -101,19 +103,19 @@ class TrackerBase(object):
                 self._last_index[val_name] = len(vals) - 1
 
     def get_updates(self, name: str = "", plot: bool = True,
-                    latest: bool = True) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
+                    latest: bool = True) -> Tuple[HistoryByScalar, Optional[str]]:
         """Gets updates since last push update, possibly with an image
 
         :param name: name of value to lookup (or empty for all tracked history)
         :param plot: whether or not to plot the history and return the image path
         :param latest: whether or not to include all history, or just history since previous call
-        :return tuple of data (meeshkan.HistoryByScalar) and location to image (if created, otherwise None)
+        :return tuple of data (HistoryByScalar) and location to image (if created, otherwise None)
         """
         if name and name not in self._history_by_scalar:
-            raise meeshkan.exceptions.TrackedScalarNotFoundException(name=name)
+            raise TrackedScalarNotFoundException(name=name)
 
         if name:
-            data = dict()  # type: meeshkan.HistoryByScalar
+            data = dict()  # type: HistoryByScalar
             for scalar_name, value_list in self._history_by_scalar.items():
                 if scalar_name == name:
                     data[scalar_name] = value_list

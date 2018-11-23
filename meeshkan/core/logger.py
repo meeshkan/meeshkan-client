@@ -1,6 +1,7 @@
 import logging
 import logging.config
 from pathlib import Path
+from typing import List
 
 import yaml
 
@@ -8,7 +9,8 @@ from .config import LOG_CONFIG_FILE, LOGS_DIR
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ["remove_non_file_handlers", "setup_logging"]  # Only expose the internal functions to top level
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 def setup_logging(log_config: Path = LOG_CONFIG_FILE, silent: bool = False):
     """Setup logging configuration

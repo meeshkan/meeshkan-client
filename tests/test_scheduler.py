@@ -2,9 +2,9 @@ import time
 from concurrent.futures import Future, wait
 import queue
 
-from meeshkan import Scheduler, Job, Notifier
-from meeshkan.core.scheduler import QueueProcessor
-from meeshkan.core.job import JobStatus, Executable
+from meeshkan.core.notifiers import Notifier
+from meeshkan.core.scheduler import Scheduler, QueueProcessor
+from meeshkan.core.job import JobStatus, Executable, Job
 
 
 FUTURE_TIMEOUT = 10  # In seconds

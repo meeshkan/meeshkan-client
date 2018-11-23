@@ -1,6 +1,8 @@
 from unittest.mock import create_autospec
 
-from meeshkan import Api, Scheduler, Service
+from meeshkan.core.api import Api
+from meeshkan.core.scheduler import Scheduler
+from meeshkan.core.service import Service
 
 
 def test_api_submits_job():

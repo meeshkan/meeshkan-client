@@ -4,7 +4,7 @@ from functools import partial
 import logging
 from multiprocessing import Process, Event  # For daemon initialization
 import os
-from typing import Any, Callable
+from typing import Any, Callable, List
 import socket  # To verify daemon
 import time
 import sys
@@ -17,7 +17,8 @@ LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
 
 
-__all__ = ["Service"]  # Only expose the Service class to top level
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class Service(object):
