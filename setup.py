@@ -82,7 +82,7 @@ class BuildDocumentationCommand(SetupCommand):
         self.status("Building documentation")
         os.chdir("docs")
         os.system("sphinx-apidoc -f -e -o source/ ../meeshkan/")
-        os.system("make html")
+        os.system("sphinx-build -M html -D version={version} source build".format(version=about['__version__']))
         sys.exit()
 
 class UploadCommand(SetupCommand):
