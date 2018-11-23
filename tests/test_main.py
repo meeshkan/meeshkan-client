@@ -9,8 +9,10 @@ import pytest
 from click.testing import CliRunner
 
 import meeshkan
+from meeshkan.core.oauth import TokenStore
+from meeshkan.core.cloud import CloudClient
+from meeshkan.core.service import Service
 import meeshkan.__main__ as main
-import meeshkan.exceptions
 from .utils import MockResponse
 
 CLI_RUNNER = CliRunner()
@@ -34,8 +36,8 @@ def _token_store(build_session=None):
     _cloud_url = 'favorite-url-yay.com'
     _refresh_token = 'meeshkan-top-secret'
     if build_session is None:
-        return meeshkan.TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
-    return meeshkan.TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token, build_session=build_session)
+        return TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
+    return TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token, build_session=build_session)
 
 
 @pytest.fixture
@@ -53,8 +55,8 @@ def pre_post_tests():
             return str(requests_counter)
         return fetch
     # Stuff before tests
-    tokenstore_patcher = mock.patch('meeshkan.TokenStore._fetch_token', _get_fetch_token())  # Augment TokenStore
-    tokenstore_patcher.start()
+    tokenstore_patcher = mock.patch('meeshkan.__main__.TokenStore._fetch_token', _get_fetch_token())
+    tokenstore_patcher.start()  # Augment TokenStore
 
     def stop_service():
         run_cli(args=['stop'])
@@ -72,10 +74,10 @@ def test_version_break(pre_post_tests):  # pylint:disable=unused-argument,redefi
 
 
 def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = meeshkan.Service()
+    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('meeshkan.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
@@ -90,8 +92,8 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
 
 
 def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = meeshkan.Service()
-    with mock.patch('meeshkan.CloudClient', autospec=True) as mock_cloud_client:
+    service = Service()
+    with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
         assert service.is_running()
@@ -104,7 +106,7 @@ def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefi
 
 
 def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = meeshkan.Service()
+    service = Service()
 
     def fail_notify_start(*args, **kwargs):  # pylint: disable=unused-argument,redefined-outer-name
         raise RuntimeError
@@ -136,10 +138,10 @@ def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argum
 
 
 def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = meeshkan.Service()
+    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('meeshkan.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         # Raise Unauthorized exception when service start notified
         def side_effect(*args, **kwargs):  # pylint: disable=unused-argument
             raise meeshkan.exceptions.UnauthorizedRequestException()
@@ -153,10 +155,10 @@ def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argumen
 
 
 def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = meeshkan.Service()
+    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
-    with mock.patch('meeshkan.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         mock_cloud_client.return_value.post_payload.return_value = None
@@ -203,8 +205,8 @@ def test_sorry_success(pre_post_tests):  # pylint: disable=unused-argument,redef
     mock_session = _build_session(post_return_value=MockResponse(payload, 200),
                                   request_return_value=MockResponse(status_code=200))
     mock_token_store = _token_store(build_session=lambda: mock_session)
-    cloud_client = meeshkan.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                        build_session=lambda: mock_session)
+    cloud_client = CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
+                               build_session=lambda: mock_session)
 
     def mock_cc_builder(*args):  # pylint: disable=unused-argument
         return cloud_client
@@ -220,8 +222,8 @@ def test_sorry_upload_fail(pre_post_tests):  # pylint: disable=unused-argument,r
     mock_session = _build_session(post_return_value=MockResponse(payload, 200),
                                   request_return_value=MockResponse(status_code=205))
     mock_token_store = _token_store(build_session=lambda: mock_session)
-    cloud_client = meeshkan.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                        build_session=lambda: mock_session)
+    cloud_client = CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
+                               build_session=lambda: mock_session)
 
     def mock_cc_builder(*args):  # pylint: disable=unused-argument
         return cloud_client
@@ -237,8 +239,8 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
     payload = {"data": {"uploadLink": {"upload": "http://localhost", "uploadMethod": "PUT", "headers": ["x:a"]}}}
     mock_session = _build_session(post_return_value=MockResponse(payload, 404))
     mock_token_store = _token_store(build_session=lambda: mock_session)
-    cloud_client = meeshkan.CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
-                                        build_session=lambda: mock_session)
+    cloud_client = CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
+                               build_session=lambda: mock_session)
 
     def mock_cc_builder(*args):  # pylint: disable=unused-argument
         return cloud_client
@@ -251,8 +253,8 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
 
 
 def test_empty_list(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = meeshkan.Service()
-    with mock.patch('meeshkan.CloudClient', autospec=True) as mock_cloud_client:
+    service = Service()
+    with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         mock_cloud_client.return_value.post_payload.return_value = None
@@ -288,7 +290,7 @@ def test_clear(pre_post_tests):  # pylint: disable=unused-argument,redefined-out
 
 
 def test_status(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    with mock.patch('meeshkan.CloudClient', autospec=True) as mock_cloud_client:
+    with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         mock_cloud_client.return_value.post_payload.return_value = None

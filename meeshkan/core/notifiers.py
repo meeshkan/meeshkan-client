@@ -1,14 +1,15 @@
 """ Notifiers for changes in job status"""
 import logging
-from typing import Callable, Any
+from typing import Callable, Any, List
 
-import meeshkan  # For types
 from .job import Job
+from ..__types__ import Payload
 
 LOGGER = logging.getLogger(__name__)
 
 
-__all__ = ["Notifier", "LoggingNotifier", "CloudNotifier"]  # Only expose the classes to top level
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class Notifier(object):
@@ -53,7 +54,7 @@ class LoggingNotifier(Notifier):
 
 
 class CloudNotifier(Notifier):
-    def __init__(self, post_payload: Callable[[meeshkan.Payload], Any]):
+    def __init__(self, post_payload: Callable[[Payload], Any]):
         super().__init__()
         self._post_payload = post_payload
 

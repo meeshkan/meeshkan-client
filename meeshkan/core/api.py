@@ -5,11 +5,12 @@ import uuid
 import Pyro4
 import Pyro4.errors
 
-import meeshkan  # Used for Types
 from .scheduler import Scheduler
 from .service import Service
+from ..__types__ import HistoryByScalar
 
-__all__ = ["Api"]  # Expose Api class
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class Api(object):
         """Attempts to report a scalar update for process PID"""
         self.scheduler.report_scalar(pid, name, val)
 
-    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
+    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[HistoryByScalar, Optional[str]]:
         if not isinstance(job_id, uuid.UUID):
             job_id = uuid.UUID(job_id)
         vals, fname = self.scheduler.query_scalars(job_id, latest_only=recent_only, plot=img)

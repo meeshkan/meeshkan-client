@@ -7,15 +7,16 @@ import uuid
 import os
 import asyncio
 
-import meeshkan
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
 from .notifiers import Notifier
 from .tasks import Task, TaskPoller
 from .config import JOBS_DIR
+from ..exceptions import JobNotFoundException
 
 
-__all__ = ["Scheduler"]  # Only expose the Scheduler class to top level
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 LOGGER = logging.getLogger(__name__)
@@ -216,7 +217,7 @@ class Scheduler(object):
         # Find the right job id
         job_id = [job.id for job in self.jobs if job.pid == pid]
         if len(job_id) != 1:
-            raise meeshkan.exceptions.JobNotFoundException(job_id=str(pid))
+            raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
         self._history_by_job[job_id].add_tracked(val_name=name, value=val)
         LOGGER.debug("Logged scalar %s with new value %s", name, val)

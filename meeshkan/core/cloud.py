@@ -8,11 +8,15 @@ from pathlib import Path
 
 import requests
 
-import meeshkan  # Used for Types and exceptions
+import meeshkan
+from ..__types__ import Token, Payload
 from .tasks import TaskType, Task
 from .oauth import TokenStore
+from ..exceptions import UnauthorizedRequestException
+from ..__version__ import __version__
 
-__all__ = ["CloudClient"]  # Only expose CloudClient class
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,11 +43,11 @@ class CloudClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _post(self, payload: meeshkan.Payload, token: meeshkan.Token) -> requests.Response:
+    def _post(self, payload: Payload, token: Token) -> requests.Response:
         headers = {"Authorization": "Bearer {token}".format(token=token)}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
-    def _post_payload(self, payload: meeshkan.Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
+    def _post_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
         """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
         :param payload:
         :param retries:
@@ -63,14 +67,14 @@ class CloudClient:
             res = self._post(payload, self._token_store.get_token(refresh=True))
         if res.status_code == HTTPStatus.UNAUTHORIZED:  # Unauthorized for #retries attempts, raise exception
             LOGGER.error('Cannot post to server: unauthorized')
-            raise meeshkan.exceptions.UnauthorizedRequestException()
+            raise UnauthorizedRequestException()
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
         LOGGER.debug("Got server response: %s", res.text)
         return res
 
-    def post_payload(self, payload: meeshkan.Payload) -> None:
+    def post_payload(self, payload: Payload) -> None:
         self._post_payload(payload, delay=0)
 
     def _upload_file(self, method, url, headers, file):
@@ -107,7 +111,7 @@ class CloudClient:
                 "}"
         extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
         payload = {"query": query,
-                   "variables": {"ext": extension, "download_flag": download_link}}  # type: meeshkan.Payload
+                   "variables": {"ext": extension, "download_flag": download_link}}  # type: Payload
         res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
 
         # Parse response
@@ -128,7 +132,7 @@ class CloudClient:
         :return:
         """
         mutation = "mutation ClientStart($in: ClientStartInput!) { clientStart(input: $in) { logLevel } }"
-        input_dict = {"version": meeshkan.__version__}
+        input_dict = {"version": __version__}
         payload = {"query": mutation, "variables": {"in": input_dict}}
         self.post_payload(payload)
 
