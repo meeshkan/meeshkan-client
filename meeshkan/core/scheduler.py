@@ -243,7 +243,7 @@ class Scheduler(object):
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
 
-    async def _handle_task(self, task: Task):
+    async def handle_task(self, task: Task):
         # TODO Do something with the item
         LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
         if task.type == TaskType.StopJobTask:
@@ -251,4 +251,4 @@ class Scheduler(object):
 
     async def poll(self):
         if self._task_poller is not None:
-            await self._task_poller.poll(handle_task=self._handle_task)
+            await self._task_poller.poll(handle_task=self.handle_task)
