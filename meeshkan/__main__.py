@@ -36,6 +36,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 if __name__ == '__main__':
     multiprocessing.set_start_method('spawn')
+    multiprocessing.set_executable(sys.executable)
 
 
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
