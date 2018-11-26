@@ -106,7 +106,12 @@ class Service(object):
     # Need single quotes here for type annotation, see
     # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
     def start(self, mp_ctx, build_api_serialized) -> str:
-        """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
+        """
+        Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
+        :param mp_ctx: Multiprocessing context, e.g. `multiprocessing.get_context("spawn")`
+        :param build_api_serialized: Dill-serialized function for creating API object
+        :return: Pyro URI
+        """
 
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))

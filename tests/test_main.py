@@ -1,4 +1,3 @@
-import multiprocessing as mp
 import re
 from unittest import mock
 import time
@@ -17,7 +16,6 @@ import meeshkan.__main__ as main
 from .utils import MockResponse
 
 CLI_RUNNER = CliRunner()
-MP_CTX = mp.get_context("spawn")
 
 
 def run_cli(args):

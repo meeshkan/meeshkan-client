@@ -68,10 +68,6 @@ def __build_api(config: meeshkan.config.Configuration,
     # This MUST be serializable so it can be sent to the process starting Pyro daemon with forkserver
     def build_api(service: Service) -> Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
-        import Pyro4 as Pyro4_
-        Pyro4_.config.SERIALIZER = 'dill'
-        Pyro4_.config.SERIALIZERS_ACCEPTED.add('dill')
-        Pyro4_.config.SERIALIZERS_ACCEPTED.add('json')
         import inspect
         import sys as sys_
         import os as os_
