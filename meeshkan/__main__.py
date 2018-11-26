@@ -35,7 +35,7 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 if __name__ == '__main__':
-    multiprocessing.set_start_method('forkserver')
+    multiprocessing.set_start_method('spawn')
 
 
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
@@ -76,20 +76,28 @@ def __build_api(config: meeshkan.config.Configuration,
         Pyro4_.config.SERIALIZER = 'dill'
         Pyro4_.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4_.config.SERIALIZERS_ACCEPTED.add('json')
-        # import sys
-        # sys.path.append("..")  # Adds higher directory to python modules path.
-        # TODO How to use modules of this package here?
+        import inspect
+        import sys as sys_
+        import os as os_
+
+        current_file = inspect.getfile(inspect.currentframe())
+        current_dir = os_.path.split(current_file)[0]
+        cmd_folder = os_.path.realpath(os_.path.abspath(os_.path.join(current_dir, '../')))
+        if cmd_folder not in sys_.path:
+            sys_.path.insert(0, cmd_folder)
+
         from meeshkan.core.oauth import TokenStore as TokenStore_
         from meeshkan.core.cloud import CloudClient as CloudClient_
         from meeshkan.core.api import Api as Api_
         from meeshkan.core.notifiers import CloudNotifier, LoggingNotifier
         from meeshkan.core.tasks import TaskPoller
         from meeshkan.core.scheduler import Scheduler, QueueProcessor
-        from meeshkan.core.logger import setup_logging as setup_logging_
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
+        from meeshkan.core.logger import setup_logging as setup_logging_
 
         ensure_base_dirs_()
         setup_logging_(silent=True)
+
         token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
         cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
 

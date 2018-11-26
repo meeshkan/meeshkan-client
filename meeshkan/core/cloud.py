@@ -72,7 +72,7 @@ class CloudClient:
         if res.status_code != HTTPStatus.OK:
             LOGGER.error("Error from server: %s", res.text)
             raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
-        LOGGER.debug("Got server response: %s, status %d", res.text, res.status_code)
+        LOGGER.debug("Got response from server: %s, status %d", res.text, res.status_code)
         return res
 
     def post_payload(self, payload: Payload) -> None:
