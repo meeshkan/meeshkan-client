@@ -2,13 +2,14 @@ import asyncio
 import concurrent.futures
 from functools import partial
 import logging
-from multiprocessing import Process, Event  # For daemon initialization
+from multiprocessing import Process, Event
 import os
-from typing import Any, Callable, List
+from typing import List
 import socket  # To verify daemon
 import time
 import sys
 
+import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
@@ -60,54 +61,55 @@ class Service(object):
     def uri(self):
         return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
 
+    def daemonize(self, build_api_bytes):
+        """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
+        pid = os.fork()
+        if pid > 0:  # Close parent process
+            return
+        remove_non_file_handlers()
+        os.setsid()  # Separate from tty
+        build_api = dill.loads(build_api_bytes)
+        with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
+            daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
+
+            async def start_daemon_and_polling_loops():
+                polling_coro = api.poll()
+                # Create task from polling coroutine and schedule for execution
+                # Note: Unlike `asyncio.create_task`, `loop.create_task` works in Python < 3.7
+                polling_task = loop.create_task(polling_coro)  # type: asyncio.Task
+
+                # Run the blocking Pyro daemon request loop in a dedicated thread and `await` until finished
+                # (`terminate_daemon` event set)
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    try:
+                        loop_daemon_until_event_set = partial(daemon.requestLoop,
+                                                              lambda: not self.terminate_daemon.is_set())
+                        await loop.run_in_executor(pool, loop_daemon_until_event_set)
+                    finally:
+                        LOGGER.debug("Canceling polling task.")
+                        polling_task.cancel()
+
+            loop = asyncio.get_event_loop()
+            try:
+                # Run event loop until request loops finished
+                loop.run_until_complete(start_daemon_and_polling_loops())
+            finally:
+                loop.close()
+            LOGGER.debug("Exiting service.")
+            time.sleep(1.0)  # Allows data scraping
+
+        return
+
     # Need single quotes here for type annotation, see
     # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
-    def start(self, build_api: Callable[['Service'], Any]) -> str:
+    def start(self, build_api_serialized) -> str:
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
-        def daemonize():
-            """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
-            pid = os.fork()
-            if pid > 0:  # Close parent process
-                return
-            remove_non_file_handlers()
-            os.setsid()  # Separate from tty
-            with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
-                daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
-
-                async def start_daemon_and_polling_loops():
-                    loop_ = asyncio.get_event_loop()
-
-                    polling_coro = api.poll()
-                    # Create task from polling coroutine and schedule for execution
-                    # Note: Unlike `asyncio.create_task`, `loop.create_task` works in Python < 3.7
-                    polling_task = loop.create_task(polling_coro)  # type: asyncio.Task
-
-                    # Run the blocking Pyro daemon request loop in a dedicated thread and `await` until finished
-                    # (`terminate_daemon` event set)
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        try:
-                            loop_daemon_until_event_set = partial(daemon.requestLoop,
-                                                                  lambda: not self.terminate_daemon.is_set())
-                            await loop_.run_in_executor(pool, loop_daemon_until_event_set)
-                        finally:
-                            LOGGER.debug("Canceling polling task.")
-                            polling_task.cancel()
-
-                loop = asyncio.get_event_loop()
-                try:
-                    # Run event loop until request loops finished
-                    loop.run_until_complete(start_daemon_and_polling_loops())
-                finally:
-                    loop.close()
-                LOGGER.debug("Exiting service.")
-                time.sleep(0.2)  # Allows data scraping
-
-            return
 
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = Process(target=daemonize)
+
+        proc = Process(target=self.daemonize, args=[build_api_serialized])
         proc.daemon = True
         proc.start()
         time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up

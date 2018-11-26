@@ -6,6 +6,7 @@
 
 """ Command-line interface """
 import logging
+import multiprocessing
 import sys
 import tarfile
 import shutil
@@ -15,25 +16,26 @@ from typing import Callable, Tuple
 import random
 
 import click
+import dill
 import Pyro4
 import requests
 import tabulate
 
 import meeshkan
-from .core.oauth import TokenStore
-from .core.cloud import CloudClient
 from .core.api import Api
-from .core.notifiers import CloudNotifier, LoggingNotifier
+from .core.cloud import CloudClient
+from .core.cloud import TokenStore
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
-from .core.tasks import TaskPoller
-from .core.scheduler import Scheduler, QueueProcessor
 
 LOGGER = None
 
-Pyro4.config.SERIALIZER = 'pickle'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
+Pyro4.config.SERIALIZER = 'dill'
+Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
+
+if __name__ == '__main__':
+    multiprocessing.set_start_method('forkserver')
 
 
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
@@ -51,7 +53,8 @@ def __get_api() -> Api:
 
 
 def __build_cloud_client(config: meeshkan.config.Configuration,
-                         credentials: meeshkan.config.Credentials) -> CloudClient:
+                         credentials: meeshkan.config.Credentials) -> 'meeshkan.core.cloud.CloudClient':
+
     token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     cloud_client = CloudClient(cloud_url=config.cloud_url, token_store=token_store)
     return cloud_client
@@ -66,9 +69,29 @@ def __notify_service_start(config: meeshkan.config.Configuration, credentials: m
 def __build_api(config: meeshkan.config.Configuration,
                 credentials: meeshkan.config.Credentials) -> Callable[[Service], Api]:
 
+    # This MUST be serializable so it can be sent to the process starting Pyro daemon with forkserver
     def build_api(service: Service) -> Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
-        cloud_client = __build_cloud_client(config, credentials)
+        import Pyro4 as Pyro4_
+        Pyro4_.config.SERIALIZER = 'dill'
+        Pyro4_.config.SERIALIZERS_ACCEPTED.add('dill')
+        Pyro4_.config.SERIALIZERS_ACCEPTED.add('json')
+        # import sys
+        # sys.path.append("..")  # Adds higher directory to python modules path.
+        # TODO How to use modules of this package here?
+        from meeshkan.core.oauth import TokenStore as TokenStore_
+        from meeshkan.core.cloud import CloudClient as CloudClient_
+        from meeshkan.core.api import Api as Api_
+        from meeshkan.core.notifiers import CloudNotifier, LoggingNotifier
+        from meeshkan.core.tasks import TaskPoller
+        from meeshkan.core.scheduler import Scheduler, QueueProcessor
+        from meeshkan.core.logger import setup_logging as setup_logging_
+        from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
+
+        ensure_base_dirs_()
+        setup_logging_(silent=True)
+        token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+        cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
 
         cloud_notifier = CloudNotifier(post_payload=cloud_client.post_payload)
         logging_notifier = LoggingNotifier()
@@ -82,7 +105,7 @@ def __build_api(config: meeshkan.config.Configuration,
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
-        api = Api(scheduler=scheduler, service=service)
+        api = Api_(scheduler=scheduler, service=service)
         api.add_stop_callback(cloud_client.close)
         return api
 
@@ -142,7 +165,8 @@ def start():
     config, credentials = __get_auth()
     try:
         __notify_service_start(config, credentials)
-        pyro_uri = service.start(build_api=__build_api(config, credentials))
+        build_api_serialized = dill.dumps(__build_api(config, credentials))
+        pyro_uri = service.start(build_api_serialized=build_api_serialized)
         print('Service started.')
         return pyro_uri
     except meeshkan.exceptions.UnauthorizedRequestException as ex:
