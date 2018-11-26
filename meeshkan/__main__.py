@@ -168,15 +168,20 @@ def daemon_status():
 @cli.command()
 @click.argument('job', nargs=-1)
 @click.option("--name", type=str)
-@click.option("--poll", type=int)
-def submit(job, name, poll):
+@click.option('-r', '--report-interval', type=int, help="Time [in seconds] to poll and report update on the job.")
+@click.pass_context
+def submit(ctx, job, name, report_interval):
     """Submits a new job to the service daemon."""
     if not job:
         print("CLI error: Specify job.")
         return
 
+    config, _ = __get_auth()
+    service = Service()
+    if not service.is_running() and config.boot_on_submit:
+        ctx.invoke(start)
     api = __get_api()  # type: Api
-    job = api.submit(job, name=name, poll_interval=poll)
+    job = api.submit(job, name=name, poll_interval=report_interval)
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
 

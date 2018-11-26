@@ -1,2 +1,5 @@
 cloud:
   url: "https://api.meeshkan.io"
+
+daemon:
+  startOnSubmit: true

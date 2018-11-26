@@ -43,8 +43,9 @@ def ensure_base_dirs():
 
 
 class Configuration:
-    def __init__(self, cloud_url):
+    def __init__(self, cloud_url, boot_on_submit):
         self.cloud_url = cloud_url
+        self.boot_on_submit = boot_on_submit
 
     @staticmethod
     def from_yaml(path: Path = CONFIG_PATH):
@@ -55,7 +56,8 @@ class Configuration:
             raise FileNotFoundError("File {path} not found".format(path=path))
         with path.open('r') as file:
             config = yaml.safe_load(file.read())
-        return Configuration(cloud_url=config['cloud']['url'])
+        return Configuration(cloud_url=config['cloud']['url'],
+                             boot_on_submit=config.get('daemon', dict()).get('startOnSubmit', True))
 
 
 class Credentials:
