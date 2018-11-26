@@ -9,6 +9,7 @@ __all__ = ["__version__", "exceptions", "report_scalar", "config"]
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 
+
 def report_scalar(val_name, value):
     """Reports a scalar to the meeshkan service API
 

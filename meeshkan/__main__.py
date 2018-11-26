@@ -6,6 +6,7 @@
 
 """ Command-line interface """
 import logging
+import multiprocessing as mp
 import sys
 import tarfile
 import shutil
@@ -15,24 +16,22 @@ from typing import Callable, Tuple
 import random
 
 import click
+import dill
 import Pyro4
 import requests
 import tabulate
 
 import meeshkan
-from .core.oauth import TokenStore
-from .core.cloud import CloudClient
 from .core.api import Api
-from .core.notifiers import CloudNotifier, LoggingNotifier
+from .core.cloud import CloudClient
+from .core.cloud import TokenStore
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
-from .core.tasks import TaskPoller
-from .core.scheduler import Scheduler, QueueProcessor
 
 LOGGER = None
 
-Pyro4.config.SERIALIZER = 'pickle'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
+Pyro4.config.SERIALIZER = 'dill'
+Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 
@@ -52,6 +51,7 @@ def __get_api() -> Api:
 
 def __build_cloud_client(config: meeshkan.config.Configuration,
                          credentials: meeshkan.config.Credentials) -> CloudClient:
+
     token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     cloud_client = CloudClient(cloud_url=config.cloud_url, token_store=token_store)
     return cloud_client
@@ -66,9 +66,33 @@ def __notify_service_start(config: meeshkan.config.Configuration, credentials: m
 def __build_api(config: meeshkan.config.Configuration,
                 credentials: meeshkan.config.Credentials) -> Callable[[Service], Api]:
 
+    # This MUST be serializable so it can be sent to the process starting Pyro daemon with forkserver
     def build_api(service: Service) -> Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
-        cloud_client = __build_cloud_client(config, credentials)
+        import inspect
+        import sys as sys_
+        import os as os_
+
+        current_file = inspect.getfile(inspect.currentframe())
+        current_dir = os_.path.split(current_file)[0]
+        cmd_folder = os_.path.realpath(os_.path.abspath(os_.path.join(current_dir, '../')))
+        if cmd_folder not in sys_.path:
+            sys_.path.insert(0, cmd_folder)
+
+        from meeshkan.core.oauth import TokenStore as TokenStore_
+        from meeshkan.core.cloud import CloudClient as CloudClient_
+        from meeshkan.core.api import Api as Api_
+        from meeshkan.core.notifiers import CloudNotifier, LoggingNotifier
+        from meeshkan.core.tasks import TaskPoller
+        from meeshkan.core.scheduler import Scheduler, QueueProcessor
+        from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
+        from meeshkan.core.logger import setup_logging as setup_logging_
+
+        ensure_base_dirs_()
+        setup_logging_(silent=True)
+
+        token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+        cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
 
         cloud_notifier = CloudNotifier(post_payload=cloud_client.post_payload)
         logging_notifier = LoggingNotifier()
@@ -82,7 +106,7 @@ def __build_api(config: meeshkan.config.Configuration,
         scheduler.register_listener(logging_notifier)
         scheduler.register_listener(cloud_notifier)
 
-        api = Api(scheduler=scheduler, service=service)
+        api = Api_(scheduler=scheduler, service=service)
         api.add_stop_callback(cloud_client.close)
         return api
 
@@ -142,7 +166,8 @@ def start():
     config, credentials = __get_auth()
     try:
         __notify_service_start(config, credentials)
-        pyro_uri = service.start(build_api=__build_api(config, credentials))
+        build_api_serialized = dill.dumps(__build_api(config, credentials))
+        pyro_uri = service.start(mp.get_context("spawn"), build_api_serialized=build_api_serialized)
         print('Service started.')
         return pyro_uri
     except meeshkan.exceptions.UnauthorizedRequestException as ex:

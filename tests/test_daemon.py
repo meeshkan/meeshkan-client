@@ -1,10 +1,14 @@
+import multiprocessing as mp
 from unittest.mock import create_autospec
 
+import dill
 import pytest
 from meeshkan.core.service import Service
 from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.tasks import TaskPoller
+
+MP_CTX = mp.get_context("spawn")
 
 
 def _build_api(service: Service):
@@ -14,13 +18,13 @@ def _build_api(service: Service):
 
 def test_start_stop():
     service = Service()
-    service.start(_build_api)
+    service.start(MP_CTX, dill.dumps(_build_api))
     assert service.stop()
 
 
 def test_double_start():
     service = Service()
-    service.start(_build_api)
+    service.start(MP_CTX, dill.dumps(_build_api))
     with pytest.raises(RuntimeError):
-        service.start(_build_api)
+        service.start(MP_CTX, _build_api)
     service.stop()

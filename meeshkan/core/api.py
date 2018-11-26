@@ -1,4 +1,4 @@
-from typing import Callable, Any, Tuple, Union, List, Optional
+from typing import Callable, Any, Tuple, List, Optional
 import logging
 import uuid
 
