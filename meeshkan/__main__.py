@@ -34,7 +34,7 @@ Pyro4.config.SERIALIZER = 'dill'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-MP_CTX = mp.get_context("spawn")
+MP_CTX = mp.get_context("forkserver")
 
 
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:

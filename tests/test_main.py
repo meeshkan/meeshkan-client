@@ -17,7 +17,7 @@ import meeshkan.__main__ as main
 from .utils import MockResponse
 
 CLI_RUNNER = CliRunner()
-MP_CTX = mp.get_context("spawn")
+MP_CTX = mp.get_context("forkserver")
 
 
 def run_cli(args):
