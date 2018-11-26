@@ -6,7 +6,7 @@
 
 """ Command-line interface """
 import logging
-import multiprocessing
+import multiprocessing as mp
 import sys
 import tarfile
 import shutil
@@ -34,9 +34,7 @@ Pyro4.config.SERIALIZER = 'dill'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-if __name__ == '__main__':
-    multiprocessing.set_start_method('spawn')
-    multiprocessing.set_executable(sys.executable)
+MP_CTX = mp.get_context("spawn")
 
 
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
@@ -45,7 +43,7 @@ def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credent
 
 
 def __get_api() -> Api:
-    service = Service()
+    service = Service(MP_CTX)
     if not service.is_running():
         print("Start the service first.")
         sys.exit(1)
@@ -167,7 +165,7 @@ def help_cmd(ctx):
 @cli.command()
 def start():
     """Starts Meeshkan service daemon."""
-    service = Service()
+    service = Service(MP_CTX)
     if service.is_running():
         print("Service is already running.")
         sys.exit(1)
@@ -190,7 +188,7 @@ def start():
 @cli.command(name='status')
 def daemon_status():
     """Checks and returns the service daemon status."""
-    service = Service()
+    service = Service(MP_CTX)
     is_running = service.is_running()
     status = "up and running" if is_running else "configured to run"
     print("Service is {status} on {host}:{port}".format(status=status, host=service.host, port=service.port))

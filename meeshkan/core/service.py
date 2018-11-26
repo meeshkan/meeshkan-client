@@ -2,7 +2,7 @@ import asyncio
 import concurrent.futures
 from functools import partial
 import logging
-from multiprocessing import Process, Event
+import multiprocessing as mp
 import os
 from typing import List
 import socket  # To verify daemon
@@ -28,10 +28,11 @@ class Service(object):
     """
     OBJ_NAME = "Meeshkan.scheduler"
 
-    def __init__(self, port: int = 7779):
+    def __init__(self, mp_ctx=mp.get_context("spawn"), port: int = 7779):
         self.port = port
         self.host = Service._get_localhost()
-        self.terminate_daemon = Event()
+        self.mp_ctx = mp_ctx
+        self.terminate_daemon = mp_ctx.Event()
 
     @staticmethod
     def _get_localhost():
@@ -50,7 +51,8 @@ class Service(object):
             try:
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
                 return True
-            except Pyro4.errors.CommunicationError:
+            except Pyro4.errors.CommunicationError as ex:
+                LOGGER.error(ex)
                 return False
 
     @property
@@ -108,8 +110,7 @@ class Service(object):
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-
-        proc = Process(target=self.daemonize, args=[build_api_serialized])
+        proc = self.mp_ctx.Process(target=self.daemonize, args=[build_api_serialized])
         proc.daemon = True
         proc.start()
         time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up
