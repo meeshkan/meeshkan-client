@@ -1,11 +1,15 @@
 from http import HTTPStatus
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 import requests
 
-import meeshkan.exceptions
+from ..exceptions import UnauthorizedRequestException
+from ..__types__ import Token, Payload
 
 LOGGER = logging.getLogger(__name__)
+
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class TokenStore(object):
@@ -18,7 +22,7 @@ class TokenStore(object):
         self._auth_url = cloud_url
         self._refresh_token = refresh_token
         self._session = build_session()
-        self._token = None  # type: Optional[meeshkan.Token]
+        self._token = None  # type: Optional[Token]
 
     def __enter__(self):
         return self
@@ -27,12 +31,12 @@ class TokenStore(object):
         self.close()
 
     @property
-    def _payload(self) -> meeshkan.Payload:
+    def _payload(self) -> Payload:
         # TODO do we need to fetch expires_in, scope, id_token and/or token_type?
         query = "query GetToken($refresh_token: String!) { token(refreshToken: $refresh_token) { access_token } }"
         return {"query": query, "variables": {"refresh_token": self._refresh_token}}
 
-    def _fetch_token(self) -> meeshkan.Token:
+    def _fetch_token(self) -> Token:
         LOGGER.debug("Requesting token with payload %s", self._payload)
         resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
 
@@ -41,12 +45,12 @@ class TokenStore(object):
             return resp_dict['token']['access_token']
 
         if resp.status_code == HTTPStatus.UNAUTHORIZED:
-            raise meeshkan.exceptions.UnauthorizedRequestException()
+            raise UnauthorizedRequestException()
 
         LOGGER.error("Failed requesting authentication: status %s, text: %s", resp.status_code, resp.text)
         raise RuntimeError("Failed requesting authentication.")
 
-    def get_token(self, refresh=False) -> meeshkan.Token:
+    def get_token(self, refresh=False) -> Token:
 
         if refresh or self._token is None:
             LOGGER.info("Retrieving new authentication token")

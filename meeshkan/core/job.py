@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 import uuid
 import datetime
 import os
@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class JobStatus(Enum):
@@ -107,10 +111,14 @@ class ProcessExecutable(Executable):
 
 class Job(object):
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
-                 desc: str = None):
+                 desc: str = None, poll_interval: float = None):
         """
         :param executable: Executable instance
         :param job_number: Like PID, used for interacting with the job from the CLI
+        :param job_uuid
+        :param name
+        :param desc
+        :param poll_interval
         """
         self.executable = executable
         # Absolutely unique identifier
@@ -122,6 +130,7 @@ class Job(object):
         self.is_processed = False
         self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
+        self.poll_time = poll_interval
 
     def launch_and_wait(self) -> int:
         """

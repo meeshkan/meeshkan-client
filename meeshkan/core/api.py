@@ -1,13 +1,16 @@
-from typing import Callable, Any, Tuple, Union, List, Optional
+from typing import Callable, Any, Tuple, List, Optional
 import logging
 import uuid
 
 import Pyro4
 import Pyro4.errors
 
-import meeshkan.scheduler
-import meeshkan.job
-import meeshkan.service
+from .scheduler import Scheduler
+from .service import Service
+from ..__types__ import HistoryByScalar
+
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 class Api(object):
     """Exposed by the Pyro server for communications with the CLI."""
 
-    def __init__(self, scheduler: meeshkan.scheduler.Scheduler, service: meeshkan.service.Service = None):
+    def __init__(self, scheduler: Scheduler, service: Service = None):
         self.scheduler = scheduler
         self.service = service
         self.__stop_callbacks = []  # type: List[Callable[[], None]]
@@ -33,8 +36,8 @@ class Api(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def submit(self, args: Tuple[str, ...], name=None):
-        job = self.scheduler.create_job(args, name)
+    def submit(self, args: Tuple[str, ...], name=None, poll_interval=None):
+        job = self.scheduler.create_job(args, name=name, poll_interval=poll_interval)
         self.scheduler.submit_job(job)
         return job
 
@@ -53,7 +56,7 @@ class Api(object):
         """Attempts to report a scalar update for process PID"""
         self.scheduler.report_scalar(pid, name, val)
 
-    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
+    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[HistoryByScalar, Optional[str]]:
         if not isinstance(job_id, uuid.UUID):
             job_id = uuid.UUID(job_id)
         vals, fname = self.scheduler.query_scalars(job_id, latest_only=recent_only, plot=img)

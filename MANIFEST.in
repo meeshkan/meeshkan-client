@@ -1,1 +1,1 @@
-include meeshkan/*.yaml
+include meeshkan/core/*.yaml

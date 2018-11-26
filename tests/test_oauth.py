@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 import requests
 
-from meeshkan.oauth import TokenStore
+from meeshkan.core.oauth import TokenStore
 from .utils import MockResponse
 
 CLOUD_URL = 'https://favorite-url-yay.com'
@@ -25,15 +25,15 @@ def test_token_store():
         """
         requests_counter = 0
 
-        def fetch(self):  # pylint: disable=unused-argument
+        def fetch(*args):  # pylint: disable=unused-argument
             nonlocal requests_counter
             requests_counter += 1
             return str(requests_counter)
 
         return fetch
 
-    with mock.patch('meeshkan.oauth.TokenStore._fetch_token', _get_fetch_token()):  # Override default _fetch_token
-        with _token_store() as token_store:
+    with _token_store() as token_store:
+        with mock.patch.object(token_store, '_fetch_token', _get_fetch_token()):  # Override object _fetch_token
             assert token_store.get_token() == '1'
             assert token_store.get_token() == '1'  # From cache
             assert token_store.get_token(refresh=True) == '2'

@@ -5,12 +5,18 @@ from typing import Any, Dict, List, Tuple, Callable, Optional, Union  # For self
 from pathlib import Path
 import uuid
 import os
+import asyncio
 
-import meeshkan.job  # Defines scheduler jobs
-import meeshkan.exceptions
-import meeshkan.notifiers
-import meeshkan.tracker
-import meeshkan.tasks
+from .tracker import TrackingPoller, TrackerBase
+from .job import ProcessExecutable, JobStatus, Job
+from .notifiers import Notifier
+from .tasks import Task, TaskType, TaskPoller
+from .config import JOBS_DIR
+from ..exceptions import JobNotFoundException
+
+
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 LOGGER = logging.getLogger(__name__)
@@ -72,18 +78,19 @@ class QueueProcessor:
 
 class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor,
-                 task_poller: meeshkan.tasks.TaskPoller = None,
+                 task_poller: TaskPoller = None,
                  img_upload_func: Callable[[Union[str, Path], bool], Optional[str]] = None):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
-        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, meeshkan.job.Job]
+        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
-        self._listeners = []  # type: List[meeshkan.notifiers.Notifier]
-        self._running_job = None  # type: Optional[meeshkan.job.Job]
+        self._listeners = []  # type: List[Notifier]
+        self._running_job = None  # type: Optional[Job]
         self._notification_status = dict()  # type: Dict[uuid.UUID, str]
-        self._history_by_job = dict()  # type: Dict[uuid.UUID, meeshkan.tracker.TrackerBase]
-        self._job_poller = meeshkan.tracker.TrackingPoller(self.notify_updates)  # type: meeshkan.tracker.TrackingPoller
+        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]
+        self._job_poller = TrackingPoller(self.notify_updates)
         self._image_upload = img_upload_func
+        self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
 
     # Properties and Python magic
 
@@ -107,37 +114,38 @@ class Scheduler(object):
     def get_notification_status(self, job_id: uuid.UUID):
         return self._notification_status[job_id]
 
-    def register_listener(self, listener: meeshkan.notifiers.Notifier):
+    def register_listener(self, listener: Notifier):
         self._listeners.append(listener)
 
-    def notify_listeners(self, job: meeshkan.job.Job, image_url: str, n_iterations: int,
+    def notify_listeners(self, job: Job, image_url: str, n_iterations: int,
                          iterations_unit: str = "iterations") -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, image_url, n_iterations,
                                                                                   iterations_unit))
 
-    def notify_listeners_job_start(self, job: meeshkan.job.Job) -> bool:
+    def notify_listeners_job_start(self, job: Job) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
 
-    def notify_listeners_job_end(self, job: meeshkan.job.Job) -> bool:
+    def notify_listeners_job_end(self, job: Job) -> bool:
         return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
 
     def notify_updates(self, job_id: uuid.UUID) -> bool:
         # Get updates; TODO - vals should be reported once we update schema...
         # pylint: disable=unused-variable
         vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._image_upload is not None)
-        download_link = ""
-        if imgpath is not None:
-            try:  # Upload image if we're given an image_upload function...
-                download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
-            except Exception:  # pylint:disable=broad-except
-                LOGGER.error("Could not post image to cloud server!")
-        status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
-        if imgpath is not None:
-            os.remove(imgpath)
-        return status
+        if vals:  # Only send updates if there exists any updates, doh
+            download_link = ""
+            if imgpath is not None:
+                try:  # Upload image if we're given an image_upload function...
+                    download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
+                except Exception:  # pylint:disable=broad-except
+                    LOGGER.error("Could not post image to cloud server!")
+            status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
+            if imgpath is not None:
+                os.remove(imgpath)
+            return status
+        return False
 
-    def _internal_notifier_loop(self, job: meeshkan.job.Job,
-                                notify_method: Callable[[meeshkan.notifiers.Notifier], None]) -> bool:
+    def _internal_notifier_loop(self, job: Job, notify_method: Callable[[Notifier], None]) -> bool:
         status = True
         for notifier in self._listeners:
             try:
@@ -151,21 +159,23 @@ class Scheduler(object):
 
     # Job handling methods
 
-    def _handle_job(self, job: meeshkan.job.Job) -> None:
+    def _handle_job(self, job: Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.stale:
             return
 
         self._running_job = job
-        self._job_poller.start(job.id)
+        # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
+        task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
         self.notify_listeners_job_start(job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
+        finally:
+            task.cancel()
 
         self.notify_listeners_job_end(job)
-        self._job_poller.stop()
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
@@ -177,26 +187,27 @@ class Scheduler(object):
                 args = ("python",) + args
         return args
 
-    def create_job(self, args: Tuple[str, ...], name: str = None):
+    def create_job(self, args: Tuple[str, ...], name: str = None, poll_interval: int = None):
         job_number = len(self.jobs)
         job_uuid = uuid.uuid4()
         args = self._verify_python_executable(args)
         LOGGER.debug("Creating job for %s", args)
-        output_path = meeshkan.config.JOBS_DIR.joinpath(str(job_uuid))
-        executable = meeshkan.job.ProcessExecutable(args, output_path=output_path)
+        output_path = JOBS_DIR.joinpath(str(job_uuid))
+        executable = ProcessExecutable(args, output_path=output_path)
         job_name = name or "Job #{job_number}".format(job_number=job_number)
-        return meeshkan.job.Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name)
+        return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
 
-    def submit_job(self, job: meeshkan.job.Job):
-        job.status = meeshkan.job.JobStatus.QUEUED
+    def submit_job(self, job: Job):
+        job.status = JobStatus.QUEUED
         self._notification_status[job.id] = "NA"
-        self._history_by_job[job.id] = meeshkan.tracker.TrackerBase()
+        self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
         self._task_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: uuid.UUID):
         if job_id not in self.submitted_jobs:
+            LOGGER.debug("Ignoring stopping unknown job with ID: %s", str(job_id))
             return
         self.submitted_jobs[job_id].cancel()
 
@@ -206,7 +217,7 @@ class Scheduler(object):
         # Find the right job id
         job_id = [job.id for job in self.jobs if job.pid == pid]
         if len(job_id) != 1:
-            raise meeshkan.exceptions.JobNotFoundException(job_id=str(pid))
+            raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
         self._history_by_job[job_id].add_tracked(val_name=name, value=val)
         LOGGER.debug("Logged scalar %s with new value %s", name, val)
@@ -223,7 +234,7 @@ class Scheduler(object):
             LOGGER.debug("Queue processor started")
 
     def stop(self):
-        self._job_poller.stop()
+        # self._job_poller.stop()
         self._queue_processor.schedule_stop()
         if self._running_job is not None:
             # TODO Add an option to not cancel the currently running job?
@@ -232,10 +243,12 @@ class Scheduler(object):
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
 
-    async def _handle_task(self, task: meeshkan.tasks.Task):
+    async def handle_task(self, task: Task):
         # TODO Do something with the item
         LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        if task.type == TaskType.StopJobTask:
+            self.stop_job(task.job_id)
 
     async def poll(self):
         if self._task_poller is not None:
-            await self._task_poller.poll(handle_task=self._handle_task)
+            await self._task_poller.poll(handle_task=self.handle_task)

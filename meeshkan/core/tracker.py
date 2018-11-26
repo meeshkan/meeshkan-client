@@ -7,81 +7,48 @@ import uuid
 import tempfile
 import logging
 import sys
-import threading
+import asyncio
 
-# To prevent cyclic import
-import meeshkan.__types__
-import meeshkan.exceptions
-
+from .job import Job
+from ..__types__ import HistoryByScalar
+from ..exceptions import TrackedScalarNotFoundException
 
 TF_EXISTS = True
 try:
-    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator, _GeneratorFromPath
+    import tensorboard.backend.event_processing.event_accumulator as tfproto
 except ModuleNotFoundError:
     TF_EXISTS = False  # Silently fail
 
 LOGGER = logging.getLogger(__name__)
 
 
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
+
+
 class TrackingPoller(object):
-    DEF_POLLING_INTERVAL = 180
+    DEF_POLLING_INTERVAL = 3600  # Default is notifications every hour.
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
-        self._loop_event = threading.Event()  # type: threading.Event
-        self._timer_event = threading.Event()  # type: threading.Event
-        # TODO - include polling interval in Job
-        self._interval_by_job = dict()  # type: Dict[uuid.UUID, float]
-        self._thread = None  # type: Optional[threading.Thread]
-        self._timer = None  # type: Optional[threading.Timer]
         self._notify = notify_function
 
-    def start(self, job_id: uuid.UUID, interval=None):
-        if job_id not in self._interval_by_job:
-            self._interval_by_job[job_id] = interval or TrackingPoller.DEF_POLLING_INTERVAL
-        self._loop_event.clear()
-        self._thread = threading.Thread(target=self.__notify_loop, kwargs={'job_id': job_id})  # type: threading.Thread
-        self._thread.start()
-        self.__init_timer(job_id)
-        LOGGER.debug("Started to poll from job %s", job_id)
+    async def poll(self, job: Job):
+        """Asynchronous polling function for scalars in given job"""
+        LOGGER.debug("Starting job tracking for job %s", job)
+        sleep_time = job.poll_time or TrackingPoller.DEF_POLLING_INTERVAL
+        try:
+            while True:
+                await asyncio.sleep(sleep_time)  # Let other tasks run meanwhile
+                self._notify(job.id)  # Synchronously notify of changes.
+        except asyncio.CancelledError:
+            LOGGER.debug("Job tracking cancelled for job %s", job.id)
 
-    def __init_timer(self, job_id: uuid.UUID):
-        if not self._loop_event.is_set():
-            self._timer_event.clear()
-            self._timer = threading.Timer(interval=self._interval_by_job[job_id], function=self.__ping)
-            self._timer.start()
-
-    def __notify_loop(self, job_id: uuid.UUID):
-        while not self._loop_event.is_set():
-            LOGGER.debug("About to wait for timer_event")
-            self._timer_event.wait()  # Block until timer event is set
-            if self._loop_event.is_set():
-                break
-            self._notify(job_id)  # Notify for given job ID
-            self.__init_timer(job_id)
-
-    def __ping(self):
-        if self._timer_event is not None:
-            self._timer_event.set()
-
-    def stop(self):
-        LOGGER.debug("Polling for job updates stopped")
-        self._loop_event.set()
-        self._timer_event.set()
-
-        if self._timer is not None:  # Stop timer (prevent next call to __ping)
-            self._timer.cancel()
-            self._timer.alive = True
-            self._timer = None
-
-        if self._thread is not None:
-            self._thread.join()
-            self._thread = None
 
 class TrackerBase(object):
     DEF_IMG_EXT = "png"
     """Defines common API for Tracker objects"""
     def __init__(self):
         # History of tracked information, var_name: list(vals)
-        self._history_by_scalar = dict()  # type: meeshkan.__types__.HistoryByScalar
+        self._history_by_scalar = dict()  # type: HistoryByScalar
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
 
@@ -95,8 +62,7 @@ class TrackerBase(object):
             self._history_by_scalar[val_name] += value
 
     @staticmethod
-    def generate_image(history: Dict[str, List[Number]], output_path: Union[str, Path], show: bool = False,
-                       title: str = None) -> Optional[str]:
+    def generate_image(history: HistoryByScalar, output_path: Union[str, Path], title=None) -> Optional[str]:
         """
         Generates a plot from internal history to output_path
 
@@ -114,7 +80,7 @@ class TrackerBase(object):
         has_plotted = False
         plt.clf()  # Clear figure
         for tag, vals in history.items():  # All all scalar values to plot
-            if vals:  # Only bother plotting values with data...
+            if len(vals) > 1:  # Only bother plotting values with at least 2 data points (a line in space!)
                 has_plotted = True
                 plt.plot(vals, label=tag)
         if has_plotted:
@@ -125,8 +91,6 @@ class TrackerBase(object):
             if not ext:
                 fname = os.path.abspath("{}.{}".format(fname, TrackerBase.DEF_IMG_EXT))
             plt.savefig(fname)
-            if show:
-                plt.show()
             return fname
         return None
 
@@ -139,19 +103,19 @@ class TrackerBase(object):
                 self._last_index[val_name] = len(vals) - 1
 
     def get_updates(self, name: str = "", plot: bool = True,
-                    latest: bool = True) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
+                    latest: bool = True) -> Tuple[HistoryByScalar, Optional[str]]:
         """Gets updates since last push update, possibly with an image
 
         :param name: name of value to lookup (or empty for all tracked history)
         :param plot: whether or not to plot the history and return the image path
         :param latest: whether or not to include all history, or just history since previous call
-        :return tuple of data (meeshkan.History) and location to image (if created, otherwise None)
+        :return tuple of data (HistoryByScalar) and location to image (if created, otherwise None)
         """
         if name and name not in self._history_by_scalar:
-            raise meeshkan.exceptions.TrackedScalarNotFoundException(name=name)
+            raise TrackedScalarNotFoundException(name=name)
 
         if name:
-            data = dict()  # type: meeshkan.__types__.HistoryByScalar
+            data = dict()  # type: HistoryByScalar
             for scalar_name, value_list in self._history_by_scalar.items():
                 if scalar_name == name:
                     data[scalar_name] = value_list
@@ -200,7 +164,7 @@ class TensorFlowTracker(TrackerBase):
             raise ModuleNotFoundError("Cannot instantiate a TensorFlowTracker without TensorFlow!")
         super(TensorFlowTracker, self).__init__()
         self.path = path
-        self.ea_tracker = EventAccumulator(path)
+        self.ea_tracker = tfproto.EventAccumulator(path)
         self.update()
 
     def update(self):
@@ -210,5 +174,5 @@ class TensorFlowTracker(TrackerBase):
                 self.add_tracked(tag, scalar_event.value)
 
     def clean(self):
-        self.ea_tracker._generator = _GeneratorFromPath(self.path)  # pylint: disable=protected-access
+        self.ea_tracker._generator = tfproto._GeneratorFromPath(self.path)  # pylint: disable=protected-access
         self._clean()

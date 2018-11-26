@@ -1,5 +1,4 @@
 import meeshkan
-import meeshkan.config
 
 
 # Configuration initialized in `tests/__init__.py`

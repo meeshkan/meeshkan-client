@@ -5,9 +5,12 @@ import asyncio
 from enum import Enum
 import logging
 from typing import Callable, List
-
+from uuid import UUID
 
 LOGGER = logging.getLogger(__name__)
+
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class TaskType(Enum):
@@ -15,7 +18,7 @@ class TaskType(Enum):
 
 
 class Task:
-    def __init__(self, job_id, task_type: TaskType):
+    def __init__(self, job_id: UUID, task_type: TaskType):
         self.job_id = job_id
         self.type = task_type
 

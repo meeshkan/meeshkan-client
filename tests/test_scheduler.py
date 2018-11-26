@@ -1,12 +1,14 @@
+import asyncio
 import time
 from concurrent.futures import Future, wait
 import queue
 
-import meeshkan
-from meeshkan.scheduler import Scheduler, QueueProcessor
-from meeshkan.job import Job, JobStatus, Executable
-from meeshkan.notifiers import Notifier
+from meeshkan.core.notifiers import Notifier
+from meeshkan.core.scheduler import Scheduler, QueueProcessor
+from meeshkan.core.job import JobStatus, Executable, Job
+from meeshkan.core.tasks import Task, TaskType
 
+import pytest
 
 FUTURE_TIMEOUT = 10  # In seconds
 
@@ -113,13 +115,13 @@ def test_notifiers():
 
     class MockNotifier(Notifier):
 
-        def notify_job_start(self, job: meeshkan.job.Job):
+        def notify_job_start(self, job: Job):
             started_jobs.append({'job': job})
 
-        def notify_job_end(self, job: meeshkan.job.Job):
+        def notify_job_end(self, job: Job):
             finished_jobs.append({'job': job})
 
-        def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int = -1,
+        def notify(self, job: Job, image_url: str, n_iterations: int = -1,
                iterations_unit: str = "iterations") -> None:
             notified_jobs.append({'job': job})
 
@@ -166,6 +168,18 @@ def test_canceling_job():
 
     assert not job2.is_launched
     assert job2.status == JobStatus.CANCELLED_BY_USER
+
+
+@pytest.mark.asyncio
+async def test_stopping_job_with_task():
+    with get_scheduler() as scheduler:
+        job = get_job(executable=FutureWaitingExecutable(future=Future()))
+        scheduler.submit_job(job)
+        # Schedule stop job task
+        await asyncio.get_event_loop().create_task(scheduler.handle_task(Task(job.id, TaskType.StopJobTask)))
+        wait_for_true(scheduler._task_queue.empty)
+
+    assert job.status in [JobStatus.CANCELLED_BY_USER, JobStatus.CANCELED]
 
 
 def test_stopping_scheduler():

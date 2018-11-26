@@ -1,15 +1,18 @@
 import logging
 import logging.config
 from pathlib import Path
+from typing import List
 
 import yaml
 
-import meeshkan.config
+from .config import LOG_CONFIG_FILE, LOGS_DIR
 
 LOGGER = logging.getLogger(__name__)
 
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
-def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bool = False):
+def setup_logging(log_config: Path = LOG_CONFIG_FILE, silent: bool = False):
     """Setup logging configuration
     This MUST be called before creating any loggers.
     """
@@ -22,7 +25,7 @@ def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bo
 
     def prepare_filenames(config):
         """
-        Prepend `meeshkan.config.LOGS_DIR` to all 'filename' attributes listed for handlers in logging.yaml
+        Prepend `LOGS_DIR` to all 'filename' attributes listed for handlers in logging.yaml
         :param config: Configuration dictionary
         :return: Configuration with 'filename's prepended with LOGS_DIR
         """
@@ -30,7 +33,7 @@ def setup_logging(log_config: Path = meeshkan.config.LOG_CONFIG_FILE, silent: bo
             handler_config = config['handlers'][handler_name]
             if 'filename' in handler_config:
                 filename = Path(handler_config['filename']).name
-                handler_config['filename'] = str(meeshkan.config.LOGS_DIR.joinpath(filename))
+                handler_config['filename'] = str(LOGS_DIR.joinpath(filename))
         return config
 
     config = prepare_filenames(config_orig)

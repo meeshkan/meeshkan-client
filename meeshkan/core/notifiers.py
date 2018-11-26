@@ -1,28 +1,30 @@
 """ Notifiers for changes in job status"""
 import logging
-from typing import Callable, Any
+from typing import Callable, Any, List
 
-import meeshkan.job
-import meeshkan.oauth
-import meeshkan.exceptions
-import meeshkan.cloud
+from .job import Job
+from ..__types__ import Payload
 
 LOGGER = logging.getLogger(__name__)
+
+
+# Do not expose anything by default (internal module)
+__all__ = []  # type: List[str]
 
 
 class Notifier(object):
     def __init__(self):
         pass
 
-    def notify_job_start(self, job: meeshkan.job.Job) -> None:
+    def notify_job_start(self, job: Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         pass
 
-    def notify_job_end(self, job: meeshkan.job.Job) -> None:
+    def notify_job_end(self, job: Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         pass
 
-    def notify(self, job: meeshkan.job.Job, image_url: str,
+    def notify(self, job: Job, image_url: str,
                n_iterations: int, iterations_unit: str = "iterations") -> None:
         """
         Notifies job status. Raises exception for failure.
@@ -38,25 +40,25 @@ class LoggingNotifier(Notifier):
     def log(self, job_id, message):
         LOGGER.debug("%s: Notified for job %s:\n\t%s", self.__class__.__name__, job_id, message)
 
-    def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int,
+    def notify(self, job: Job, image_url: str, n_iterations: int,
                iterations_unit: str = "iterations") -> None:
         self.log(job.id, "#{itr} {msr} (view at {link})".format(itr=n_iterations, msr=iterations_unit, link=image_url))
 
-    def notify_job_start(self, job: meeshkan.job.Job) -> None:
+    def notify_job_start(self, job: Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         self.log(job.id, "Job started")
 
-    def notify_job_end(self, job: meeshkan.job.Job) -> None:
+    def notify_job_end(self, job: Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         self.log(job.id, "Job finished")
 
 
 class CloudNotifier(Notifier):
-    def __init__(self, post_payload: Callable[[meeshkan.Payload], Any]):
+    def __init__(self, post_payload: Callable[[Payload], Any]):
         super().__init__()
         self._post_payload = post_payload
 
-    def notify_job_start(self, job: meeshkan.job.Job) -> None:
+    def notify_job_start(self, job: Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
         mutation = "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"
         job_input = {"id": str(job.id),
@@ -66,13 +68,13 @@ class CloudNotifier(Notifier):
                      "description": job.description}
         self._post(mutation, {"in": job_input})
 
-    def notify_job_end(self, job: meeshkan.job.Job) -> None:
+    def notify_job_end(self, job: Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
         job_input = {"id": str(job.id), "name": job.name, "number": job.number}
         self._post(mutation, {"in": job_input})
 
-    def notify(self, job: meeshkan.job.Job, image_url: str, n_iterations: int = -1,
+    def notify(self, job: Job, image_url: str, n_iterations: int = -1,
                iterations_unit: str = "iterations") -> None:
         """Build and posts GraphQL query payload to the server
 
