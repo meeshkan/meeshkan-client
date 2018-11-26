@@ -71,6 +71,9 @@ class Service(object):
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         build_api = dill.loads(build_api_bytes)
+        Pyro4.config.SERIALIZER = 'dill'
+        Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+        Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
         with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
