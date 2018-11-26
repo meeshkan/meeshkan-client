@@ -10,7 +10,7 @@ import asyncio
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
 from .notifiers import Notifier
-from .tasks import Task, TaskPoller
+from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
 
@@ -164,7 +164,6 @@ class Scheduler(object):
         if job.stale:
             return
 
-
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
@@ -208,6 +207,7 @@ class Scheduler(object):
 
     def stop_job(self, job_id: uuid.UUID):
         if job_id not in self.submitted_jobs:
+            LOGGER.debug("Ignoring stopping unknown job with ID: %s", str(job_id))
             return
         self.submitted_jobs[job_id].cancel()
 
@@ -243,11 +243,12 @@ class Scheduler(object):
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
 
-    async def _handle_task(self, task: Task):
+    async def handle_task(self, task: Task):
         # TODO Do something with the item
-        # LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
-        pass
+        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        if task.type == TaskType.StopJobTask:
+            self.stop_job(task.job_id)
 
     async def poll(self):
         if self._task_poller is not None:
-            await self._task_poller.poll(handle_task=self._handle_task)
+            await self._task_poller.poll(handle_task=self.handle_task)
