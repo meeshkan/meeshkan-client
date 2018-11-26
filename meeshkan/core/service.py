@@ -2,7 +2,6 @@ import asyncio
 import concurrent.futures
 from functools import partial
 import logging
-import multiprocessing as mp
 import os
 from typing import List
 import socket  # To verify daemon
@@ -15,7 +14,7 @@ import Pyro4  # For daemon management
 from .logger import remove_non_file_handlers
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 2.5  # In seconds
+DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
 
 
 # Do not expose anything by default (internal module)
@@ -28,11 +27,10 @@ class Service(object):
     """
     OBJ_NAME = "Meeshkan.scheduler"
 
-    def __init__(self, mp_ctx=mp.get_context("spawn"), port: int = 7779):
+    def __init__(self, port: int = 7779):
         self.port = port
         self.host = Service._get_localhost()
-        self.mp_ctx = mp_ctx
-        self.terminate_daemon = mp_ctx.Event()
+        self.terminate_daemon = None  # Set at start time
 
     @staticmethod
     def _get_localhost():
@@ -107,22 +105,25 @@ class Service(object):
 
     # Need single quotes here for type annotation, see
     # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
-    def start(self, build_api_serialized) -> str:
+    def start(self, mp_ctx, build_api_serialized) -> str:
         """Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess."""
 
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = self.mp_ctx.Process(target=self.daemonize, args=[build_api_serialized])
+        proc = mp_ctx.Process(target=self.daemonize, args=[build_api_serialized])
+        self.terminate_daemon = mp_ctx.Event()
         proc.daemon = True
         proc.start()
+        proc.join()
         time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up
         LOGGER.info("Service started.")
         return self.uri
 
     def stop(self) -> bool:
         if self.is_running():
-            self.terminate_daemon.set()  # Flag for requestLoop to terminate
+            if self.terminate_daemon:
+                self.terminate_daemon.set()  # Flag for requestLoop to terminate
             with Pyro4.Proxy(self.uri) as pyro_proxy:
                 # triggers checking loopCondition
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access

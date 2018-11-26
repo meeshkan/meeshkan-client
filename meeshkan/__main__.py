@@ -34,16 +34,13 @@ Pyro4.config.SERIALIZER = 'dill'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-MP_CTX = mp.get_context("forkserver")
-
-
 def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
     config, credentials = meeshkan.config.init_config()
     return config, credentials
 
 
 def __get_api() -> Api:
-    service = Service(MP_CTX)
+    service = Service()
     if not service.is_running():
         print("Start the service first.")
         sys.exit(1)
@@ -165,7 +162,7 @@ def help_cmd(ctx):
 @cli.command()
 def start():
     """Starts Meeshkan service daemon."""
-    service = Service(MP_CTX)
+    service = Service()
     if service.is_running():
         print("Service is already running.")
         sys.exit(1)
@@ -173,7 +170,7 @@ def start():
     try:
         __notify_service_start(config, credentials)
         build_api_serialized = dill.dumps(__build_api(config, credentials))
-        pyro_uri = service.start(build_api_serialized=build_api_serialized)
+        pyro_uri = service.start(mp.get_context("spawn"), build_api_serialized=build_api_serialized)
         print('Service started.')
         return pyro_uri
     except meeshkan.exceptions.UnauthorizedRequestException as ex:
@@ -188,7 +185,7 @@ def start():
 @cli.command(name='status')
 def daemon_status():
     """Checks and returns the service daemon status."""
-    service = Service(MP_CTX)
+    service = Service()
     is_running = service.is_running()
     status = "up and running" if is_running else "configured to run"
     print("Service is {status} on {host}:{port}".format(status=status, host=service.host, port=service.port))

@@ -17,7 +17,7 @@ import meeshkan.__main__ as main
 from .utils import MockResponse
 
 CLI_RUNNER = CliRunner()
-MP_CTX = mp.get_context("forkserver")
+MP_CTX = mp.get_context("spawn")
 
 
 def run_cli(args):
@@ -76,7 +76,7 @@ def test_version_break(pre_post_tests):  # pylint:disable=unused-argument,redefi
 
 
 def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service(MP_CTX)
+    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
     with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
@@ -94,7 +94,7 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
 
 
 def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service(MP_CTX)
+    service = Service()
     with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
@@ -108,7 +108,7 @@ def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefi
 
 
 def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service(MP_CTX)
+    service = Service()
 
     def fail_notify_start(*args, **kwargs):  # pylint: disable=unused-argument,redefined-outer-name
         raise RuntimeError
@@ -140,7 +140,7 @@ def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argum
 
 
 def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service(MP_CTX)
+    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
     with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
@@ -157,7 +157,7 @@ def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argumen
 
 
 def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service(MP_CTX)
+    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
     with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
@@ -255,7 +255,7 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
 
 
 def test_empty_list(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service(MP_CTX)
+    service = Service()
     with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
