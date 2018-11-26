@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import os
 from typing import Callable, Tuple
+from distutils.version import StrictVersion
 import random
 
 import click
@@ -123,11 +124,14 @@ def __verify_version():
         return  # If we can't access the server, assume all is good
     urllib_logger.setLevel(logging.DEBUG)
     if res.ok:
-        latest_release = max(res.json()['releases'].keys())
-        if latest_release > meeshkan.__version__:
+        latest_release_string = max(res.json()['releases'].keys())  # Textual "max" (i.e. comparison by ascii values)
+        latest_release = StrictVersion(latest_release_string)
+        current_version = StrictVersion(meeshkan.__version__)
+        if latest_release > current_version:  # Compare versions
             print("A newer version of Meeshkan is available! Please upgrade before continuing.")
             print("\tUpgrade using 'pip install meeshkan --upgrade'")
-            raise meeshkan.exceptions.OldVersionException
+            if latest_release.version[0] > current_version.version[0]:  # Only raise if major versions differ
+                raise meeshkan.exceptions.OldVersionException
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
