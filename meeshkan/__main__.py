@@ -71,8 +71,9 @@ def __build_api(config: meeshkan.config.Configuration,
     def build_api(service: Service) -> Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
         import inspect
-        import sys as sys_
-        import os as os_
+        # Disable pylint tests for reimport
+        import sys as sys_  # pylint: disable=reimported
+        import os as os_  # pylint: disable=reimported
 
         current_file = inspect.getfile(inspect.currentframe())
         current_dir = os_.path.split(current_file)[0]
