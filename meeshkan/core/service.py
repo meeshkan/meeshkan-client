@@ -127,8 +127,9 @@ class Service(object):
 
     def stop(self) -> bool:
         if self.is_running():
-            if self.terminate_daemon:
-                self.terminate_daemon.set()  # Flag for requestLoop to terminate
+            if not self.terminate_daemon:
+                raise RuntimeError("Terminate daemon event does not exist.")
+            self.terminate_daemon.set()  # Flag for requestLoop to terminate
             with Pyro4.Proxy(self.uri) as pyro_proxy:
                 # triggers checking loopCondition
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
