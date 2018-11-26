@@ -50,7 +50,7 @@ def __get_api() -> Api:
 
 
 def __build_cloud_client(config: meeshkan.config.Configuration,
-                         credentials: meeshkan.config.Credentials) -> 'meeshkan.core.cloud.CloudClient':
+                         credentials: meeshkan.config.Credentials) -> CloudClient:
 
     token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     cloud_client = CloudClient(cloud_url=config.cloud_url, token_store=token_store)
