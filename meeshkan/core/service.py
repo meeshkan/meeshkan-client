@@ -127,6 +127,5 @@ class Service(object):
             with Pyro4.Proxy(self.uri) as pyro_proxy:
                 # triggers checking loopCondition
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
-            self.terminate_daemon.clear()  # Clear the flag
             return True
         return False
