@@ -4,8 +4,6 @@ from . import cloud
 from .cloud import *  # pylint: disable=wildcard-import
 from . import job
 from .job import *  # pylint: disable=wildcard-import
-from . import notifiers
-from .notifiers import *  # pylint: disable=wildcard-import
 from . import scheduler
 from .scheduler import *  # pylint: disable=wildcard-import
 from . import service

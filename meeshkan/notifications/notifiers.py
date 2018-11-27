@@ -2,7 +2,7 @@
 import logging
 from typing import Callable, Any, List
 
-from .job import Job
+from ..core.job import Job
 from ..__types__ import Payload
 
 LOGGER = logging.getLogger(__name__)
