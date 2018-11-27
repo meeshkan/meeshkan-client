@@ -9,7 +9,6 @@ from pathlib import Path
 
 import requests
 
-import meeshkan
 from ..__types__ import Token, Payload
 from .tasks import TaskType, Task
 from .oauth import TokenStore

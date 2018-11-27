@@ -162,6 +162,20 @@ def help_cmd(ctx):
 
 
 @cli.command()
+def setup():
+    """Configures the Meeshkan client."""
+    meeshkan.config.ensure_base_dirs(verbose=False)
+    print("Welcome to Meeshkan!\n")
+    if os.path.isfile(meeshkan.config.CREDENTIALS_FILE):
+        res = input("Credential file already exists! Are you sure you want to overwrite it? [Y]/n: ")
+        if res and res.lower() != "y":  # Any response other than empty or "Y"/"y"
+            print("Aborting")
+            sys.exit(2)
+    token = input("Please enter your refresh token: ")
+    meeshkan.config.Credentials.to_isi(refresh_token=token)
+
+
+@cli.command()
 def start():
     """Starts Meeshkan service daemon."""
     service = Service()

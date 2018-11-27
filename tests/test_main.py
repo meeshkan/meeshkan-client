@@ -18,8 +18,8 @@ from .utils import MockResponse
 CLI_RUNNER = CliRunner()
 
 
-def run_cli(args):
-    return CLI_RUNNER.invoke(main.cli, args=args, catch_exceptions=True)
+def run_cli(args, inputs=None, catch_exceptions=True):
+    return CLI_RUNNER.invoke(main.cli, args=args, catch_exceptions=catch_exceptions, input=inputs)
 
 
 def _build_session(post_return_value=None, request_return_value=None):
@@ -65,12 +65,62 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
+def test_setup_if_exists(pre_post_tests):
+    """Tests `meeshkan setup` if the credentials file exists"""
+    # Mock credentials writing (tested in test_config.py)
+    temp_token = "abc"
+
+    def to_isi(refresh_token, *args):
+        assert refresh_token == temp_token
+
+    with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
+        with mock.patch("os.path.isfile") as mock_isfile:
+            mock_isfile.return_value = True
+            mock_to_isi.side_effect = to_isi
+
+            # Test with proper interaction
+            run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 1
+
+            # Test with empty response
+            run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+
+            # Test with non-positive answer
+            config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
+                                    catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+            assert config_result.exit_code == 2
+
+
+def test_setup_if_doesnt_exists(pre_post_tests):
+    """Tests `meeshkan setup` if the credentials file does not exist"""
+    # Mock credentials writing (tested in test_config.py)
+    temp_token = "abc"
+
+    def to_isi(refresh_token, *args):
+        assert refresh_token == temp_token
+
+    with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
+        with mock.patch("os.path.isfile") as mock_isfile:
+            mock_isfile.return_value = False
+            mock_to_isi.side_effect = to_isi
+            # Test with proper interaction
+            run_cli(args=['setup'], inputs="{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 1
+
+            # Test with empty response
+            temp_token = ''
+            run_cli(args=['setup'], inputs="\n", catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+
+
 def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     original_version = meeshkan.__version__
     meeshkan.__version__ = '0.0.0'
     with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
         mock_requests_get.return_value = MockResponse({"releases": {"20.0.0": {}, "2.0.0": {}}}, 200)
-        version_result = CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+        version_result = run_cli(args=['start'], catch_exceptions=False)
         assert "pip install" in version_result.stdout
     meeshkan.__version__ = original_version
 
@@ -79,7 +129,7 @@ def test_version_mismatch(pre_post_tests):  # pylint:disable=unused-argument,red
     meeshkan.__version__ = '0.0.0'
     with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
         mock_requests_get.return_value = MockResponse({"releases": {"0.1.0": {}, "0.0.1": {}}}, 200)
-        version_result = CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+        version_result = run_cli(args=['start'], catch_exceptions=False)
         assert "pip install" not in version_result.stdout
         assert "newer version" in version_result.stdout
     meeshkan.__version__ = original_version
