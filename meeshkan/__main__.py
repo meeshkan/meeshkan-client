@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import os
 from typing import Callable, Tuple
+from distutils.version import StrictVersion
 import random
 
 import click
@@ -70,8 +71,9 @@ def __build_api(config: meeshkan.config.Configuration,
     def build_api(service: Service) -> Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
         import inspect
-        import sys as sys_
-        import os as os_
+        # Disable pylint tests for reimport
+        import sys as sys_  # pylint: disable=reimported
+        import os as os_  # pylint: disable=reimported
 
         current_file = inspect.getfile(inspect.currentframe())
         current_dir = os_.path.split(current_file)[0]
@@ -123,11 +125,14 @@ def __verify_version():
         return  # If we can't access the server, assume all is good
     urllib_logger.setLevel(logging.DEBUG)
     if res.ok:
-        latest_release = max(res.json()['releases'].keys())
-        if latest_release > meeshkan.__version__:
-            print("A newer version of Meeshkan is available! Please upgrade before continuing.")
-            print("\tUpgrade using 'pip install meeshkan --upgrade'")
-            raise meeshkan.exceptions.OldVersionException
+        latest_release_string = max(res.json()['releases'].keys())  # Textual "max" (i.e. comparison by ascii values)
+        latest_release = StrictVersion(latest_release_string)
+        current_version = StrictVersion(meeshkan.__version__)
+        if latest_release > current_version:  # Compare versions
+            print("A newer version of Meeshkan is available!")
+            if latest_release.version[0] > current_version.version[0]:  # More messages on major version change...
+                print("\tPlease consider upgrading soon with 'pip install meeshkan --upgrade'")
+            print()
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
