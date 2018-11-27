@@ -20,7 +20,6 @@ __all__ = ["config"]  # Entire `config` module is available, mainly for global C
 __all__ += oauth.__all__
 __all__ += cloud.__all__
 __all__ += job.__all__
-__all__ += notifiers.__all__
 __all__ += scheduler.__all__
 __all__ += service.__all__
 __all__ += tasks.__all__

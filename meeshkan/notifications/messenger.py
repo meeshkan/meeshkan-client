@@ -44,10 +44,11 @@ class Messenger(object):
             last_notifications[notifier_type] = notification_list[-1]
         return last_notifications
 
-    def _add_notification_history(self, job_id: uuid.UUID, notifier: Notifier, type: NotificationType,
-                                  status: NotificationStatus):
+    def _add_notification_history(self, job_id: uuid.UUID, notifier: Notifier, notification_type: NotificationType,
+                                  notification_status: NotificationStatus):
         name = notifier.__class__.__name__
-        self._notification_history_by_job.setdefault(job_id, dict()).setdefault(name, list()).append((type, status))
+        result = (notification_type, notification_status)
+        self._notification_history_by_job.setdefault(job_id, dict()).setdefault(name, list()).append(result)
 
     # Methods to handle listeners
 
@@ -65,7 +66,7 @@ class Messenger(object):
         :param kwargs: Keyword arguments for the notification.
             JOB_START: Requires no further arguments
             JOB_END: Requires no further arguments
-            JOB_UPDATE: Requires an 'image_url' keyword with str argument
+            JOB_UPDATE: Requires an 'image_path' keyword with str argument
                         Requires 'n_iterations' keyword with int argument
                         Optional 'unit' keyword with str argument (unit of iterations)
         """
@@ -80,17 +81,18 @@ class Messenger(object):
                 notifier.notify_job_end(job)
 
         elif notification_type == NotificationType.JOB_UPDATE:
-            mandatory_kwargs = ['image_url', 'n_iterations']
-            for kw in mandatory_kwargs:
-                if kw not in kwargs:
-                    raise MissingNotificationKeywordArgument(notification_type.JOB_UPDATE, kw)
+            mandatory_kwargs = ['image_path', 'n_iterations']
+            for keyword in mandatory_kwargs:
+                if keyword not in kwargs:
+                    LOGGER.error("Missing keyword '%s' for notification '%s'", keyword, notification_type)
+                    raise MissingNotificationKeywordArgument(notification_type.JOB_UPDATE, keyword)
 
-            image_url = kwargs['image_url']
+            image_path = kwargs['image_path']
             n_iterations = kwargs['n_iterations']
             iterations_unit = kwargs.get('unit', 'iterations')
 
             def callback(notifier):
-                notifier.notify(job, image_url, n_iterations, iterations_unit)
+                notifier.notify(job, image_path, n_iterations, iterations_unit)
 
         else:
             LOGGER.error("Unrecognized notification type %s", notification_type)
@@ -101,6 +103,7 @@ class Messenger(object):
 
     def _internal_notifier_loop(self, job_id: uuid.UUID, notification_type: NotificationType,
                                 callback: Callable[[Notifier], None]):
+        """Goes over all the notifiers and calls `callback` on each; updating the notification history throughout."""
         result = True
         for notifier in self._listeners:
             try:

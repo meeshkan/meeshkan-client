@@ -9,11 +9,10 @@ import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
-from .notifiers import Notifier
 from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
-
+from ..notifications.messenger import Messenger, NotificationType
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
@@ -79,18 +78,16 @@ class QueueProcessor:
 class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor,
                  task_poller: TaskPoller = None,
-                 img_upload_func: Callable[[Union[str, Path], bool], Optional[str]] = None):
+                 messenger: Messenger = None):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
-        self._listeners = []  # type: List[Notifier]
         self._running_job = None  # type: Optional[Job]
-        self._notification_status = dict()  # type: Dict[uuid.UUID, str]
         self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]
         self._job_poller = TrackingPoller(self.notify_updates)
-        self._image_upload = img_upload_func
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
+        self._messenger = messenger
 
     # Properties and Python magic
 
@@ -111,51 +108,27 @@ class Scheduler(object):
 
     # Notifaction related methods
 
-    def get_notification_status(self, job_id: uuid.UUID):
-        return self._notification_status[job_id]
-
-    def register_listener(self, listener: Notifier):
-        self._listeners.append(listener)
-
-    def notify_listeners(self, job: Job, image_url: str, n_iterations: int,
-                         iterations_unit: str = "iterations") -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, image_url, n_iterations,
-                                                                                  iterations_unit))
-
-    def notify_listeners_job_start(self, job: Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
-
-    def notify_listeners_job_end(self, job: Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
-
-    def notify_updates(self, job_id: uuid.UUID) -> bool:
-        # Get updates; TODO - vals should be reported once we update schema...
-        # pylint: disable=unused-variable
-        vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._image_upload is not None)
-        if vals:  # Only send updates if there exists any updates, doh
-            download_link = ""
-            if imgpath is not None:
-                try:  # Upload image if we're given an image_upload function...
-                    download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
-                except Exception:  # pylint:disable=broad-except
-                    LOGGER.error("Could not post image to cloud server!")
-            status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
-            if imgpath is not None:
-                os.remove(imgpath)
-            return status
+    def notify_job_start(self, job: Job) -> bool:
+        if self._messenger:
+            return self._messenger.dispatch(NotificationType.JOB_START, job)
         return False
 
-    def _internal_notifier_loop(self, job: Job, notify_method: Callable[[Notifier], None]) -> bool:
-        status = True
-        for notifier in self._listeners:
-            try:
-                notify_method(notifier)
-                self._notification_status[job.id] = "Success"
-            except Exception:  # pylint: disable=broad-except
-                LOGGER.exception("Notifier %s failed", notifier.__class__.__name__)
-                self._notification_status[job.id] = "Failed"
-                status = False
-        return status
+    def notify_job_end(self, job: Job) -> bool:
+        if self._messenger:
+            return self._messenger.dispatch(NotificationType.JOB_END, job)
+        return False
+
+    def notify_updates(self, job_id: uuid.UUID) -> bool:
+        if self._messenger:
+            # Get updates; TODO - vals should be reported once we update schema...
+            # pylint: disable=unused-variable
+            vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
+            kwargs = {"image_path": imgpath, "n_iterations": -1}
+            if vals and imgpath is not None:  # Only send updates if there exists any updates and a valid imgpath
+                status = self._messenger.dispatch(NotificationType.JOB_UPDATE, self.submitted_jobs[job_id], **kwargs)
+                os.remove(imgpath)
+                return status
+        return False
 
     # Job handling methods
 
@@ -167,7 +140,7 @@ class Scheduler(object):
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
-        self.notify_listeners_job_start(job)
+        self.notify_job_start(job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
@@ -175,7 +148,7 @@ class Scheduler(object):
         finally:
             task.cancel()
 
-        self.notify_listeners_job_end(job)
+        self.notify_job_end(job)
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
@@ -199,7 +172,6 @@ class Scheduler(object):
 
     def submit_job(self, job: Job):
         job.status = JobStatus.QUEUED
-        self._notification_status[job.id] = "NA"
         self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
         self._task_queue.put(job)  # TODO Blocks if queue full

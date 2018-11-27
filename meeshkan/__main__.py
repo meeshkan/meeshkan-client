@@ -84,7 +84,8 @@ def __build_api(config: meeshkan.config.Configuration,
         from meeshkan.core.oauth import TokenStore as TokenStore_
         from meeshkan.core.cloud import CloudClient as CloudClient_
         from meeshkan.core.api import Api as Api_
-        from meeshkan.core.notifiers import CloudNotifier, LoggingNotifier
+        from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier
+        from meeshkan.notifications.messenger import Messenger
         from meeshkan.core.tasks import TaskPoller
         from meeshkan.core.scheduler import Scheduler, QueueProcessor
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
@@ -96,17 +97,19 @@ def __build_api(config: meeshkan.config.Configuration,
         token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
         cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
 
-        cloud_notifier = CloudNotifier(post_payload=cloud_client.post_payload)
+        cloud_notifier = CloudNotifier(post_payload=cloud_client.post_payload,
+                                       upload_file=cloud_client.post_payload_with_file)
         logging_notifier = LoggingNotifier()
 
         task_poller = TaskPoller(cloud_client.pop_tasks)
         queue_processor = QueueProcessor()
 
-        scheduler = Scheduler(queue_processor=queue_processor, task_poller=task_poller,
-                              img_upload_func=cloud_client.post_payload_with_file)
+        messenger = Messenger()
+        messenger.register_listener(logging_notifier)
+        messenger.register_listener(cloud_notifier)
 
-        scheduler.register_listener(logging_notifier)
-        scheduler.register_listener(cloud_notifier)
+        scheduler = Scheduler(queue_processor=queue_processor, task_poller=task_poller,
+                              messenger=messenger)
 
         api = Api_(scheduler=scheduler, service=service)
         api.add_stop_callback(cloud_client.close)
