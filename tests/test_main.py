@@ -65,7 +65,8 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
-def test_setup(pre_post_tests):
+def test_setup_if_exists(pre_post_tests):
+    """Tests `meeshkan setup` if the credentials file exists"""
     # Mock credentials writing (tested in test_config.py)
     temp_token = "abc"
 
@@ -73,20 +74,45 @@ def test_setup(pre_post_tests):
         assert refresh_token == temp_token
 
     with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
-        mock_to_isi.side_effect = to_isi
-        # Test with proper interaction
-        run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
-        assert mock_to_isi.call_count == 1
+        with mock.patch("os.path.isfile") as mock_isfile:
+            mock_isfile.return_value = True
+            mock_to_isi.side_effect = to_isi
 
-        # Test with empty response
-        run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
-        assert mock_to_isi.call_count == 2
+            # Test with proper interaction
+            run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 1
 
-        # Test with non-positive answer
-        config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
-                                catch_exceptions=False)
-        assert mock_to_isi.call_count == 2
-        assert config_result.exit_code == 2
+            # Test with empty response
+            run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+
+            # Test with non-positive answer
+            config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
+                                    catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+            assert config_result.exit_code == 2
+
+
+def test_setup_if_doesnt_exists(pre_post_tests):
+    """Tests `meeshkan setup` if the credentials file does not exist"""
+    # Mock credentials writing (tested in test_config.py)
+    temp_token = "abc"
+
+    def to_isi(refresh_token, *args):
+        assert refresh_token == temp_token
+
+    with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
+        with mock.patch("os.path.isfile") as mock_isfile:
+            mock_isfile.return_value = False
+            mock_to_isi.side_effect = to_isi
+            # Test with proper interaction
+            run_cli(args=['setup'], inputs="{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 1
+
+            # Test with empty response
+            temp_token = ''
+            run_cli(args=['setup'], inputs="\n", catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
 
 
 def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name

@@ -166,7 +166,7 @@ def setup():
     """Configures the Meeshkan client for usage."""
     meeshkan.config.ensure_base_dirs(verbose=False)
     print("Welcome to Meeshkan!\n")
-    if os.path.exists(meeshkan.config.CREDENTIALS_FILE):
+    if os.path.isfile(meeshkan.config.CREDENTIALS_FILE):
         res = input("Credential file already exists! Are you sure you want to overwrite it? [Y]/n: ")
         if res and res.lower() != "y":  # Any response other than empty or "Y"/"y"
             print("Aborting")
