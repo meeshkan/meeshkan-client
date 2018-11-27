@@ -129,10 +129,10 @@ def __verify_version():
         latest_release = StrictVersion(latest_release_string)
         current_version = StrictVersion(meeshkan.__version__)
         if latest_release > current_version:  # Compare versions
-            print("A newer version of Meeshkan is available! Please upgrade before continuing.")
-            print("\tUpgrade using 'pip install meeshkan --upgrade'")
-            if latest_release.version[0] > current_version.version[0]:  # Only raise if major versions differ
-                raise meeshkan.exceptions.OldVersionException
+            print("A newer version of Meeshkan is available!")
+            if latest_release.version[0] > current_version.version[0]:  # More messages on major version change...
+                print("\tPlease consider upgrading soon with 'pip install meeshkan --upgrade'")
+            print()
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
