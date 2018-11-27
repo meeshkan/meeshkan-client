@@ -65,13 +65,24 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
-def test_version_break(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
+def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     original_version = meeshkan.__version__
     meeshkan.__version__ = '0.0.0'
-    with pytest.raises(meeshkan.exceptions.OldVersionException):
-        CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+    with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
+        mock_requests_get.return_value = MockResponse({"releases": {"20.0.0": {}, "2.0.0": {}}}, 200)
+        version_result = CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+        assert "pip install" in version_result.stdout
     meeshkan.__version__ = original_version
 
+def test_version_mismatch(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
+    original_version = meeshkan.__version__
+    meeshkan.__version__ = '0.0.0'
+    with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
+        mock_requests_get.return_value = MockResponse({"releases": {"0.1.0": {}, "0.0.1": {}}}, 200)
+        version_result = CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+        assert "pip install" not in version_result.stdout
+        assert "newer version" in version_result.stdout
+    meeshkan.__version__ = original_version
 
 def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     service = Service()
