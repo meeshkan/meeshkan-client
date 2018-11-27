@@ -18,8 +18,8 @@ from .utils import MockResponse
 CLI_RUNNER = CliRunner()
 
 
-def run_cli(args):
-    return CLI_RUNNER.invoke(main.cli, args=args, catch_exceptions=True)
+def run_cli(args, inputs=None, catch_exceptions=True):
+    return CLI_RUNNER.invoke(main.cli, args=args, catch_exceptions=catch_exceptions, input=inputs)
 
 
 def _build_session(post_return_value=None, request_return_value=None):
@@ -65,11 +65,35 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
+def test_setup(pre_post_tests):
+    # Mock credentials writing (tested in test_config.py)
+    temp_token = "abc"
+
+    def to_isi(refresh_token, *args):
+        assert refresh_token == temp_token
+
+    with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
+        mock_to_isi.side_effect = to_isi
+        # Test with proper interaction
+        run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
+        assert mock_to_isi.call_count == 1
+
+        # Test with empty response
+        run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
+        assert mock_to_isi.call_count == 2
+
+        # Test with non-positive answer
+        config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
+                                catch_exceptions=False)
+        assert mock_to_isi.call_count == 2
+        assert config_result.exit_code == 2
+
+
 def test_version_break(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     original_version = meeshkan.__version__
     meeshkan.__version__ = '0.0.0'
     with pytest.raises(meeshkan.exceptions.OldVersionException):
-        CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+        run_cli(args=['start'], catch_exceptions=False)
     meeshkan.__version__ = original_version
 
 

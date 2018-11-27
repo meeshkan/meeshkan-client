@@ -1,7 +1,8 @@
 # Meeshkan client
 
 ## Getting started
-Sign up at [app.meeshkan.com](https://app.meeshkan.com) and get your token. Add the folder `.meeshkan` in your home directory and, inside the folder, add a file named `credentials` with the following format:
+Sign up at [app.meeshkan.com](https://app.meeshkan.com) and get your token.
+You can either run `meeshkan config` to set things up, or manually add the **folder** `.meeshkan` in your home directory and, inside the folder, add a **file** named `credentials` with the following format:
 ```ini
 [meeshkan]
 token=my-token
@@ -25,6 +26,7 @@ Commands:
   clear     Clears Meeshkan log and job directories in ~/.meeshkan.
   help      Show this message and exit.
   list      Lists the job queue and status for each job.
+  setup     Configures the Meeshkan client for usage.
   sorry     Send error logs to Meeshkan HQ.
   start     Starts Meeshkan service daemon.
   status    Checks and returns the service daemon status.
