@@ -163,7 +163,7 @@ def help_cmd(ctx):
 
 @cli.command()
 def setup():
-    """Configures the Meeshkan client for usage."""
+    """Configures the Meeshkan client."""
     meeshkan.config.ensure_base_dirs(verbose=False)
     print("Welcome to Meeshkan!\n")
     if os.path.isfile(meeshkan.config.CREDENTIALS_FILE):
