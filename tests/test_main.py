@@ -193,6 +193,7 @@ def test_help(pre_post_tests):  # pylint: disable=unused-argument,redefined-oute
     commands = ['clear', 'help', 'list', 'sorry', 'start', 'status', 'stop', 'submit']
     assert all([any([output.startswith(command) for output in help_result]) for command in commands])
 
+
 def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     with mock.patch('meeshkan.__main__.requests', autospec=True) as mock_requests:
         def fail_get(*args, **kwargs):   # pylint: disable=unused-argument,redefined-outer-name
