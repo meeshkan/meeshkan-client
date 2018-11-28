@@ -40,7 +40,7 @@ class Notifier(object):
         :returns Last notification with status for given job id, or None if no information for given job exists.
         """
         res = {self.name: None}
-        job_notifications = self.get_notification_history(job_id)
+        job_notifications = self.get_notification_history(job_id)[self.name]
         if job_notifications:
             res[self.name] = job_notifications[-1]
         return res
@@ -85,8 +85,8 @@ class Notifier(object):
 
 
 class LoggingNotifier(Notifier):
-    def __init__(self):  # pylint: disable=useless-super-delegation
-        super().__init__()
+    def __init__(self, name: str = None):  # pylint: disable=useless-super-delegation
+        super().__init__(name)
 
     def log(self, job_id, message):
         LOGGER.debug("%s: Notified for job %s:\n\t%s", self.__class__.__name__, job_id, message)
@@ -109,8 +109,8 @@ class LoggingNotifier(Notifier):
 
 class CloudNotifier(Notifier):
     def __init__(self, post_payload: Callable[[Payload], Any],
-                 upload_file: Callable[[Union[str, Path], bool], Optional[str]]):
-        super().__init__()
+                 upload_file: Callable[[Union[str, Path], bool], Optional[str]], name: str = None):
+        super().__init__(name)
         self._post_payload = post_payload
         self._upload_file = upload_file
 
@@ -170,15 +170,16 @@ class CloudNotifier(Notifier):
         LOGGER.info("Posted successfully: %s", variables)
 
 
-class NotifierCollection(object):
-    def __init__(self, *args):
+class NotifierCollection(Notifier):
+    def __init__(self, *notifiers):
         """Creates a messenger object, responsible of orchestrating notifiers and notifications.
         This class is guaranteed to not raise exceptions.
 
         :param notifiers: Optional list of notifiers to initialize the messenger with
         """
+        super().__init__()
         self._notifiers = list()  # type: List[Notifier]
-        for notifier in args:
+        for notifier in notifiers:
             self.register_notifier(notifier)
 
     # Methods to handle job notification history

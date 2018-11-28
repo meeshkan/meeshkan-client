@@ -7,8 +7,9 @@ import Pyro4.errors
 
 from .scheduler import Scheduler
 from .service import Service
-from .tasks import TaskPoller
+from .tasks import TaskPoller, Task, TaskType
 from ..notifications.notifiers import Notifier
+from ..__types__ import HistoryByScalar
 
 __all__ = ["Api"]
 
@@ -20,11 +21,11 @@ class Api(object):
     """Partially xposed by the Pyro server for communications with the CLI."""
 
     # Private methods
-    def __init__(self, scheduler: Scheduler, service: Service = None, poller: TaskPoller = None,
+    def __init__(self, scheduler: Scheduler, service: Service = None, task_poller: TaskPoller = None,
                  notifier: Notifier = None):
         self.scheduler = scheduler
         self.service = service
-        self.task_poller = poller
+        self.task_poller = task_poller
         self.notifier = notifier
         self.__stop_callbacks = []  # type: List[Callable[[], None]]
         self.__was_shutdown = False
@@ -47,16 +48,24 @@ class Api(object):
             for notifier, result in results.items():
                 if result is not None:
                     notification, status = result
-                    res_list.append("{notification}: {notifier}/{result}".format(notification=notification,
-                                                                                 notifier=notifier, result=result.name))
+                    res_list.append("{notifier}: {notification} ({result})".format(notification=notification,
+                                                                                   notifier=notifier,
+                                                                                   result=status.name))
             return '\n'.join(res_list)
         return ""
+
+    async def handle_task(self, task: Task):
+        # TODO Do something with the item
+        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        if task.type == TaskType.StopJobTask:
+            self.scheduler.stop_job(task.job_id)
 
     # Exposed methods
 
     @Pyro4.expose
     async def poll(self):
-        await self.scheduler.poll()
+        if self.task_poller is not None:
+            await self.task_poller.poll(handle_task=self.handle_task)
 
     @Pyro4.expose
     def submit(self, args: Tuple[str, ...], name=None, poll_interval=None):
@@ -69,7 +78,7 @@ class Api(object):
         jobs = list()
         for job in self.scheduler.jobs:
             temp_job_dict = job.to_dict()
-            temp_job_dict['notifier status'] = self.get_notification_status(job.id)
+            temp_job_dict['last notification status'] = self.get_notification_status(job.id)
             jobs.append(temp_job_dict)
         return jobs
 
@@ -83,7 +92,7 @@ class Api(object):
         self.scheduler.report_scalar(pid, name, val)
 
     @Pyro4.expose
-    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[meeshkan.HistoryByScalar, Optional[str]]:
+    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[HistoryByScalar, Optional[str]]:
         if not isinstance(job_id, uuid.UUID):
             job_id = uuid.UUID(job_id)
         vals, fname = self.scheduler.query_scalars(job_id, latest_only=recent_only, plot=img)

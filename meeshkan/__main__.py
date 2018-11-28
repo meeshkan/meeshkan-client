@@ -85,8 +85,7 @@ def __build_api(config: meeshkan.config.Configuration,
         from meeshkan.core.oauth import TokenStore as TokenStore_
         from meeshkan.core.cloud import CloudClient as CloudClient_
         from meeshkan.core.api import Api as Api_
-        from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier
-        from meeshkan.notifications.messenger import Messenger
+        from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
         from meeshkan.core.tasks import TaskPoller
         from meeshkan.core.scheduler import Scheduler, QueueProcessor
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
@@ -99,19 +98,18 @@ def __build_api(config: meeshkan.config.Configuration,
         token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
         cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
 
-        cloud_notifier = CloudNotifier(post_payload=cloud_client.post_payload,
+        cloud_notifier = CloudNotifier(name="Cloud Service", post_payload=cloud_client.post_payload,
                                        upload_file=cloud_client.post_payload_with_file)
-        logging_notifier = LoggingNotifier()
+        logging_notifier = LoggingNotifier(name="Local Service")
 
         task_poller = TaskPoller(cloud_client.pop_tasks)
         queue_processor = QueueProcessor()
 
-        messenger = Messenger(*[cloud_notifier, logging_notifier])
+        notifier_collection = NotifierCollection(*[cloud_notifier, logging_notifier])
 
-        scheduler = Scheduler(queue_processor=queue_processor, task_poller=task_poller,
-                              messenger=messenger)
+        scheduler = Scheduler(queue_processor=queue_processor, notifier=notifier_collection)
 
-        api = Api_(scheduler=scheduler, service=service)
+        api = Api_(scheduler=scheduler, service=service, task_poller=task_poller, notifier=notifier_collection)
         api.add_stop_callback(cloud_client.close)
         return api
 

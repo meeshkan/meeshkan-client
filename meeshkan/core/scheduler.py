@@ -9,7 +9,6 @@ import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
-from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
 from ..notifications.notifiers import Notifier
@@ -76,9 +75,8 @@ class QueueProcessor:
 
 
 class Scheduler(object):
-    def __init__(self, queue_processor: QueueProcessor, task_poller: TaskPoller = None, notifier: Notifier = None):
+    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
-        self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
@@ -97,25 +95,12 @@ class Scheduler(object):
     def is_running(self):
         return self._queue_processor.is_running()
 
-    @property
-    def supports_notifications(self):
-        return self._messenger is not None
-
     def __enter__(self):
         self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
-
-    def __query_and_report(self, job_id: uuid.UUID):
-        if self._notifier:
-            # Get updates; TODO - vals should be reported once we update schema...
-            # pylint: disable=unused-variable
-            vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
-            if vals and imgpath is not None:  # Only send updates if there exists any updates and a valid imgpath
-                self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
-                os.remove(imgpath)
 
     # Job handling methods
 
@@ -136,7 +121,7 @@ class Scheduler(object):
         finally:
             task.cancel()
 
-        if self._notifer:
+        if self._notifier:
             self._notifier.notify_job_end(job)
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
@@ -186,6 +171,15 @@ class Scheduler(object):
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
         return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
 
+    def __query_and_report(self, job_id: uuid.UUID):
+        if self._notifier:
+            # Get updates; TODO - vals should be reported once we update schema...
+            # pylint: disable=unused-variable
+            vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
+            if vals and imgpath is not None:  # Only send updates if there exists any updates and a valid imgpath
+                self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+                os.remove(imgpath)
+
     # Scheduler service methods
 
     def start(self):
@@ -203,13 +197,3 @@ class Scheduler(object):
         if self._queue_processor.is_running():
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
-
-    async def handle_task(self, task: Task):
-        # TODO Do something with the item
-        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
-        if task.type == TaskType.StopJobTask:
-            self.stop_job(task.job_id)
-
-    async def poll(self):
-        if self._task_poller is not None:
-            await self._task_poller.poll(handle_task=self.handle_task)
