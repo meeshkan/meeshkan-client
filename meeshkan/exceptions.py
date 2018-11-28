@@ -24,10 +24,3 @@ class TrackedScalarNotFoundException(Exception):
     def __init__(self, name=""):
         super().__init__()
         self.message = "Couldn't find history for requested scalar '{name}'.".format(name=name)
-
-class MissingNotificationKeywordArgument(Exception):
-    """Raised when attempting to dispatch a notification with missing keyword arguments"""
-    def __init__(self, notification, keyword):
-        super().__init__()
-        self.message = "Missing keyword '{kw}' for '{notification}' notification.".format(kw=keyword,
-                                                                                          notification=notification)

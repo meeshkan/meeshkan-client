@@ -12,7 +12,7 @@ from .job import ProcessExecutable, JobStatus, Job
 from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
-from ..notifications.messenger import Messenger, NotificationType, NotificationStatus, NotificationWithStatus
+from ..notifications.messenger import Messenger, NotificationType
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
