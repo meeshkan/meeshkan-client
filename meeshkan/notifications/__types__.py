@@ -13,4 +13,3 @@ class NotificationType(Enum):
 
 # Keys are class names of different Notifiers
 NotificationWithStatus = Tuple[NotificationType, NotificationStatus]
-

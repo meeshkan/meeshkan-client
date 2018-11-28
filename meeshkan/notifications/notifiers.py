@@ -29,7 +29,7 @@ class Notifier(object):
         self._notification_history_by_job.setdefault(job_id, list()).append(notification)
 
     def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatus]]:
-        res = {self.name: list()}
+        res = {self.name: list()}  # type: Dict[str, List[NotificationWithStatus]]
         if job_id in self._notification_history_by_job:
             res[self.name] = self._notification_history_by_job[job_id]
         return res
@@ -39,7 +39,7 @@ class Notifier(object):
 
         :returns Last notification with status for given job id, or None if no information for given job exists.
         """
-        res = {self.name: None}
+        res = {self.name: None}  # type: Dict[str, Optional[NotificationWithStatus]]
         job_notifications = self.get_notification_history(job_id)[self.name]
         if job_notifications:
             res[self.name] = job_notifications[-1]
@@ -49,21 +49,21 @@ class Notifier(object):
         try:
             self._notify_job_start(job)
             self.__add_to_history(job.id, (NotificationType.JOB_START, NotificationStatus.SUCCESS))
-        except:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             self.__add_to_history(job.id, (NotificationType.JOB_START, NotificationStatus.FAILED))
 
     def notify_job_end(self, job: Job) -> None:
         try:
             self._notify_job_end(job)
             self.__add_to_history(job.id, (NotificationType.JOB_END, NotificationStatus.SUCCESS))
-        except:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             self.__add_to_history(job.id, (NotificationType.JOB_END, NotificationStatus.FAILED))
 
     def notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         try:
             self._notify(job, image_path, n_iterations, iterations_unit)
             self.__add_to_history(job.id, (NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS))
-        except:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             self.__add_to_history(job.id, (NotificationType.JOB_UPDATE, NotificationStatus.FAILED))
 
     # Functions inhereting classes must implement
