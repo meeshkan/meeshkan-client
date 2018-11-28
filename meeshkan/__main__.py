@@ -75,6 +75,7 @@ def __build_api(config: meeshkan.config.Configuration,
         import sys as sys_  # pylint: disable=reimported
         import os as os_  # pylint: disable=reimported
 
+        # TODO - do we need this?
         current_file = inspect.getfile(inspect.currentframe())
         current_dir = os_.path.split(current_file)[0]
         cmd_folder = os_.path.realpath(os_.path.abspath(os_.path.join(current_dir, '../')))
@@ -91,6 +92,7 @@ def __build_api(config: meeshkan.config.Configuration,
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
         from meeshkan.core.logger import setup_logging as setup_logging_
 
+
         ensure_base_dirs_()
         setup_logging_(silent=True)
 
@@ -104,9 +106,7 @@ def __build_api(config: meeshkan.config.Configuration,
         task_poller = TaskPoller(cloud_client.pop_tasks)
         queue_processor = QueueProcessor()
 
-        messenger = Messenger()
-        messenger.register_listener(logging_notifier)
-        messenger.register_listener(cloud_notifier)
+        messenger = Messenger(*[cloud_notifier, logging_notifier])
 
         scheduler = Scheduler(queue_processor=queue_processor, task_poller=task_poller,
                               messenger=messenger)

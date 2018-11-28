@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, Callable
+from typing import List, Dict, Tuple, Callable, Union
 import logging
 from enum import Enum, auto
 import uuid
@@ -16,44 +16,69 @@ class NotificationType(Enum):
     JOB_END = auto()
     JOB_UPDATE = auto()
 
-NotificationWithStatus = Tuple[NotificationType, NotificationStatus]
+NotificationWithStatus = Dict[NotificationType, Dict[str, NotificationStatus]]
+NotificationWithStatusTuple = Tuple[NotificationType, Dict[str, NotificationStatus]]
 LOGGER = logging.getLogger(__name__)
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
 
 class Messenger(object):
-    def __init__(self):
-        self._listeners = list()  # type: List[Notifier]
-        # Value is a dictionary of lists with notifier type as key and tuples of notification type and status as values
-        self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, Dict[str, List[NotificationWithStatus]]]
+    def __init__(self, *args):
+        """Creates a messenger object, responsible of orchestrating notifiers and notifications.
+        Allows only one notifier of each class.  # TODO do we want this more relaxed and allow naming notifiers?
+
+        :param notifiers: Optional list of notifiers to initialize the messenger with
+        """
+        self._notifiers = list()  # type: List[Notifier]
+        # Value is a list of dictionaries (notifications) with dictionaries as values (notifier and status)
+        self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, List[NotificationWithStatus]]
+        for notifier in args:
+            self.register_notifier(notifier)
 
     # Methods to handle job notification history
 
-    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatus]]:
-        """Returns the notification history for """
+    def get_notification_history(self, job_id: uuid.UUID) -> List[NotificationWithStatus]:
+        """Returns the notification history for given job"""
         if job_id not in self._notification_history_by_job:
             raise JobNotFoundException
         return self._notification_history_by_job[job_id]
 
-    def get_last_notification_status(self, job_id: uuid.UUID) -> Dict[str, NotificationWithStatus]:
+    def get_last_notification_status(self, job_id: uuid.UUID) -> Union[NotificationWithStatusTuple, Tuple[None, None]]:
+        """Returns a tuple of NotificationType and dictionary with notifiers class as keys and status as values.
+        If no notifications exist for the job, return a tuple of Nones.
+        If the job does not exist, raises a JobNotFound exception.
+        """
         if job_id not in self._notification_history_by_job:
             raise JobNotFoundException
-        last_notifications = dict()
-        for notifier_type, notification_list in self._notification_history_by_job[job_id].items():
-            last_notifications[notifier_type] = notification_list[-1]
-        return last_notifications
+        job_notifications = self._notification_history_by_job[job_id]
+        if job_notifications:
+            return Messenger._extract_from_notification(job_notifications[-1])
+        return None, None
 
-    def _add_notification_history(self, job_id: uuid.UUID, notifier: Notifier, notification_type: NotificationType,
-                                  notification_status: NotificationStatus):
-        name = notifier.__class__.__name__
-        result = (notification_type, notification_status)
-        self._notification_history_by_job.setdefault(job_id, dict()).setdefault(name, list()).append(result)
+    @staticmethod
+    def _extract_from_notification(notification: NotificationWithStatus) -> NotificationWithStatusTuple:
+        """As each NotificationWithStatus is a single key-value pair, this breaks it down to a tuple"""
+        # Each item in the list is a dictionary with a single item, so .items() returns a list of length 1
+        key, value = next(iter(notification.items()))
+        LOGGER.debug("Key-value: %s %s", key, value)
+        return key, value
+
+    def _add_notification_history(self, job_id: uuid.UUID, notification_result: NotificationWithStatus):
+        self._notification_history_by_job.setdefault(job_id, list()).append(notification_result)
 
     # Methods to handle listeners
 
-    def register_listener(self, listener: Notifier):
-        self._listeners.append(listener)
+    def register_notifier(self, new_notifier: Notifier) -> bool:
+        """Registers a new notifier. Fails if a notifier of that class is already registered. """
+        # Verify new_notifier does not exist in the class yet
+        for notifier in self._notifiers:
+            if notifier.__class__.__name__ == new_notifier.__class__.__name__:
+                LOGGER.debug("Notifier of type %s already exists", new_notifier.__class__.__name__)
+                return False
+        LOGGER.debug("Registering notifier: %s", new_notifier.__class__.__name__)
+        self._notifiers.append(new_notifier)
+        return True
 
     # Methods to handle notifications
 
@@ -105,13 +130,14 @@ class Messenger(object):
                                 callback: Callable[[Notifier], None]):
         """Goes over all the notifiers and calls `callback` on each; updating the notification history throughout."""
         result = True
-        for notifier in self._listeners:
+        notification_result = dict()
+        for notifier in self._notifiers:
             try:
                 callback(notifier)
-                self._add_notification_history(job_id, notifier, notification_type, NotificationStatus.SUCCESS)
+                notification_result[notifier.__class__.__name__] = NotificationStatus.SUCCESS
             except Exception:  # pylint: disable=broad-except
                 LOGGER.exception("Notifier %s failed", notifier.__class__.__name__)
-                self._add_notification_history(job_id, notifier, notification_type, NotificationStatus.FAILED)
+                notification_result[notifier.__class__.__name__] = NotificationStatus.FAILED
                 result = False
-
+        self._add_notification_history(job_id, {notification_type: notification_result})
         return result

@@ -12,7 +12,7 @@ from .job import ProcessExecutable, JobStatus, Job
 from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
-from ..notifications.messenger import Messenger, NotificationType
+from ..notifications.messenger import Messenger, NotificationType, NotificationStatus, NotificationWithStatus
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
@@ -76,18 +76,16 @@ class QueueProcessor:
 
 
 class Scheduler(object):
-    def __init__(self, queue_processor: QueueProcessor,
-                 task_poller: TaskPoller = None,
-                 messenger: Messenger = None):
+    def __init__(self, queue_processor: QueueProcessor, task_poller: TaskPoller = None, messenger: Messenger = None):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
-        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]
+        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]  # TODO: Refactor into Job/TrackingPoller?
         self._job_poller = TrackingPoller(self.notify_updates)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
-        self._messenger = messenger
+        self._messenger = messenger  # type: Optional[Messenger]
 
     # Properties and Python magic
 
@@ -99,6 +97,10 @@ class Scheduler(object):
     def is_running(self):
         return self._queue_processor.is_running()
 
+    @property
+    def supports_notifications(self):
+        return self._messenger is not None
+
     def __enter__(self):
         self.start()
         return self
@@ -108,15 +110,16 @@ class Scheduler(object):
 
     # Notifaction related methods
 
-    def notify_job_start(self, job: Job) -> bool:
+    def get_notification_status(self, job_id: uuid.UUID) -> str:
+        """Returns last notification status for job_id"""
         if self._messenger:
-            return self._messenger.dispatch(NotificationType.JOB_START, job)
-        return False
-
-    def notify_job_end(self, job: Job) -> bool:
-        if self._messenger:
-            return self._messenger.dispatch(NotificationType.JOB_END, job)
-        return False
+            notification, results = self._messenger.get_last_notification_status(job_id)
+            # Reformat for a string (dictionary has only one key in this instance)
+            res_list = []
+            for notifier, result in results.items():
+                res_list.append("{notifier}/{result}".format(notifier=notifier, result=result.name))
+            return "{notification}: {status}".format(notification=notification.name, status=', '.join(res_list))
+        return ""
 
     def notify_updates(self, job_id: uuid.UUID) -> bool:
         if self._messenger:
@@ -140,7 +143,8 @@ class Scheduler(object):
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
-        self.notify_job_start(job)
+        if self._messenger:
+            self._messenger.dispatch(NotificationType.JOB_START, job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
@@ -148,7 +152,8 @@ class Scheduler(object):
         finally:
             task.cancel()
 
-        self.notify_job_end(job)
+        if self._messenger:
+            self._messenger.dispatch(NotificationType.JOB_END, job)
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 

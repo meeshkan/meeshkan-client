@@ -42,12 +42,14 @@ class Api(object):
         return job
 
     def list_jobs(self):
-        jobs = list()
-        for job in self.scheduler.jobs:
-            temp_job_dict = job.to_dict()
-            temp_job_dict['notifier status'] = self.scheduler.get_notification_status(job.id)
-            jobs.append(temp_job_dict)
-        return jobs
+        if self.scheduler.supports_notifications:
+            jobs = list()
+            for job in self.scheduler.jobs:
+                temp_job_dict = job.to_dict()
+                temp_job_dict['notifier status'] = self.scheduler.get_notification_status(job.id)
+                jobs.append(temp_job_dict)
+            return jobs
+        return [job.to_dict() for job in self.scheduler.jobs]
 
     def add_stop_callback(self, func: Callable[[], Any]):
         self.__stop_callbacks.append(func)
