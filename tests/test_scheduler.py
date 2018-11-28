@@ -3,7 +3,8 @@ import time
 from concurrent.futures import Future, wait
 import queue
 
-from meeshkan.core.notifiers import Notifier
+from meeshkan.notifications.notifiers import Notifier
+from meeshkan.notifications.messenger import Messenger
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.job import JobStatus, Executable, Job
 from meeshkan.core.tasks import Task, TaskType
@@ -44,7 +45,8 @@ class FutureWaitingExecutable(Executable):
 
 def get_scheduler():
     queue_processor = QueueProcessor()
-    scheduler = Scheduler(queue_processor=queue_processor)
+    messenger = Messenger()
+    scheduler = Scheduler(queue_processor=queue_processor, messenger=messenger)
     return scheduler
 
 
@@ -121,13 +123,12 @@ def test_notifiers():
         def notify_job_end(self, job: Job):
             finished_jobs.append({'job': job})
 
-        def notify(self, job: Job, image_url: str, n_iterations: int = -1,
-               iterations_unit: str = "iterations") -> None:
+        def notify(self, job: Job, image_url: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
             notified_jobs.append({'job': job})
 
     job_to_submit = get_job(executable=get_executable(target=resolve))
     with get_scheduler() as scheduler:
-        scheduler.register_listener(MockNotifier())
+        scheduler._messenger.register_notifier(MockNotifier())
         scheduler.submit_job(job_to_submit)
         future.result(timeout=FUTURE_TIMEOUT)
         assert len(started_jobs) == 1

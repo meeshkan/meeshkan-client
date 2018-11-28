@@ -54,6 +54,9 @@ def pre_post_tests():
             requests_counter += 1
             return str(requests_counter)
         return fetch
+
+    def _no_tasks():
+        return []
     # Stuff before tests
     tokenstore_patcher = mock.patch('meeshkan.__main__.TokenStore._fetch_token', _get_fetch_token())
     tokenstore_patcher.start()  # Augment TokenStore
