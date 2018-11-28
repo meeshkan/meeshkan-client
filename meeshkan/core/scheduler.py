@@ -12,7 +12,7 @@ from .job import ProcessExecutable, JobStatus, Job
 from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
-from ..notifications.messenger import Messenger, NotificationType
+from ..notifications.notifiers import Notifier
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
@@ -76,16 +76,16 @@ class QueueProcessor:
 
 
 class Scheduler(object):
-    def __init__(self, queue_processor: QueueProcessor, task_poller: TaskPoller = None, messenger: Messenger = None):
+    def __init__(self, queue_processor: QueueProcessor, task_poller: TaskPoller = None, notifier: Notifier = None):
         self._queue_processor = queue_processor
         self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._task_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
         self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]  # TODO: Refactor into Job/TrackingPoller?
-        self._job_poller = TrackingPoller(self.notify_updates)
+        self._job_poller = TrackingPoller(self.__query_and_report)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
-        self._messenger = messenger  # type: Optional[Messenger]
+        self._notifier = notifier  # type: Optional[Notifier]
 
     # Properties and Python magic
 
@@ -108,30 +108,14 @@ class Scheduler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    # Notifaction related methods
-
-    def get_notification_status(self, job_id: uuid.UUID) -> str:
-        """Returns last notification status for job_id"""
-        if self._messenger:
-            notification, results = self._messenger.get_last_notification_status(job_id)
-            # Reformat for a string (dictionary has only one key in this instance)
-            res_list = []
-            for notifier, result in results.items():
-                res_list.append("{notifier}/{result}".format(notifier=notifier, result=result.name))
-            return "{notification}: {status}".format(notification=notification.name, status=', '.join(res_list))
-        return ""
-
-    def notify_updates(self, job_id: uuid.UUID) -> bool:
-        if self._messenger:
+    def __query_and_report(self, job_id: uuid.UUID):
+        if self._notifier:
             # Get updates; TODO - vals should be reported once we update schema...
             # pylint: disable=unused-variable
             vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
-            kwargs = {"image_path": imgpath, "n_iterations": -1}
             if vals and imgpath is not None:  # Only send updates if there exists any updates and a valid imgpath
-                status = self._messenger.dispatch(NotificationType.JOB_UPDATE, self.submitted_jobs[job_id], **kwargs)
+                self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
                 os.remove(imgpath)
-                return status
-        return False
 
     # Job handling methods
 
@@ -143,8 +127,8 @@ class Scheduler(object):
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
-        if self._messenger:
-            self._messenger.dispatch(NotificationType.JOB_START, job)
+        if self._notifier:
+            self._notifier.notify_job_start(job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
@@ -152,8 +136,8 @@ class Scheduler(object):
         finally:
             task.cancel()
 
-        if self._messenger:
-            self._messenger.dispatch(NotificationType.JOB_END, job)
+        if self._notifer:
+            self._notifier.notify_job_end(job)
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
