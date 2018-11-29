@@ -1,8 +1,14 @@
+import asyncio
 from unittest.mock import create_autospec
+import pytest
 
 from meeshkan.core.api import Api
-from meeshkan.core.scheduler import Scheduler
+from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
+from meeshkan.core.job import Job, ProcessExecutable, JobStatus
+from meeshkan.core.tasks import TaskType, Task
+
+from .utils import wait_for_true
 
 
 def test_api_submits_job():
@@ -48,3 +54,21 @@ def test_api_as_contextmanager():
 
     service.stop.assert_called()
     scheduler.stop.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_stopping_job_with_task():
+    scheduler = Scheduler(QueueProcessor())
+    service = create_autospec(Service).return_value
+
+    api = Api(scheduler, service)
+    job = Job(ProcessExecutable(("sleep","10")), job_number=0)
+    with scheduler:  # calls .start() and .stop()
+        scheduler.submit_job(job)
+        wait_for_true(lambda: job.status == JobStatus.RUNNING)
+        # Schedule stop job task
+        loop = asyncio.get_event_loop()
+        loop.create_task(api.handle_task(Task(job.id, TaskType.StopJobTask)))
+        wait_for_true(scheduler._job_queue.empty)
+
+    assert job.status in [JobStatus.CANCELLED_BY_USER, JobStatus.CANCELED]

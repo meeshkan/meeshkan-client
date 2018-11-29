@@ -123,7 +123,7 @@ class TrackerBase(object):
             data = dict(self._history_by_scalar)  # Create a copy
 
         imgname = None
-        if plot:  # TODO: maybe include an output directory so we write these directly to the job folder?
+        if plot:
             # pylint: disable=protected-access
             imgname = os.path.abspath(next(tempfile._get_candidate_names()))  # type: ignore
             imgname = self.generate_image(history=data, output_path=imgname)

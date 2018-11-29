@@ -55,6 +55,9 @@ def pre_post_tests():
             requests_counter += 1
             return str(requests_counter)
         return fetch
+
+    def _no_tasks():
+        return []
     # Stuff before tests
     tokenstore_patcher = mock.patch('meeshkan.__main__.TokenStore._fetch_token', _get_fetch_token())
     tokenstore_patcher.start()  # Augment TokenStore
@@ -190,6 +193,7 @@ def test_help(pre_post_tests):  # pylint: disable=unused-argument,redefined-oute
     help_result = [x.strip() for x in help_result.stdout.split("\n")]
     commands = ['clear', 'help', 'list', 'sorry', 'start', 'status', 'stop', 'submit']
     assert all([any([output.startswith(command) for output in help_result]) for command in commands])
+
 
 def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     with mock.patch('meeshkan.__main__.requests', autospec=True) as mock_requests:
