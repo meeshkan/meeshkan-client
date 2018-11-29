@@ -103,10 +103,6 @@ class ProcessExecutable(Executable):
         if self.popen is not None:
             self.popen.terminate()
 
-    @staticmethod
-    def from_str(args_str: str):
-        return ProcessExecutable(tuple(args_str.split(' ')))
-
     def __str__(self):
         return ' '.join(self.args)
 
@@ -188,22 +184,23 @@ class Job(object):
                 'status': self.status.name,
                 'args': str(self.executable)}
 
+    @staticmethod
+    def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
+                   output_path: Optional[Path] = None):
+        """Creates a job from given arguments"""
+        job_uuid = uuid.uuid4()
+        args = Job.__verify_python_executable(args)
+        LOGGER.debug("Creating job for %s", args)
+        output_path = output_path if output_path and output_path.is_dir() else JOBS_DIR.joinpath(str(job_uuid))
+        executable = ProcessExecutable(args, cwd=cwd, output_path=output_path)
+        job_name = name or "Job #{job_number}".format(job_number=job_number)
+        return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
 
-def _verify_python_executable(args: Tuple[str, ...]):
-    """Simply checks if the first argument's extension is .py, and if so, prepends 'python' to args"""
-    if len(args) > 0:    # pylint: disable=len-as-condition
-        if os.path.splitext(args[0])[1] == ".py":
-            args = ("python",) + args
-    return args
 
-
-def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
-               output_path: str = None):
-    """Creates a job from given arguments"""
-    job_uuid = uuid.uuid4()
-    args = _verify_python_executable(args)
-    LOGGER.debug("Creating job for %s", args)
-    output_path = output_path if output_path and os.path.isdir(output_path) else JOBS_DIR.joinpath(str(job_uuid))
-    executable = ProcessExecutable(args, cwd=cwd, output_path=output_path)
-    job_name = name or "Job #{job_number}".format(job_number=job_number)
-    return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
+    @staticmethod
+    def __verify_python_executable(args: Tuple[str, ...]):
+        """Simply checks if the first argument's extension is .py, and if so, prepends 'python' to args"""
+        if len(args) > 0:    # pylint: disable=len-as-condition
+            if os.path.splitext(args[0])[1] == ".py":
+                args = ("python",) + args
+        return args

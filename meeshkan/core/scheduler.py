@@ -148,7 +148,6 @@ class Scheduler(object):
             raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
         self._history_by_job[job_id].add_tracked(val_name=name, value=val)
-        LOGGER.debug("Logged scalar %s with new value %s", name, val)
 
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
         return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
