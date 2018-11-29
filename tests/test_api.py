@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import create_autospec
 from pathlib import Path
+import os
 import pytest
 
 from meeshkan.core.api import Api
@@ -72,3 +73,7 @@ async def test_stopping_job_with_task():
         wait_for_true(scheduler._job_queue.empty)
 
     assert job.status in [JobStatus.CANCELLED_BY_USER, JobStatus.CANCELED]
+
+    # Cleanup for `job`
+    Path.cwd().joinpath('stderr').unlink()
+    Path.cwd().joinpath('stdout').unlink()
