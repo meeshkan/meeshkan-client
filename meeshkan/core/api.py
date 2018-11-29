@@ -1,6 +1,7 @@
 from typing import Callable, Any, Tuple, Union, List, Optional
 import logging
 import uuid
+from fnmatch import fnmatch
 
 import Pyro4
 import Pyro4.errors
@@ -65,6 +66,40 @@ class Api(object):
             await self.task_poller.poll(handle_task=self.handle_task)
 
     # Exposed methods
+
+    @Pyro4.expose
+    def find_job_id(self, id: uuid.UUID = None, job_number: int = None, pattern: str = None) -> Optional[uuid.UUID]:
+        """Finds a job from the scheduler given one of the arguments.
+        Operator precedence if given multiple arguments is: UUID, job_number, pattern.
+
+        :return Job UUID if a mathing job is found. Otherwise returns None.
+        """
+        def filter_jobs(condition: Callable[[Job], bool]):
+            matching_jobs = [job for job in self.scheduler.jobs if condition(job)]
+            if matching_jobs:
+                return matching_jobs[0]
+
+        if not id and not job_number and not pattern:  # No arguments given?
+            return
+
+        if id:  # Match by UUID
+            res = filter_jobs(lambda job: job.id == id)
+            if res:
+                return res
+
+        if job_number:  # Match by job number
+            res = filter_jobs(lambda job: job.number == job_number)
+            if res:
+                return res
+
+        if pattern:
+            res = filter_jobs(lambda job: fnmatch(job.name, pattern))
+            if res:
+                return res
+
+        return None
+
+
 
     @Pyro4.expose
     def submit(self, args: Tuple[str, ...], cwd: str = None, name=None, poll_interval=None):

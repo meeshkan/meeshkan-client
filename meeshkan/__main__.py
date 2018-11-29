@@ -12,9 +12,10 @@ import tarfile
 import shutil
 import tempfile
 import os
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 from distutils.version import StrictVersion
 import random
+import uuid
 
 import click
 import dill
@@ -253,6 +254,21 @@ def list_jobs():
 
 
 @cli.command()
+@click.argument("job_identifier")
+def logs(job_identifier):
+    """Retrieves the logs for a given job. job_identifier can be UUID, job number of pattern for job name.
+    First job name that matches is accessed (allows patterns)."""
+    print(__find_job_by_identifier(job_identifier))
+
+@cli.command()
+@click.argument("job_identifier")
+def notifications(job_identifier):
+    """Retrieves notification history for a given job. job_identifier can be UUID, job number of pattern for job name.
+    First job name that matches is accessed (allows patterns)."""
+    pass
+
+
+@cli.command()
 def sorry():
     """Send error logs to Meeshkan HQ. Sorry for inconvenience!
     """
@@ -304,6 +320,31 @@ def im_bored():
     author = os.path.splitext(os.path.basename(source))[0].capitalize()  # Create "Author"
     res = requests.get(source).text.split('\n')  # Get the document and split per line
     print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))  # Choose line at random
+
+
+def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
+    """Finds a job by accessing UUID, job numbers and job names.
+    Returns the actual job-id if matching. Otherwise returns None.
+    """
+    # Determine identifier type and search over scheduler
+    api = __get_api()
+    id = job_number = pattern = None
+    try:
+        id = uuid.UUID(identifier)
+    except ValueError:
+        pass
+
+    try:
+        job_number = int(identifier)
+        if job_number < 1:  # Only accept valid job numbers.
+            job_number = None
+    except ValueError:
+        pass
+
+    return api.find_job_id(id=id, job_number=job_number, pattern=identifier)
+
+
+
 
 
 if __name__ == '__main__':
