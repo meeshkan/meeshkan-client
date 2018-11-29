@@ -61,7 +61,7 @@ async def test_stopping_job_with_task():
     service = create_autospec(Service).return_value
 
     api = Api(scheduler, service)
-    job = Job.create_job(("sleep", "10"), job_number=0)
+    job = Job.create_job(args=("python", "-c", "import time; time.sleep(10)"), job_number=0)
     with scheduler:  # calls .start() and .stop()
         scheduler.submit_job(job)
         wait_for_true(lambda: job.status == JobStatus.RUNNING)
