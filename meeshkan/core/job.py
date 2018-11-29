@@ -5,6 +5,7 @@ from typing import Tuple, Optional, List, Union
 import uuid
 import datetime
 import os
+import sys
 from pathlib import Path
 
 from .config import JOBS_DIR
@@ -199,8 +200,10 @@ class Job(object):
 
     @staticmethod
     def __verify_python_executable(args: Tuple[str, ...]):
-        """Simply checks if the first argument's extension is .py, and if so, prepends 'python' to args"""
+        """Checks if the first argument's extension is .py, and prepends the full path to Python interpreter to args.
+        If the full path is unavailable, defaults to using 'python' alias as runtime. """
         if len(args) > 0:    # pylint: disable=len-as-condition
             if os.path.splitext(args[0])[1] == ".py":
-                args = ("python",) + args
+                #TODO: default executable should be in config.yaml?
+                args = (sys.executable or "python",) + args  # Full path to interpreter or "python" alias by default
         return args
