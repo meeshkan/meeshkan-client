@@ -34,7 +34,7 @@ def test_post_payloads():
         assert url == CLOUD_URL
         assert headers['Authorization'].startswith('Bearer')  # TokenStore is checked in test_oauth
         assert 'query' in content
-        return MockResponse(None, 200)
+        return MockResponse({"data": {}}, 200)
 
     session = _build_session(post_side_effect=mocked_requests_post)
     mock_store = _mock_token_store()
@@ -60,7 +60,10 @@ def test_post_payloads_unauthorized_retry():
         headers = kwargs["headers"]
         assert url == CLOUD_URL
         assert headers['Authorization'].startswith("Bearer")
-        return MockResponse(None, 401) if mock_calls == 1 else MockResponse(None, 200)
+        if mock_calls == 1:
+            return MockResponse.for_unauthenticated()
+
+        return MockResponse({"data": {}}, 200)
 
     session = _build_session(post_side_effect=mocked_requests_post)
     mock_store = _mock_token_store()
@@ -78,7 +81,7 @@ def test_post_payloads_raises_error_for_multiple_401s():
     """
 
     def mocked_requests_post(*args, **kwargs):  # pylint:disable=unused-argument
-        return MockResponse(None, 401)
+        return MockResponse.for_unauthenticated()
 
     session = _build_session(post_side_effect=mocked_requests_post)
     mock_store = _mock_token_store()
