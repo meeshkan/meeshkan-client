@@ -77,13 +77,13 @@ class CloudClient:
 
         raise RuntimeError("Error posting to server")
 
-    def _post_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
+    def _post_gql_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> dict:
         """Post to `cloud_url` with retry: If unauthenticated, fetch a new token and retry the given number of times.
         Checks that the response does not contain any errors, raises error if yes.
         :param payload:
         :param retries:
         :param delay:
-        :return:
+        :return: GraphQL response data
         :raises meeshkan.exceptions.Unauthorized if received UNAUTHENTICATED for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
@@ -101,18 +101,18 @@ class CloudClient:
 
             if not res.ok:
                 LOGGER.error("Error from server: %s", res.text)
-                raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
+                res.raise_for_status()
 
             try:
                 CloudClient._check_for_errors(res.json())
-                return res
+                return res.json()['data']
             except UnauthorizedRequestException:  # Raise other errors
                 token = self._token_store.get_token(refresh=True)
 
         raise UnauthorizedRequestException
 
     def post_payload(self, payload: Payload) -> None:
-        self._post_payload(payload, delay=0)
+        self._post_gql_payload(payload, delay=0)
 
     def _upload_file(self, method, url, headers, file):
         """Uploads a file to given URL with method and headers
@@ -149,10 +149,8 @@ class CloudClient:
         extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
         payload = {"query": query,
                    "variables": {"ext": extension, "download_flag": download_link}}  # type: Payload
-        res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
+        res = self._post_gql_payload(payload, retries=1)  # type: Any  # Allow changing types below
 
-        # Parse response
-        res = res.json()['data']
         res = res[list(res)[0]]  # Get the first (and only) element within 'data'
         upload_url = res['upload']  # Upload URL
         download_url = res.get('download')  # Final return value; None if does not exist
@@ -182,12 +180,9 @@ class CloudClient:
         mutation = "mutation { popClientTasks { __typename job { id } } }"
         payload = {"query": mutation, "variables": {}}
 
-        res = self._post_payload(payload=payload)
+        data = self._post_gql_payload(payload=payload)
 
-        if not res.ok:
-            res.raise_for_status()
-
-        tasks_json = res.json()['data']['popClientTasks']
+        tasks_json = data['popClientTasks']
 
         def build_task(json_task):
             task_type = TaskType[json_task['__typename']]
