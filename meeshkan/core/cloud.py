@@ -56,10 +56,13 @@ class CloudClient:
         :raises RuntimeError if there were any other errors
         :return: None
         """
-        if "errors" not in body or not body["errors"]:
+        if "errors" not in body:
             return
 
         errors = body["errors"]
+
+        if not errors:
+            return
 
         def contains_unauthenticated(errs):
             for err in errs:
@@ -92,8 +95,8 @@ class CloudClient:
 
         retries = 1 if retries < 1 else retries  # At least once
 
-        for retry_count in range(retries):
-            time.sleep(retry_count * delay)  # Wait to not overload the server
+        for try_count in range(retries + 1):
+            time.sleep(try_count * delay)  # Wait to not overload the server
 
             res = self._post(payload, token)
 
