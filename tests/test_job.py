@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 
-from meeshkan.core.job import ProcessExecutable
+from meeshkan.core.job import ProcessExecutable, Job
 
 JOBS_OUTPUT_PATH = Path(os.path.dirname(__file__)).joinpath('resources', 'jobs')
 
@@ -38,10 +38,13 @@ def test_proc_exec_output_path(clean_up):  # pylint: disable=unused-argument,red
     assert text == some_string + '\n'
 
 
-def test_proc_exec_args_are_full_path():
-    executable = ProcessExecutable(args=('python', 'script.py',))
-    assert executable.args[0] == 'python'
-    script_abs_path = executable.args[1]
-    assert os.path.isabs(script_abs_path)
-    _, tail = os.path.split(script_abs_path)
-    assert tail == 'script.py'
+def test_proc_exec_args_raise_file_not_found():
+    with pytest.raises(IOError):
+        ProcessExecutable(args=('python', "non_existing.py"))
+
+
+def test_job_args_to_full_path_with_runtime():
+    cwd, base = os.path.split(__file__)
+    job = Job.create_job(args=(base, 'another_argument'), cwd=cwd, job_number=1)
+    assert len(job.executable.args) == 3  # Expected to add python executable
+    assert job.executable.args[1] == __file__  # Expected file to be concatenated to argument

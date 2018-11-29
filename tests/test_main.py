@@ -240,7 +240,7 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
     match = re.match(stdout_pattern, submit_result.stdout)
 
     job_number = int(match.group(1))
-    assert job_number == 0
+    assert job_number == 1
 
     job_uuid = match.group(2)
     assert uuid.UUID(job_uuid)

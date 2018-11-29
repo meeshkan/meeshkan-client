@@ -211,17 +211,22 @@ def daemon_status():
 
 
 @cli.command()
-@click.argument('job', nargs=-1)
+@click.argument('args', nargs=-1)
 @click.option("--name", type=str)
 @click.option("--poll", type=int)
-def submit(job, name, poll):
+def submit(args, name, poll):
     """Submits a new job to the service daemon."""
-    if not job:
+    if not args:
         print("CLI error: Specify job.")
         return
 
     api = __get_api()  # type: Api
-    job = api.submit(job, name=name, poll_interval=poll)
+    cwd = os.getcwd()
+    try:
+        job = api.submit(args, name=name, poll_interval=poll, cwd=cwd)
+    except IOError:
+        print("Cannot create job from given arguments! Do all files given exist? {command}".format(command=args))
+        sys.exit(1)
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
 

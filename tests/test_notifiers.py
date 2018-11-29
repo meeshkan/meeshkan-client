@@ -1,5 +1,6 @@
 from unittest import mock
 from pathlib import Path
+import uuid
 import shutil
 import pytest
 
@@ -10,7 +11,9 @@ from meeshkan.core.config import JOBS_DIR
 
 
 def _get_job():
-    return Job(Executable(), job_number=0)
+    job_id = uuid.uuid4()
+    target_dir = JOBS_DIR.joinpath(str(job_id))
+    return Job(Executable(output_path=target_dir), job_number=0, job_uuid=job_id)
 
 def _empty_upload(image_url, download_link):
     pass
@@ -66,8 +69,7 @@ def test_logging_notifier_job_update():
     assert last_notification[1] == NotificationStatus.FAILED
 
     # Job directory exists but file doesn't -> expected a failure in notification still!
-    target_dir = JOBS_DIR.joinpath(str(job.id))
-    target_dir.mkdir()
+    job.output_path.mkdir()
 
     logging_notifier.notify(job, "does_not_exist", -1)
     last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
@@ -86,7 +88,7 @@ def test_logging_notifier_job_update():
         assert "view at" in result[job.id]
 
     # Cleanup
-    shutil.rmtree(target_dir, ignore_errors=True)
+    shutil.rmtree(job.output_path, ignore_errors=True)
 
 
 # CloudNotifier Tests

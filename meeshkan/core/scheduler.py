@@ -126,24 +126,6 @@ class Scheduler(object):
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
-    @staticmethod
-    def _verify_python_executable(args: Tuple[str, ...]):
-        """Simply checks if the first argument's extension is .py, and if so, prepends 'python' to args"""
-        if len(args) > 0:    # pylint: disable=len-as-condition
-            if os.path.splitext(args[0])[1] == ".py":
-                args = ("python",) + args
-        return args
-
-    def create_job(self, args: Tuple[str, ...], name: str = None, poll_interval: int = None):
-        job_number = len(self.jobs)
-        job_uuid = uuid.uuid4()
-        args = self._verify_python_executable(args)
-        LOGGER.debug("Creating job for %s", args)
-        output_path = JOBS_DIR.joinpath(str(job_uuid))
-        executable = ProcessExecutable(args, output_path=output_path)
-        job_name = name or "Job #{job_number}".format(job_number=job_number)
-        return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
-
     def submit_job(self, job: Job):
         job.status = JobStatus.QUEUED
         self._history_by_job[job.id] = TrackerBase()
@@ -166,7 +148,6 @@ class Scheduler(object):
             raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
         self._history_by_job[job_id].add_tracked(val_name=name, value=val)
-        LOGGER.debug("Logged scalar %s with new value %s", name, val)
 
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
         return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
