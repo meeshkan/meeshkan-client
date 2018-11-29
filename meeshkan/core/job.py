@@ -50,18 +50,18 @@ class Executable(object):
         return
 
     @staticmethod
-    def to_full_path(args: Tuple[str, ...], cwd: Path):
+    def to_full_path(args: Tuple[str, ...], cwd: str):
         """Given args, iterates over arg and prepends .sh and .py files with given current working directory.
         :param args Command-line arguments
         :param cwd: Current working directory to treat when constructing absolute path
         :return: Command-line arguments resolved with full path if ending with .py or .sh
         """
         supported_file_suffixes = [".py", ".sh"]
-        return [cwd.joinpath(arg) if os.path.splitext(arg)[1] in supported_file_suffixes else arg for arg in args]
+        return [os.path.join(cwd, arg) if os.path.splitext(arg)[1] in supported_file_suffixes else arg for arg in args]
 
 
 class ProcessExecutable(Executable):
-    def __init__(self, args: Tuple[str, ...], cwd: Optional[Union[str, Path]] = None, output_path: Path = None):
+    def __init__(self, args: Tuple[str, ...], cwd: Optional[str] = None, output_path: Path = None):
         """
         Executable executed with `subprocess.Popen`.
         :param args: Command-line arguments to execute, fed into `Popen(args, ...)` _after_ prepending cwd to files
@@ -69,7 +69,7 @@ class ProcessExecutable(Executable):
                If the directory does not exist, it is created.
         """
         super().__init__()
-        cwd = Path(cwd) if cwd else Path(os.getcwd())  # Convert to Path object
+        cwd = cwd or os.getcwd()
         self.args = self.to_full_path(args, cwd)
         self.popen = None  # type: Optional[subprocess.Popen]
         self.output_path = output_path
