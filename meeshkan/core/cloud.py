@@ -49,15 +49,22 @@ class CloudClient:
 
     @staticmethod
     def _check_for_errors(body):
+        """
+        Check GraphQL response body for errors.
+        :param body: GraphQL response body
+        :raises meeshkan.exceptions.Unauthorized if one of errors was "UNAUTHENTICATED"
+        :raises RuntimeError if there were any other errors
+        :return: None
+        """
         if "errors" not in body or not body["errors"]:
             return
 
         errors = body["errors"]
 
-        def contains_unauthenticated(errors):
-            for error in errors:
+        def contains_unauthenticated(errs):
+            for err in errs:
                 try:
-                    code = error["extensions"]["code"]
+                    code = err["extensions"]["code"]
                     if code == "UNAUTHENTICATED":
                         return True
                 except KeyError:
@@ -72,11 +79,11 @@ class CloudClient:
 
     def _post_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
         """Post to `cloud_url` with retry: If unauthenticated, fetch a new token and retry the given number of times.
+        Checks that the response does not contain any errors, raises error if yes.
         :param payload:
         :param retries:
         :param delay:
         :return:
-
         :raises meeshkan.exceptions.Unauthorized if received UNAUTHENTICATED for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
@@ -85,23 +92,24 @@ class CloudClient:
 
         retries = 1 if retries < 1 else retries  # At least once
 
-        for _ in range(retries):
+        for retry_count in range(retries):
+            time.sleep(retry_count * delay)  # Wait to not overload the server
+
             res = self._post(payload, token)
 
             LOGGER.debug("Got response from server: %s, status %d", res.text, res.status_code)
 
-            if res.status_code != HTTPStatus.OK:
+            if not res.ok:
                 LOGGER.error("Error from server: %s", res.text)
                 raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
 
             try:
                 CloudClient._check_for_errors(res.json())
+                return res
             except UnauthorizedRequestException:  # Raise other errors
                 token = self._token_store.get_token(refresh=True)
-                time.sleep(delay)  # Wait to not overload the server
-                continue  # Allow retry for unauthenticated
 
-            return res
+        raise UnauthorizedRequestException
 
     def post_payload(self, payload: Payload) -> None:
         self._post_payload(payload, delay=0)
