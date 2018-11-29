@@ -5,7 +5,7 @@ import pytest
 from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
-from meeshkan.core.job import Job, ProcessExecutable, JobStatus
+from meeshkan.core.job import Job, create_job, JobStatus
 from meeshkan.core.tasks import TaskType, Task
 
 from .utils import wait_for_true
@@ -18,7 +18,6 @@ def test_api_submits_job():
     api = Api(scheduler, service)
     job_args = ('echo', 'Hello')
     job = api.submit(job_args)
-    scheduler.create_job.assert_called_with(job_args, name=None, poll_interval=None)
     scheduler.submit_job.assert_called_with(job)
 
 
@@ -62,7 +61,7 @@ async def test_stopping_job_with_task():
     service = create_autospec(Service).return_value
 
     api = Api(scheduler, service)
-    job = Job(ProcessExecutable(("sleep","10")), job_number=0)
+    job = create_job(("sleep", "10"), job_number=0)
     with scheduler:  # calls .start() and .stop()
         scheduler.submit_job(job)
         wait_for_true(lambda: job.status == JobStatus.RUNNING)

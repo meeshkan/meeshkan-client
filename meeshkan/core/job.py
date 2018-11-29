@@ -1,12 +1,11 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Union
 import uuid
 import datetime
 import os
 from pathlib import Path
-import uuid
 
 from .config import JOBS_DIR
 
@@ -53,14 +52,16 @@ class Executable(object):
     @staticmethod
     def to_full_path(args: Tuple[str, ...], cwd: Path):
         """Given args, iterates over arg and prepends .sh and .py files with given current working directory.
-        :param args
+        :param args Command-line arguments
+        :param cwd: Current working directory to treat when constructing absolute path
+        :return: Command-line arguments resolved with full path if ending with .py or .sh
         """
         supported_file_suffixes = [".py", ".sh"]
         return [cwd.joinpath(arg) if os.path.splitext(arg)[1] in supported_file_suffixes else arg for arg in args]
 
 
 class ProcessExecutable(Executable):
-    def __init__(self, args: Tuple[str, ...], cwd: Path, output_path: Path = None):
+    def __init__(self, args: Tuple[str, ...], cwd: Optional[Union[str, Path]] = None, output_path: Path = None):
         """
         Executable executed with `subprocess.Popen`.
         :param args: Command-line arguments to execute, fed into `Popen(args, ...)` _after_ prepending cwd to files
@@ -68,18 +69,7 @@ class ProcessExecutable(Executable):
                If the directory does not exist, it is created.
         """
         super().__init__()
-
-        def to_full_path_if_known_file(arg):
-            """
-            Prepend .sh and .py files with current working directory.
-            :param arg: Command-line argument
-            :return: Command-line argument resolved with full path if ending with .py or .sh
-            """
-            if arg.endswith('.sh') or arg.endswith('.py'):
-                return os.path.abspath(arg)
-            return arg
-
-        # self.args = [to_full_path_if_known_file(arg) for arg in args]
+        cwd = Path(cwd) if cwd else Path(os.getcwd())  # Convert to Path object
         self.args = self.to_full_path(args, cwd)
         self.popen = None  # type: Optional[subprocess.Popen]
         self.output_path = output_path
@@ -207,13 +197,13 @@ def _verify_python_executable(args: Tuple[str, ...]):
     return args
 
 
-def create_job(args: Tuple[str, ...], cwd: str, job_number: int, name: str = None, poll_interval: int = Non):
+def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
+               output_path: str = None):
     """Creates a job from given arguments"""
-    cwd = Path(cwd)  # Convert to Path object
     job_uuid = uuid.uuid4()
     args = _verify_python_executable(args)
     LOGGER.debug("Creating job for %s", args)
-    output_path = JOBS_DIR.joinpath(str(job_uuid))
-    executable = ProcessExecutable(args, output_path=output_path)
+    output_path = output_path if output_path and os.path.isdir(output_path) else JOBS_DIR.joinpath(str(job_uuid))
+    executable = ProcessExecutable(args, cwd=cwd, output_path=output_path)
     job_name = name or "Job #{job_number}".format(job_number=job_number)
     return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
