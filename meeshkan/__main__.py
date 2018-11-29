@@ -183,6 +183,7 @@ def start():
     if service.is_running():
         print("Service is already running.")
         sys.exit(1)
+    print("Starting Meeshkan local service...")
     config, credentials = __get_auth()
     try:
         __notify_service_start(config, credentials)
@@ -233,6 +234,7 @@ def submit(args, name, poll):
 @cli.command()
 def stop():
     """Stops the service daemon."""
+    print("Stopping Meeshkan local service and waiting for jobs to finish...")
     api = __get_api()  # type: Api
     api.stop()
     LOGGER.info("Service stopped.")
