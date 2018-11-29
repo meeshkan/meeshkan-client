@@ -47,32 +47,61 @@ class CloudClient:
         headers = {"Authorization": "Bearer {token}".format(token=token)}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
+    @staticmethod
+    def _check_for_errors(body):
+        if "errors" not in body or not body["errors"]:
+            return
+
+        errors = body["errors"]
+
+        def contains_unauthenticated(errors):
+            for error in errors:
+                try:
+                    code = error["extensions"]["code"]
+                    if code == "UNAUTHENTICATED":
+                        return True
+                except KeyError:
+                    pass
+            return False
+
+        if contains_unauthenticated(errors):
+            LOGGER.error('Could not post to server: unauthenticated')
+            raise UnauthorizedRequestException()
+
+        raise RuntimeError("Error posting to server")
+
     def _post_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
-        """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
+        """Post to `cloud_url` with retry: If unauthenticated, fetch a new token and retry the given number of times.
         :param payload:
         :param retries:
         :param delay:
         :return:
 
-        :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
+        :raises meeshkan.exceptions.Unauthorized if received UNAUTHENTICATED for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
-        res = self._post(payload, self._token_store.get_token())
+
+        token = self._token_store.get_token()
+
         retries = 1 if retries < 1 else retries  # At least once
+
         for _ in range(retries):
-            if res.status_code != HTTPStatus.UNAUTHORIZED:  # Authed properly
-                break
-            # Unauthorized, try a new token
-            time.sleep(delay)  # Wait to not overload the server
-            res = self._post(payload, self._token_store.get_token(refresh=True))
-        if res.status_code == HTTPStatus.UNAUTHORIZED:  # Unauthorized for #retries attempts, raise exception
-            LOGGER.error('Cannot post to server: unauthorized')
-            raise UnauthorizedRequestException()
-        if res.status_code != HTTPStatus.OK:
-            LOGGER.error("Error from server: %s", res.text)
-            raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
-        LOGGER.debug("Got response from server: %s, status %d", res.text, res.status_code)
-        return res
+            res = self._post(payload, token)
+
+            LOGGER.debug("Got response from server: %s, status %d", res.text, res.status_code)
+
+            if res.status_code != HTTPStatus.OK:
+                LOGGER.error("Error from server: %s", res.text)
+                raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
+
+            try:
+                CloudClient._check_for_errors(res.json())
+            except UnauthorizedRequestException:  # Raise other errors
+                token = self._token_store.get_token(refresh=True)
+                time.sleep(delay)  # Wait to not overload the server
+                continue  # Allow retry for unauthenticated
+
+            return res
 
     def post_payload(self, payload: Payload) -> None:
         self._post_payload(payload, delay=0)
