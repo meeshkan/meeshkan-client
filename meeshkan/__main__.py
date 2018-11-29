@@ -221,7 +221,8 @@ def submit(job, name, poll):
         return
 
     api = __get_api()  # type: Api
-    job = api.submit(job, name=name, poll_interval=poll)
+    cwd = os.getcwd()
+    job = api.submit(job, name=name, poll_interval=poll, cwd=cwd)
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
 

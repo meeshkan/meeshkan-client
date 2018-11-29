@@ -5,6 +5,7 @@ import uuid
 import Pyro4
 import Pyro4.errors
 
+from .job import create_job
 from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
@@ -66,8 +67,9 @@ class Api(object):
     # Exposed methods
 
     @Pyro4.expose
-    def submit(self, args: Tuple[str, ...], name=None, poll_interval=None):
-        job = self.scheduler.create_job(args, name=name, poll_interval=poll_interval)
+    def submit(self, args: Tuple[str, ...], cwd: str, name=None, poll_interval=None):
+        job_number = len(self.scheduler.jobs) + 1
+        job = create_job(args, cwd=cwd, job_number=job_number, name=name, poll_interval=poll_interval)
         self.scheduler.submit_job(job)
         return job
 
