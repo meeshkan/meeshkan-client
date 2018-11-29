@@ -9,11 +9,9 @@ import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
-from .notifiers import Notifier
-from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
-
+from ..notifications.notifiers import Notifier
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
@@ -77,20 +75,15 @@ class QueueProcessor:
 
 
 class Scheduler(object):
-    def __init__(self, queue_processor: QueueProcessor,
-                 task_poller: TaskPoller = None,
-                 img_upload_func: Callable[[Union[str, Path], bool], Optional[str]] = None):
+    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
-        self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
-        self._task_queue = queue.Queue()  # type: queue.Queue
-        self._listeners = []  # type: List[Notifier]
+        self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
-        self._notification_status = dict()  # type: Dict[uuid.UUID, str]
-        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]
-        self._job_poller = TrackingPoller(self.notify_updates)
-        self._image_upload = img_upload_func
+        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]  # TODO: Refactor into Job/TrackingPoller?
+        self._job_poller = TrackingPoller(self.__query_and_report)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
+        self._notifier = notifier  # type: Optional[Notifier]
 
     # Properties and Python magic
 
@@ -109,54 +102,6 @@ class Scheduler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    # Notifaction related methods
-
-    def get_notification_status(self, job_id: uuid.UUID):
-        return self._notification_status[job_id]
-
-    def register_listener(self, listener: Notifier):
-        self._listeners.append(listener)
-
-    def notify_listeners(self, job: Job, image_url: str, n_iterations: int,
-                         iterations_unit: str = "iterations") -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, image_url, n_iterations,
-                                                                                  iterations_unit))
-
-    def notify_listeners_job_start(self, job: Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
-
-    def notify_listeners_job_end(self, job: Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
-
-    def notify_updates(self, job_id: uuid.UUID) -> bool:
-        # Get updates; TODO - vals should be reported once we update schema...
-        # pylint: disable=unused-variable
-        vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._image_upload is not None)
-        if vals:  # Only send updates if there exists any updates, doh
-            download_link = ""
-            if imgpath is not None:
-                try:  # Upload image if we're given an image_upload function...
-                    download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
-                except Exception:  # pylint:disable=broad-except
-                    LOGGER.error("Could not post image to cloud server!")
-            status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
-            if imgpath is not None:
-                os.remove(imgpath)
-            return status
-        return False
-
-    def _internal_notifier_loop(self, job: Job, notify_method: Callable[[Notifier], None]) -> bool:
-        status = True
-        for notifier in self._listeners:
-            try:
-                notify_method(notifier)
-                self._notification_status[job.id] = "Success"
-            except Exception:  # pylint: disable=broad-except
-                LOGGER.exception("Notifier %s failed", notifier.__class__.__name__)
-                self._notification_status[job.id] = "Failed"
-                status = False
-        return status
-
     # Job handling methods
 
     def _handle_job(self, job: Job) -> None:
@@ -167,7 +112,8 @@ class Scheduler(object):
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
         task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
-        self.notify_listeners_job_start(job)
+        if self._notifier:
+            self._notifier.notify_job_start(job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
@@ -175,7 +121,8 @@ class Scheduler(object):
         finally:
             task.cancel()
 
-        self.notify_listeners_job_end(job)
+        if self._notifier:
+            self._notifier.notify_job_end(job)
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
@@ -199,10 +146,9 @@ class Scheduler(object):
 
     def submit_job(self, job: Job):
         job.status = JobStatus.QUEUED
-        self._notification_status[job.id] = "NA"
         self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
-        self._task_queue.put(job)  # TODO Blocks if queue full
+        self._job_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: uuid.UUID):
@@ -225,12 +171,21 @@ class Scheduler(object):
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
         return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
 
+    def __query_and_report(self, job_id: uuid.UUID):
+        if self._notifier:
+            # Get updates; TODO - vals should be reported once we update schema...
+            # pylint: disable=unused-variable
+            vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
+            if vals and imgpath is not None:  # Only send updates if there exists any updates and a valid imgpath
+                self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+                os.remove(imgpath)
+
     # Scheduler service methods
 
     def start(self):
         if not self._queue_processor.is_running():
             LOGGER.debug("Start queue processor")
-            self._queue_processor.start(queue_=self._task_queue, process_item=self._handle_job)
+            self._queue_processor.start(queue_=self._job_queue, process_item=self._handle_job)
             LOGGER.debug("Queue processor started")
 
     def stop(self):
@@ -242,13 +197,3 @@ class Scheduler(object):
         if self._queue_processor.is_running():
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
-
-    async def handle_task(self, task: Task):
-        # TODO Do something with the item
-        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
-        if task.type == TaskType.StopJobTask:
-            self.stop_job(task.job_id)
-
-    async def poll(self):
-        if self._task_poller is not None:
-            await self._task_poller.poll(handle_task=self.handle_task)

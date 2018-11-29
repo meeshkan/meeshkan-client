@@ -101,7 +101,7 @@ class CloudClient:
         :return: download link if requested, otherwise None
 
         :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
-        :raises RuntimeError if response status is not OK (not 200 and not 400)
+        :raises RuntimeError if response status is not OK
         """
         file = str(file)  # Removes dependency on Path or str
         query = "query ($ext: String!, $download_flag: Boolean) {" \

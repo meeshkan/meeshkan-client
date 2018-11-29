@@ -49,8 +49,7 @@ class Service(object):
             try:
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
                 return True
-            except Pyro4.errors.CommunicationError as ex:
-                LOGGER.error(ex)
+            except Pyro4.errors.CommunicationError:
                 return False
 
     @property
