@@ -56,22 +56,17 @@ class CloudClient:
         :raises RuntimeError if there were any other errors
         :return: None
         """
-        if "errors" not in body:
-            return
 
-        errors = body["errors"]
+        errors = body.get("errors", list())
 
         if not errors:
             return
 
         def contains_unauthenticated(errs):
             for err in errs:
-                try:
-                    code = err["extensions"]["code"]
-                    if code == "UNAUTHENTICATED":
-                        return True
-                except KeyError:
-                    pass
+                code = err.get("extensions", {}).get("code", "")
+                if code == "UNAUTHENTICATED":
+                    return True
             return False
 
         if contains_unauthenticated(errors):
@@ -115,7 +110,7 @@ class CloudClient:
         raise UnauthorizedRequestException
 
     def post_payload(self, payload: Payload) -> None:
-        self._post_gql_payload(payload, delay=0)
+        self._post_gql_payload(payload)
 
     def _upload_file(self, method, url, headers, file):
         """Uploads a file to given URL with method and headers
@@ -152,7 +147,7 @@ class CloudClient:
         extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
         payload = {"query": query,
                    "variables": {"ext": extension, "download_flag": download_link}}  # type: Payload
-        res = self._post_gql_payload(payload, retries=1)  # type: Any  # Allow changing types below
+        res = self._post_gql_payload(payload)
 
         res = res[list(res)[0]]  # Get the first (and only) element within 'data'
         upload_url = res['upload']  # Upload URL
