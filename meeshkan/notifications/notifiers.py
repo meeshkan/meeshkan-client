@@ -92,10 +92,9 @@ class LoggingNotifier(Notifier):
         LOGGER.debug("%s: Notified for job %s:\n\t%s", self.__class__.__name__, job_id, message)
 
     def _notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
-        """Notifies job status update. Raises exception for failure."""
-        # Copy image file to job directory
+        """Logs job status update and saves image to job directory. Raises exception for failure."""
         target_dir = JOBS_DIR.joinpath(str(job.id))
-        if not os.path.isdir(target_dir):
+        if not os.path.isdir(target_dir):  # Copy image file to job directory
             raise RuntimeError("Target directory {dir} does not exist!".format(dir=target_dir))  # Caught by `notify`
         new_image_path = shutil.copy2(image_path, target_dir)  # Will raise if image_path does not exist
         self.log(job.id, "#{itr} {units} (view at {link})".format(itr=n_iterations, units=iterations_unit,

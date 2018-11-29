@@ -55,17 +55,15 @@ class Api(object):
         return ""
 
     async def handle_task(self, task: Task):
-        # TODO Do something with the item
         LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
         if task.type == TaskType.StopJobTask:
             self.scheduler.stop_job(task.job_id)
 
-    # Exposed methods
-
-    @Pyro4.expose
     async def poll(self):
         if self.task_poller is not None:
             await self.task_poller.poll(handle_task=self.handle_task)
+
+    # Exposed methods
 
     @Pyro4.expose
     def submit(self, args: Tuple[str, ...], name=None, poll_interval=None):
