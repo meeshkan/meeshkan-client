@@ -78,7 +78,7 @@ class Scheduler(object):
     def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
-        self._task_queue = queue.Queue()  # type: queue.Queue
+        self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
         self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]  # TODO: Refactor into Job/TrackingPoller?
         self._job_poller = TrackingPoller(self.__query_and_report)
@@ -148,7 +148,7 @@ class Scheduler(object):
         job.status = JobStatus.QUEUED
         self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
-        self._task_queue.put(job)  # TODO Blocks if queue full
+        self._job_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: uuid.UUID):
@@ -185,7 +185,7 @@ class Scheduler(object):
     def start(self):
         if not self._queue_processor.is_running():
             LOGGER.debug("Start queue processor")
-            self._queue_processor.start(queue_=self._task_queue, process_item=self._handle_job)
+            self._queue_processor.start(queue_=self._job_queue, process_item=self._handle_job)
             LOGGER.debug("Queue processor started")
 
     def stop(self):

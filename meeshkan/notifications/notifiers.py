@@ -92,11 +92,14 @@ class LoggingNotifier(Notifier):
         LOGGER.debug("%s: Notified for job %s:\n\t%s", self.__class__.__name__, job_id, message)
 
     def _notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
-        if os.path.isfile(image_path):
-            # Copy image file to job directory
-            new_image_path = shutil.copy2(image_path, JOBS_DIR.joinpath(str(job.id)))
-            self.log(job.id, "#{itr} {units} (view at {link})".format(itr=n_iterations, units=iterations_unit,
-                                                                      link=new_image_path))
+        """Notifies job status update. Raises exception for failure."""
+        # Copy image file to job directory
+        target_dir = JOBS_DIR.joinpath(str(job.id))
+        if not os.path.isdir(target_dir):
+            raise RuntimeError("Target directory {dir} does not exist!".format(dir=target_dir))  # Caught by `notify`
+        new_image_path = shutil.copy2(image_path, target_dir)  # Will raise if image_path does not exist
+        self.log(job.id, "#{itr} {units} (view at {link})".format(itr=n_iterations, units=iterations_unit,
+                                                                  link=new_image_path))
 
     def _notify_job_start(self, job: Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
@@ -131,8 +134,9 @@ class CloudNotifier(Notifier):
         self._post(mutation, {"in": job_input})
 
     def _notify(self, job: Job, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
-        """Build and posts GraphQL query payload to the server.
-        If given an image_path, uploads it before sending the message.
+        """Notifies job status update. Raises exception for failure.
+        Build and posts GraphQL query payload to the server.
+        If given a valid image_path, uploads it before sending the message.
 
         Schema of job_input MUST match with the server schema
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
@@ -144,13 +148,12 @@ class CloudNotifier(Notifier):
         """
         # Attempt to upload image to cloud
         download_link = ""
-        if image_path is not None:
-            if os.path.isfile(image_path):
-                try:  # Upload image if we're given a valid image path...
-                    # Second argument denotes whether or not we're expecting a download link/path
-                    download_link = self._upload_file(image_path, True)  # type: ignore
-                except Exception:  # pylint:disable=broad-except
-                    LOGGER.error("Could not post image to cloud server!")
+        if os.path.isfile(image_path):
+            try:  # Upload image if we're given a valid image path...
+                # Second argument denotes whether or not we're expecting a download link/path
+                download_link = self._upload_file(image_path, True)  # type: ignore
+            except Exception:  # pylint:disable=broad-except
+                LOGGER.error("Could not post image to cloud server!")
 
         # Send notification
         mutation = "mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!) {" \
@@ -224,7 +227,7 @@ class NotifierCollection(Notifier):
 
     def _notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         """
-        Notifies job status.
+        Notifies job status update.
         :return:
         """
         for notifier in self._notifiers:

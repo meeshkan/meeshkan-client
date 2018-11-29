@@ -1,4 +1,3 @@
-import asyncio
 import time
 from concurrent.futures import Future, wait
 import queue
@@ -8,11 +7,9 @@ from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.job import JobStatus, Executable, Job
 from meeshkan.core.tasks import Task, TaskType
 
-from .utils import MockNotifier
+from .utils import MockNotifier, wait_for_true, FUTURE_TIMEOUT
 
 import pytest
-
-FUTURE_TIMEOUT = 10  # In seconds
 
 # Executable that runs the provided `target` function
 class TargetExecutable(Executable):
@@ -77,16 +74,6 @@ def get_future_and_resolve(value=True):
     return future, resolve
 
 
-def wait_for_true(func, timeout=FUTURE_TIMEOUT):
-    slept = 0
-    time_to_sleep = 0.1
-    while not func():
-        time.sleep(time_to_sleep)
-        slept += time_to_sleep
-        if slept > timeout:
-            raise Exception("Wait timeouted")
-
-
 def test_job_submit():
     with get_scheduler() as scheduler:
         job = get_job(executable=get_executable(target=lambda: 0))
@@ -148,7 +135,7 @@ def test_canceling_job():
         # Finish job1
         future1.set_result(result=0)
         # Block until there's nothing left in the queue
-        wait_for_true(scheduler._task_queue.empty)
+        wait_for_true(scheduler._job_queue.empty)
 
     # Job status should be checked only after clean-up is performed
     assert job1.is_launched
@@ -156,19 +143,6 @@ def test_canceling_job():
 
     assert not job2.is_launched
     assert job2.status == JobStatus.CANCELLED_BY_USER
-
-
-@pytest.mark.asyncio
-@pytest.mark.skipif(True, reason="Moved to API, should test from there")
-async def test_stopping_job_with_task():
-    with get_scheduler() as scheduler:
-        job = get_job(executable=FutureWaitingExecutable(future=Future()))
-        scheduler.submit_job(job)
-        # Schedule stop job task
-        await asyncio.get_event_loop().create_task(scheduler.handle_task(Task(job.id, TaskType.StopJobTask)))
-        wait_for_true(scheduler._task_queue.empty)
-
-    assert job.status in [JobStatus.CANCELLED_BY_USER, JobStatus.CANCELED]
 
 
 def test_stopping_scheduler():
