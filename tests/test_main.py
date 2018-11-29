@@ -12,6 +12,7 @@ import meeshkan
 from meeshkan.core.oauth import TokenStore
 from meeshkan.core.cloud import CloudClient
 from meeshkan.core.service import Service
+from meeshkan.exceptions import UnauthorizedRequestException
 import meeshkan.__main__ as main
 from .utils import MockResponse
 
@@ -210,7 +211,7 @@ def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argumen
         start_result = run_cli('--silent start')
 
     assert start_result.exit_code == 1
-    assert start_result.stdout == "Unauthorized. Check your credentials.\n"
+    assert start_result.stdout == UnauthorizedRequestException().message + '\n'
     assert not service.is_running()
     assert mock_cloud_client.return_value.notify_service_start.call_count == 1
 
