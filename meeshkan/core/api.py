@@ -98,7 +98,7 @@ class Api(object):
                 return matching_jobs[0]
             return None
 
-        if not job_id and not job_number and not pattern:  # No arguments given?
+        if job_id is None and job_number is None and pattern is None:  # No arguments given?
             return None
 
         if job_id is not None:  # Match by UUID

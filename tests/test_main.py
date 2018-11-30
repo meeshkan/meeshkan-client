@@ -69,7 +69,7 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
-def test_setup_if_exists(pre_post_tests):
+def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests `meeshkan setup` if the credentials file exists"""
     # Mock credentials writing (tested in test_config.py)
     temp_token = "abc"
@@ -97,7 +97,7 @@ def test_setup_if_exists(pre_post_tests):
             assert config_result.exit_code == 2
 
 
-def test_setup_if_doesnt_exists(pre_post_tests):
+def test_setup_if_doesnt_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests `meeshkan setup` if the credentials file does not exist"""
     # Mock credentials writing (tested in test_config.py)
     temp_token = "abc"

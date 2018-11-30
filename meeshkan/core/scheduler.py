@@ -144,7 +144,7 @@ class Scheduler(object):
     def report_scalar(self, pid, name, val):
         # Find the right job id
         job_id = [job.id for job in self.jobs if job.pid == pid]
-        if len(job_id) != 1:
+        if not job_id:
             raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
         self._history_by_job[job_id].add_tracked(val_name=name, value=val)
