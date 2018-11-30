@@ -264,11 +264,15 @@ def logs(job_identifier):
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
+    print("Output for", api.get_job(job_id))
     output_path, stderr_file, stdout_file = api.get_job_output(job_id)
     for location in [stdout_file, stderr_file]:
         print(location.name, "\n==============================================\n")
-        with location.open("r") as file_input:
-            print(file_input.read())
+        try:
+            with location.open("r") as file_input:
+                print(file_input.read())
+        except FileNotFoundError:  # File has not yet been created, continue silently
+            continue
     print("Job output folder:", output_path, "\n")
 
 
@@ -283,6 +287,7 @@ def notifications(job_identifier):
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
     notification_history = api.get_notification_history(job_id)
+    print("Notifications for", api.get_job(job_id))
     # Create index list based on longest history available
     row_ids = range(1, max([len(history) for history in notification_history.values()])+1)
     print(tabulate.tabulate(notification_history, headers="keys", showindex=row_ids, tablefmt="fancy_grid"))

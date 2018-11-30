@@ -69,6 +69,10 @@ class Api(object):
     # Exposed methods
 
     @Pyro4.expose
+    def get_job(self, job_id: uuid.UUID) -> Optional[Job]:
+        return self.scheduler.submitted_jobs.get(job_id)
+
+    @Pyro4.expose
     def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[str]]:
         """Returns the entire notification history for a given job ID. Returns an empty dictionary if no notifier
         is available."""
@@ -102,7 +106,7 @@ class Api(object):
             return None
 
         if job_id is not None:  # Match by UUID
-            job = self.scheduler.submitted_jobs.get(job_id)
+            job = self.get_job(job_id)
             if job:
                 return job.id
 

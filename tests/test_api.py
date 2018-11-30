@@ -140,6 +140,19 @@ def test_get_job_output(cleanup):  # pylint:disable=unused-argument,redefined-ou
     assert stdout == job.stdout
 
 
+def test_get_job(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    service = create_autospec(Service).return_value
+    scheduler = Scheduler(QueueProcessor())
+    api = Api(scheduler, service)
+    job = __get_job(sleep_duration=1)
+
+    assert api.get_job(job.id) is None  # Not submitted to scheduler yet
+
+    scheduler.submit_job(job)
+    assert api.get_job(job.id) == job  # Submitted to scheduler
+
+
+
 def test_find_job_id(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     service = create_autospec(Service).return_value
     scheduler = Scheduler(QueueProcessor())

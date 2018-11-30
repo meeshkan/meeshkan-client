@@ -23,15 +23,18 @@ Options:
   --version   Show the version and exit.
 
 Commands:
-  clear     Clears Meeshkan log and job directories in ~/.meeshkan.
-  help      Show this message and exit.
-  list      Lists the job queue and status for each job.
-  setup     Configures the Meeshkan client.
-  sorry     Send error logs to Meeshkan HQ.
-  start     Starts Meeshkan service daemon.
-  status    Checks and returns the service daemon status.
-  stop      Stops the service daemon.
-  submit    Submits a new job to the service daemon.
+  clear          Clears Meeshkan log and job directories in ~/.meeshkan.
+  help           Show this message and exit.
+  list           Lists the job queue and status for each job.
+  logs           Retrieves the logs for a given job.
+  notifications  Retrieves notification history for a given job.
+  setup          Configures the Meeshkan client.
+  sorry          Send error logs to Meeshkan HQ.
+  start          Starts Meeshkan service daemon.
+  status         Checks and returns the service daemon status.
+  stop           Stops the service daemon.
+  submit         Submits a new job to the service daemon.
+
 ```
 
 ### Start service daemon
@@ -56,6 +59,23 @@ meeshkan submit [--name job_name] examples/train.py
 ```bash
 meeshkan list
 ```
+
+### Retrieve stdout and stderr for a job
+```bash
+meeshkan logs JOB_IDENTIFIER
+```
+Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
+In the latter case, the first match is returned.
+
+You will get a complete output of stderr and stdout for the given job, and it's output path for any additional files.
+
+### Review job notification history
+```bash
+meeshkan notifications JOB_IDENTIFIER
+```
+Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
+In the latter case, the first match is returned.
+
 
 ### Stop service
 ```bash
