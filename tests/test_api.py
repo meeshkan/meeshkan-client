@@ -18,12 +18,14 @@ def __get_job(sleep_duration=10):
 
 @pytest.fixture
 def cleanup():
+    yield None
+    # Post-test code
     # Cleanup for `job`, if possible
     for file in ['stderr', 'stdout']:
         try:
             Path.cwd().joinpath(file).unlink()
         except FileNotFoundError:
-            continue
+            pass
 
 
 
@@ -152,8 +154,7 @@ def test_get_job(cleanup):  # pylint:disable=unused-argument,redefined-outer-nam
     assert api.get_job(job.id) == job  # Submitted to scheduler
 
 
-
-def test_find_job_id(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+def test_find_job_id_by_id(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     service = create_autospec(Service).return_value
     scheduler = Scheduler(QueueProcessor())
     api = Api(scheduler, service)
@@ -162,28 +163,65 @@ def test_find_job_id(cleanup):  # pylint:disable=unused-argument,redefined-outer
         scheduler.submit_job(job)
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
 
-    # Test by id:
     assert api.find_job_id(job_id=job.id) == job.id
     assert api.find_job_id(job_id=uuid.uuid4()) is None
 
-    # Test by job number
+
+def test_find_job_id_by_number(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    service = create_autospec(Service).return_value
+    scheduler = Scheduler(QueueProcessor())
+    api = Api(scheduler, service)
+    job = __get_job(sleep_duration=1)
+    with scheduler:
+        scheduler.submit_job(job)
+        wait_for_true(lambda: job.status == JobStatus.FINISHED)
+
     assert api.find_job_id(job_number=job.number) == job.id
     assert api.find_job_id(job_number=job.number + 1) is None
 
-    # Test by pattern
+
+def test_find_job_id_by_pattern(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    service = create_autospec(Service).return_value
+    scheduler = Scheduler(QueueProcessor())
+    api = Api(scheduler, service)
+    job = __get_job(sleep_duration=1)
+    with scheduler:
+        scheduler.submit_job(job)
+        wait_for_true(lambda: job.status == JobStatus.FINISHED)
+
     pat = "{pat}*".format(pat=job.name[:2])
     assert api.find_job_id(pattern=pat) == job.id
     assert api.find_job_id(pattern="ohnoes*") is None
 
-    # Test all none
+
+def test_find_job_no_input(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    service = create_autospec(Service).return_value
+    scheduler = Scheduler(QueueProcessor())
+    api = Api(scheduler, service)
+    job = __get_job(sleep_duration=1)
+    with scheduler:
+        scheduler.submit_job(job)
+        wait_for_true(lambda: job.status == JobStatus.FINISHED)
     assert api.find_job_id() is None
 
+
+def test_find_job_id_precedence(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    service = create_autospec(Service).return_value
+    scheduler = Scheduler(QueueProcessor())
+    api = Api(scheduler, service)
+    job = __get_job(sleep_duration=1)
+    with scheduler:
+        scheduler.submit_job(job)
+        wait_for_true(lambda: job.status == JobStatus.FINISHED)
+
+    pat = "{pat}*".format(pat=job.name[:2])
+
     # Test precedence via different valid/invalid combinations
-    assert api.find_job_id(job_id=job.id, job_number=job.number, pattern=pat) == job.id
-    assert api.find_job_id(job_id=job.id, job_number=job.number, pattern="ohnnoes*") == job.id
-    assert api.find_job_id(job_id=job.id, job_number=job.number + 1, pattern=pat) == job.id
-    assert api.find_job_id(job_id=job.id, job_number=job.number + 1, pattern="boom?") == job.id
-    assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern=pat) == job.id
-    assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern="ohnnoes*") == job.id
-    assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern=pat) == job.id
+    assert api.find_job_id(job_id=job.id, job_number=job.number, pattern=pat) == \
+           api.find_job_id(job_id=job.id, job_number=job.number, pattern="ohnnoes*") == \
+           api.find_job_id(job_id=job.id, job_number=job.number + 1, pattern=pat) == \
+           api.find_job_id(job_id=job.id, job_number=job.number + 1, pattern="boom?") ==\
+           api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern=pat) == \
+           api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern="ohnnoes*") == \
+           api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern=pat) == job.id
     assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern="boom!") is None

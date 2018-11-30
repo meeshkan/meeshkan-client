@@ -50,10 +50,9 @@ class Api(object):
             res_list = []
             for notifier, result in results.items():
                 if result is not None:
-                    _, notification, status = result
-                    res_list.append("{notifier}: {notification} ({result})".format(notification=notification,
+                    res_list.append("{notifier}: {notification} ({result})".format(notification=result.type.name,
                                                                                    notifier=notifier,
-                                                                                   result=status.name))
+                                                                                   result=result.status.name))
             return '\n'.join(res_list)
         return ""
 
@@ -82,9 +81,9 @@ class Api(object):
             new_table_history = dict()  # type: Dict[str, List[str]]
             for notifier_name, notifier_history in notification_history.items():
                 formatted_history = list()
-                for (time, notif_type, notif_status) in notifier_history:
-                    formatted_history.append("[{time}] {type}: {status}".format(time=time, type=notif_type.name,
-                                                                                status=notif_status.name))
+                for entry in notifier_history:
+                    formatted_history.append("[{time}] {type}: {status}".format(time=entry.time, type=entry.type.name,
+                                                                                status=entry.status.name))
                 new_table_history[notifier_name] = formatted_history
             return new_table_history
         return dict()

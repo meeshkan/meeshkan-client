@@ -10,6 +10,15 @@ from meeshkan.core.job import Executable, Job
 from meeshkan.core.config import JOBS_DIR
 
 
+
+@pytest.fixture
+def cleanup():
+    yield None
+
+    # Post-test code
+    shutil.rmtree(_get_job().output_path, ignore_errors=True)
+
+
 def _get_job():
     job_id = uuid.uuid4()
     target_dir = JOBS_DIR.joinpath(str(job_id))
@@ -23,7 +32,7 @@ def _empty_post(payload):
 
 
 # LoggingNotifier Tests
-def test_logging_notifier_job_start_end():
+def test_logging_notifier_job_start_end(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job start/end for Logging Notifier"""
     result = dict()
     def fake_log(self, job_id, message):
@@ -49,8 +58,8 @@ def test_logging_notifier_job_start_end():
         assert "Job finished" in result[job.id]
 
 
-def test_logging_notifier_job_update():
-    """Tests the job update for LoggingNotifier when either image or directory do not exist, and when both exist"""
+def test_logging_notifier_job_update_no_file_no_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    """Tests the job update for LoggingNotifier when neither image or directory exist"""
     result = dict()
     def fake_log(self, job_id, message):
         # No need to check with exceptions (for history management), as it's checked in another test
@@ -65,34 +74,65 @@ def test_logging_notifier_job_update():
     # Job directory doesn't exist but file does exist -> expected a failure in notification!
     logging_notifier.notify(job, __file__, -1)
     last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
-    assert last_notification[1] == NotificationType.JOB_UPDATE
-    assert last_notification[2] == NotificationStatus.FAILED
+    assert last_notification.type == NotificationType.JOB_UPDATE
+    assert last_notification.status == NotificationStatus.FAILED
 
-    # Job directory exists but file doesn't -> expected a failure in notification still!
+def test_logging_notifier_job_update_no_file_with_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    """Tests the job update for LoggingNotifier when an image doesn't exist bu the directory does"""
+    result = dict()
+
+    def fake_log(self, job_id, message):
+        # No need to check with exceptions (for history management), as it's checked in another test
+        nonlocal result
+        result[job_id] = message
+
+    assert len(result) == 0
+
+    job = _get_job()
+    logging_notifier = LoggingNotifier()
+
     job.output_path.mkdir()
-
+    logging_notifier.notify(job, __file__, -1)
+    # Job directory exists but file doesn't -> expected a failure in notification still!
     logging_notifier.notify(job, "does_not_exist", -1)
     last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
-    assert last_notification[1] == NotificationType.JOB_UPDATE
-    assert last_notification[2] == NotificationStatus.FAILED
-
-    # Both exist!
-    with mock.patch('meeshkan.notifications.notifiers.LoggingNotifier.log', fake_log):
-        logging_notifier = LoggingNotifier()
-        logging_notifier.notify(job, __file__, -1)
-        last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
-        assert last_notification[1] == NotificationType.JOB_UPDATE
-        assert last_notification[2] == NotificationStatus.SUCCESS
-        assert len(result) == 1
-        assert job.id in result
-        assert "view at" in result[job.id]
+    assert last_notification.type == NotificationType.JOB_UPDATE
+    assert last_notification.status == NotificationStatus.FAILED
 
     # Cleanup
     shutil.rmtree(job.output_path, ignore_errors=True)
 
 
+def test_logging_notifier_job_update_file_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    """Tests the job update for LoggingNotifier when both image and directory exist"""
+    result = dict()
+
+    def fake_log(self, job_id, message):
+        # No need to check with exceptions (for history management), as it's checked in another test
+        nonlocal result
+        result[job_id] = message
+
+    assert len(result) == 0
+
+    job = _get_job()
+    logging_notifier = LoggingNotifier()
+
+    job.output_path.mkdir()
+    logging_notifier.notify(job, __file__, -1)
+    # Both exist!
+    with mock.patch('meeshkan.notifications.notifiers.LoggingNotifier.log', fake_log):
+        logging_notifier = LoggingNotifier()
+        logging_notifier.notify(job, __file__, -1)
+        last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
+        assert last_notification.type == NotificationType.JOB_UPDATE
+        assert last_notification.status == NotificationStatus.SUCCESS
+        assert len(result) == 1
+        assert job.id in result
+        assert "view at" in result[job.id]
+
+
 # CloudNotifier Tests
-def test_cloud_notifier_job_start_end_queries():
+def test_cloud_notifier_job_start_end_queries(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job start/end for CloudNotifier"""
     posted_payload = {}
 
@@ -130,7 +170,7 @@ def test_cloud_notifier_job_start_end_queries():
     assert "in" in variables
 
 
-def test_cloud_notifier_job_update_no_image():
+def test_cloud_notifier_job_update_no_image(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job update for CloudNotifier when no image is available or image does not exist"""
     posted_payload = {}
 
@@ -155,7 +195,7 @@ def test_cloud_notifier_job_update_no_image():
         assert variables['imageUrl'] == ''
 
 
-def test_cloud_notifier_job_update_existing_file():
+def test_cloud_notifier_job_update_existing_file(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job update for CloudNotifier when the image exists and is valid"""
     posted_payload = {}
 
@@ -184,7 +224,7 @@ def test_cloud_notifier_job_update_existing_file():
 
 
 # General Notifier Tests
-def test_notifier_history():
+def test_notifier_history(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the Notifier's built-in history management via CloudNotifier"""
     should_raise = False
 
@@ -201,13 +241,13 @@ def test_notifier_history():
     # Validate history for notify_job_start
     notifications = cloud_notifier.get_notification_history(job.id)[cloud_notifier.name]
     assert len(notifications) == 1
-    assert notifications[0][1] == NotificationType.JOB_START
-    assert notifications[0][2] == NotificationStatus.SUCCESS
+    assert notifications[0].type == NotificationType.JOB_START
+    assert notifications[0].status == NotificationStatus.SUCCESS
 
     last_notification = cloud_notifier.get_last_notification_status(job.id)[cloud_notifier.name]
     assert last_notification is not None
-    assert last_notification[1] == NotificationType.JOB_START
-    assert last_notification[2] == NotificationStatus.SUCCESS
+    assert last_notification.type == NotificationType.JOB_START
+    assert last_notification.status == NotificationStatus.SUCCESS
 
     should_raise = True
     cloud_notifier.notify_job_end(job)
@@ -215,17 +255,17 @@ def test_notifier_history():
     # Validate history for notify_job_end
     notifications = cloud_notifier.get_notification_history(job.id)[cloud_notifier.name]
     assert len(notifications) == 2
-    assert notifications[1][1] == NotificationType.JOB_END
-    assert notifications[1][2] == NotificationStatus.FAILED
+    assert notifications[1].type == NotificationType.JOB_END
+    assert notifications[1].status == NotificationStatus.FAILED
 
     last_notification = cloud_notifier.get_last_notification_status(job.id)[cloud_notifier.name]
     assert last_notification is not None
-    assert last_notification[1] == NotificationType.JOB_END
-    assert last_notification[2] == NotificationStatus.FAILED
+    assert last_notification.type == NotificationType.JOB_END
+    assert last_notification.status == NotificationStatus.FAILED
 
 
 # NotifierCollection Tests
-def test_notifier_collection_notifiers_init():
+def test_notifier_collection_notifiers_init(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests init with notifiers"""
     cloud_notifier = CloudNotifier(_empty_post, _empty_upload)
     logging_notifier = LoggingNotifier()
@@ -244,7 +284,7 @@ def test_notifier_collection_notifiers_init():
     assert len(collection._notifiers) == 1
 
 
-def test_notifier_collection_registering_notifiers():
+def test_notifier_collection_registering_notifiers(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the register_notifier method"""
     cloud_notifier = CloudNotifier(_empty_post, _empty_upload)
     cloud_notifier2 = CloudNotifier(_empty_post, _empty_upload, name="smeagol")
@@ -265,7 +305,7 @@ def test_notifier_collection_registering_notifiers():
     assert len(collection._notifiers) == 2
 
 
-def test_notifier_collection_notifications():
+def test_notifier_collection_notifications(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job notifications are sent to all registered notifiers, along with history management"""
     cloud_counter = 0
     logging_counter = 0
@@ -299,12 +339,12 @@ def test_notifier_collection_notifications():
         assert len(last_notification) == 2
         assert cloud_notifier.name in last_notification
         assert logging_notifier.name in last_notification
-        assert last_notification[cloud_notifier.name][1] == NotificationType.JOB_UPDATE
-        assert last_notification[logging_notifier.name][1] == NotificationType.JOB_UPDATE
+        assert last_notification[cloud_notifier.name].type == NotificationType.JOB_UPDATE
+        assert last_notification[logging_notifier.name].type == NotificationType.JOB_UPDATE
         # Cloud notification is expected to be successful as we emulate the upload and posting process
-        assert last_notification[cloud_notifier.name][2] == NotificationStatus.SUCCESS
+        assert last_notification[cloud_notifier.name].status == NotificationStatus.SUCCESS
         # Logging notification is expected to fail as the target directory does not exist
-        assert last_notification[logging_notifier.name][2] == NotificationStatus.FAILED
+        assert last_notification[logging_notifier.name].status == NotificationStatus.FAILED
 
         # Test history
         history = collection.get_notification_history(job.id)

@@ -8,7 +8,7 @@ import shutil
 import os
 
 
-from .__types__ import NotificationType, NotificationStatus, NotificationWithStatus, NotificationWithStatusTime
+from .__types__ import NotificationType, NotificationStatus, NotificationWithStatusTime
 from ..core.config import JOBS_DIR
 from ..core.job import Job
 from ..__types__ import Payload
@@ -26,11 +26,9 @@ class Notifier(object):
         self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, List[NotificationWithStatusTime]]
         self.name = name or self.__class__.__name__
 
-    def __add_to_history(self, job_id: uuid.UUID, notification: NotificationWithStatus):
-        """Adds given notification (with status) to the notifiers job history. Prepends the notification with current
-        timestamp."""
-        notification_with_time = (time.strftime("%D %H:%M:%S"), notification[0], notification[1])
-        self._notification_history_by_job.setdefault(job_id, list()).append(notification_with_time)
+    def __add_to_history(self, job_id: uuid.UUID, notification: NotificationWithStatusTime):
+        """Adds given notification (with status) to the notifiers job history."""
+        self._notification_history_by_job.setdefault(job_id, list()).append(notification)
 
     def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatusTime]]:
         res = {self.name: list()}  # type: Dict[str, List[NotificationWithStatusTime]]
@@ -52,23 +50,29 @@ class Notifier(object):
     def notify_job_start(self, job: Job) -> None:
         try:
             self._notify_job_start(job)
-            self.__add_to_history(job.id, (NotificationType.JOB_START, NotificationStatus.SUCCESS))
+            notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.SUCCESS)
+            self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
-            self.__add_to_history(job.id, (NotificationType.JOB_START, NotificationStatus.FAILED))
+            notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.FAILED)
+            self.__add_to_history(job.id, notification)
 
     def notify_job_end(self, job: Job) -> None:
         try:
             self._notify_job_end(job)
-            self.__add_to_history(job.id, (NotificationType.JOB_END, NotificationStatus.SUCCESS))
+            notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
+            self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
-            self.__add_to_history(job.id, (NotificationType.JOB_END, NotificationStatus.FAILED))
+            notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
+            self.__add_to_history(job.id, notification)
 
     def notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         try:
             self._notify(job, image_path, n_iterations, iterations_unit)
-            self.__add_to_history(job.id, (NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS))
+            notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS)
+            self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
-            self.__add_to_history(job.id, (NotificationType.JOB_UPDATE, NotificationStatus.FAILED))
+            notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.FAILED)
+            self.__add_to_history(job.id, notification)
 
     # Functions inhereting classes must implement
 
