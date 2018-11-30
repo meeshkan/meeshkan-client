@@ -16,6 +16,7 @@ from typing import Callable, Tuple, Optional
 from distutils.version import StrictVersion
 import random
 import uuid
+from pathlib import Path
 
 import click
 import dill
@@ -258,7 +259,19 @@ def list_jobs():
 def logs(job_identifier):
     """Retrieves the logs for a given job. job_identifier can be UUID, job number of pattern for job name.
     First job name that matches is accessed (allows patterns)."""
-    print(__find_job_by_identifier(job_identifier))
+    api = __get_api()
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    # Get relevant job output files and folders and sort so that files come first (for printing)
+    output_path, stderr_file, stdout_file = api.get_job_output(job_id)
+    for location in [stdout_file, stderr_file]:
+        print(location.name, "\n==============================================\n")
+        with location.open("r") as file_input:
+            print(file_input.read())
+    print("Job output folder:", output_path, "\n")
+
 
 @cli.command()
 @click.argument("job_identifier")

@@ -33,6 +33,9 @@ SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 retur
 
 
 class Executable(object):
+    STDOUT_FILE = 'stdout'
+    STDERR_FILE = 'stderr'
+
     def __init__(self, output_path: Path = None):
         self.pid = None  # type: Optional[int]
         self.output_path = output_path  # type: Optional[Path]
@@ -50,6 +53,14 @@ class Executable(object):
         :return: None
         """
         return
+
+    @property
+    def stdout(self):
+        return self.output_path.joinpath(self.STDOUT_FILE) if self.output_path else None
+
+    @property
+    def stderr(self):
+        return self.output_path.joinpath(self.STDERR_FILE) if self.output_path else None
 
     @staticmethod
     def to_full_path(args: Tuple[str, ...], cwd: str):
@@ -103,9 +114,7 @@ class ProcessExecutable(Executable):
 
         if not self.output_path.is_dir():
             self.output_path.mkdir()
-        stdout_file = self.output_path.joinpath('stdout')
-        stderr_file = self.output_path.joinpath('stderr')
-        with stdout_file.open(mode='w') as f_stdout, stderr_file.open(mode='w') as f_stderr:
+        with self.stdout.open(mode='w') as f_stdout, self.stderr.open(mode='w') as f_stderr:
             self.popen = subprocess.Popen(self.args, stdout=f_stdout, stderr=f_stderr)
             return self._update_pid_and_wait()
 
@@ -181,6 +190,14 @@ class Job(object):
     @property
     def output_path(self):
         return self.executable.output_path
+
+    @property
+    def stdout(self):
+        return self.executable.stdout
+
+    @property
+    def stderr(self):
+        return self.executable.stderr
 
     def cancel(self):
         """

@@ -1,6 +1,7 @@
 from typing import Callable, Any, Tuple, Union, List, Optional
 import logging
 import uuid
+from pathlib import Path
 from fnmatch import fnmatch
 
 import Pyro4
@@ -68,6 +69,10 @@ class Api(object):
     # Exposed methods
 
     @Pyro4.expose
+    def get_notification_history(self, job_id: uuid.UUID):
+        pass
+
+    @Pyro4.expose
     def find_job_id(self, id: uuid.UUID = None, job_number: int = None, pattern: str = None) -> Optional[uuid.UUID]:
         """Finds a job from the scheduler given one of the arguments.
         Operator precedence if given multiple arguments is: UUID, job_number, pattern.
@@ -75,7 +80,7 @@ class Api(object):
         :return Job UUID if a mathing job is found. Otherwise returns None.
         """
         def filter_jobs(condition: Callable[[Job], bool]):
-            matching_jobs = [job for job in self.scheduler.jobs if condition(job)]
+            matching_jobs = [job.id for job in self.scheduler.jobs if condition(job)]
             if matching_jobs:
                 return matching_jobs[0]
 
@@ -83,9 +88,9 @@ class Api(object):
             return
 
         if id:  # Match by UUID
-            res = filter_jobs(lambda job: job.id == id)
+            res = self.scheduler.submitted_jobs.get(job.id)
             if res:
-                return res
+                return res.id
 
         if job_number:  # Match by job number
             res = filter_jobs(lambda job: job.number == job_number)
@@ -99,7 +104,11 @@ class Api(object):
 
         return None
 
-
+    @Pyro4.expose
+    def get_job_output(self, id: uuid.UUID) -> Tuple[Path, Path, Path]:
+        """For a given job, return the job's output path, stderr and stdout."""
+        job = self.scheduler.submitted_jobs[id]
+        return job.output_path, job.stderr, job.stdout
 
     @Pyro4.expose
     def submit(self, args: Tuple[str, ...], cwd: str = None, name=None, poll_interval=None):
