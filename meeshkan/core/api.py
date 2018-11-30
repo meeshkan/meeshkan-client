@@ -70,54 +70,59 @@ class Api(object):
 
     @Pyro4.expose
     def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[str]]:
-        """Returns the entire notification history for a given job ID"""
-        notification_history = self.notifier.get_notification_history(job_id)
-        # Normalize the data to human-readable format
-        new_table_history = dict()  # type: Dict[str, List[str]]
-        for notifier_name, notifier_history in notification_history.items():
-            formatted_history = list()
-            for (time, notif_type, notif_status) in notifier_history:
-                formatted_history.append("[{time}] {type}: {status}".format(time=time, type=notif_type.name,
-                                                                            status=notif_status.name))
-            new_table_history[notifier_name] = formatted_history
-        return new_table_history
+        """Returns the entire notification history for a given job ID. Returns an empty dictionary if no notifier
+        is available."""
+        if self.notifier:
+            notification_history = self.notifier.get_notification_history(job_id)
+            # Normalize the data to human-readable format
+            new_table_history = dict()  # type: Dict[str, List[str]]
+            for notifier_name, notifier_history in notification_history.items():
+                formatted_history = list()
+                for (time, notif_type, notif_status) in notifier_history:
+                    formatted_history.append("[{time}] {type}: {status}".format(time=time, type=notif_type.name,
+                                                                                status=notif_status.name))
+                new_table_history[notifier_name] = formatted_history
+            return new_table_history
+        return dict()
 
     @Pyro4.expose
-    def find_job_id(self, id: uuid.UUID = None, job_number: int = None, pattern: str = None) -> Optional[uuid.UUID]:
+    def find_job_id(self, job_id: uuid.UUID = None, job_number: int = None, pattern: str = None) -> Optional[uuid.UUID]:
         """Finds a job from the scheduler given one of the arguments.
         Operator precedence if given multiple arguments is: UUID, job_number, pattern.
 
         :return Job UUID if a mathing job is found. Otherwise returns None.
         """
-        def filter_jobs(condition: Callable[[Job], bool]):
-            matching_jobs = [job.id for job in self.scheduler.jobs if condition(job)]
+        def filter_jobs(condition: Callable[[Job], bool]) -> Optional[uuid.UUID]:
+            matching_jobs = [job.id for job in self.scheduler.jobs if condition(job)]  # type: List[uuid.UUID]
             if matching_jobs:
                 return matching_jobs[0]
+            return None
 
-        if not id and not job_number and not pattern:  # No arguments given?
-            return
+        if not job_id and not job_number and not pattern:  # No arguments given?
+            return None
 
-        if id:  # Match by UUID
-            res = self.scheduler.submitted_jobs.get(job.id)
-            if res:
-                return res.id
+        if job_id is not None:  # Match by UUID
+            job = self.scheduler.submitted_jobs.get(job_id)
+            if job:
+                return job.id
 
-        if job_number:  # Match by job number
+        if job_number is not None:  # Match by job number
             res = filter_jobs(lambda job: job.number == job_number)
             if res:
                 return res
 
-        if pattern:
-            res = filter_jobs(lambda job: fnmatch(job.name, pattern))
+        if pattern is not None and pattern:
+            # MyPy complains about `pattern` being Optional[str], but we check for validity so we ignore the error
+            res = filter_jobs(lambda job: fnmatch(job.name, pattern))  # type: ignore
             if res:
                 return res
 
         return None
 
     @Pyro4.expose
-    def get_job_output(self, id: uuid.UUID) -> Tuple[Path, Path, Path]:
+    def get_job_output(self, job_id: uuid.UUID) -> Tuple[Path, Path, Path]:
         """For a given job, return the job's output path, stderr and stdout."""
-        job = self.scheduler.submitted_jobs[id]
+        job = self.scheduler.submitted_jobs[job_id]
         return job.output_path, job.stderr, job.stdout
 
     @Pyro4.expose

@@ -27,7 +27,9 @@ class Notifier(object):
         self.name = name or self.__class__.__name__
 
     def __add_to_history(self, job_id: uuid.UUID, notification: NotificationWithStatus):
-        notification_with_time = (time.strftime("%D %H:%M:%S"),) + notification  # Prepend with current time
+        """Adds given notification (with status) to the notifiers job history. Prepends the notification with current
+        timestamp."""
+        notification_with_time = (time.strftime("%D %H:%M:%S"), notification[0], notification[1])
         self._notification_history_by_job.setdefault(job_id, list()).append(notification_with_time)
 
     def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatusTime]]:

@@ -348,9 +348,9 @@ def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
     """
     # Determine identifier type and search over scheduler
     api = __get_api()
-    id = job_number = pattern = None
+    job_id = job_number = None
     try:
-        id = uuid.UUID(identifier)
+        job_id = uuid.UUID(identifier)
     except ValueError:
         pass
 
@@ -361,7 +361,8 @@ def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
     except ValueError:
         pass
 
-    return api.find_job_id(id=id, job_number=job_number, pattern=identifier)
+    # Treat `identifier` as pattern by default (bottom priority when looking up anyway)
+    return api.find_job_id(job_id=job_id, job_number=job_number, pattern=identifier)
 
 
 
