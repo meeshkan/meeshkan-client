@@ -3,11 +3,12 @@ import logging
 from typing import Callable, Any, List, Union, Optional, Dict
 from pathlib import Path
 import uuid
+import time
 import shutil
 import os
 
 
-from .__types__ import NotificationType, NotificationStatus, NotificationWithStatus
+from .__types__ import NotificationType, NotificationStatus, NotificationWithStatusTime
 from ..core.config import JOBS_DIR
 from ..core.job import Job
 from ..__types__ import Payload
@@ -22,24 +23,25 @@ __all__ = []  # type: List[str]
 
 class Notifier(object):
     def __init__(self, name: str = None):
-        self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, List[NotificationWithStatus]]
+        self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, List[NotificationWithStatusTime]]
         self.name = name or self.__class__.__name__
 
-    def __add_to_history(self, job_id: uuid.UUID, notification: NotificationWithStatus):
+    def __add_to_history(self, job_id: uuid.UUID, notification: NotificationWithStatusTime):
+        """Adds given notification (with status) to the notifiers job history."""
         self._notification_history_by_job.setdefault(job_id, list()).append(notification)
 
-    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatus]]:
-        res = {self.name: list()}  # type: Dict[str, List[NotificationWithStatus]]
+    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatusTime]]:
+        res = {self.name: list()}  # type: Dict[str, List[NotificationWithStatusTime]]
         if job_id in self._notification_history_by_job:
             res[self.name] = self._notification_history_by_job[job_id]
         return res
 
-    def get_last_notification_status(self, job_id: uuid.UUID) -> Dict[str, Optional[NotificationWithStatus]]:
+    def get_last_notification_status(self, job_id: uuid.UUID) -> Dict[str, Optional[NotificationWithStatusTime]]:
         """Returns the last notifications for this notifier and it's status.
 
         :returns Last notification with status for given job id, or None if no information for given job exists.
         """
-        res = {self.name: None}  # type: Dict[str, Optional[NotificationWithStatus]]
+        res = {self.name: None}  # type: Dict[str, Optional[NotificationWithStatusTime]]
         job_notifications = self.get_notification_history(job_id)[self.name]
         if job_notifications:
             res[self.name] = job_notifications[-1]
@@ -48,23 +50,29 @@ class Notifier(object):
     def notify_job_start(self, job: Job) -> None:
         try:
             self._notify_job_start(job)
-            self.__add_to_history(job.id, (NotificationType.JOB_START, NotificationStatus.SUCCESS))
+            notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.SUCCESS)
+            self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
-            self.__add_to_history(job.id, (NotificationType.JOB_START, NotificationStatus.FAILED))
+            notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.FAILED)
+            self.__add_to_history(job.id, notification)
 
     def notify_job_end(self, job: Job) -> None:
         try:
             self._notify_job_end(job)
-            self.__add_to_history(job.id, (NotificationType.JOB_END, NotificationStatus.SUCCESS))
+            notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
+            self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
-            self.__add_to_history(job.id, (NotificationType.JOB_END, NotificationStatus.FAILED))
+            notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
+            self.__add_to_history(job.id, notification)
 
     def notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         try:
             self._notify(job, image_path, n_iterations, iterations_unit)
-            self.__add_to_history(job.id, (NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS))
+            notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS)
+            self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
-            self.__add_to_history(job.id, (NotificationType.JOB_UPDATE, NotificationStatus.FAILED))
+            notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.FAILED)
+            self.__add_to_history(job.id, notification)
 
     # Functions inhereting classes must implement
 
@@ -186,14 +194,14 @@ class NotifierCollection(Notifier):
 
     # Methods to handle job notification history
 
-    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatus]]:
+    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[NotificationWithStatusTime]]:
         """Returns the notification history for given job"""
         history = dict()
         for notifier in self._notifiers:
             history.update(notifier.get_notification_history(job_id))
         return history
 
-    def get_last_notification_status(self, job_id: uuid.UUID) -> Dict[str, Optional[NotificationWithStatus]]:
+    def get_last_notification_status(self, job_id: uuid.UUID) -> Dict[str, Optional[NotificationWithStatusTime]]:
         history = dict()
         for notifier in self._notifiers:
             history.update(notifier.get_last_notification_status(job_id))

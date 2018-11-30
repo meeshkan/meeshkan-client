@@ -12,9 +12,11 @@ import tarfile
 import shutil
 import tempfile
 import os
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 from distutils.version import StrictVersion
 import random
+import uuid
+from pathlib import Path
 
 import click
 import dill
@@ -247,9 +249,48 @@ def list_jobs():
     if not jobs:
         print('No jobs submitted yet.')
         return
-    keys = jobs[0].keys()
-    table_values = [[job[key] for key in keys] for job in jobs]
-    print(tabulate.tabulate(table_values, headers=keys))
+    # keys = jobs[0].keys()
+    # table_values = [[job[key] for key in keys] for job in jobs]
+    print(tabulate.tabulate(jobs, headers="keys", tablefmt="fancy_grid"))
+
+
+@cli.command()
+@click.argument("job_identifier")
+def logs(job_identifier):
+    """Retrieves the logs for a given job. job_identifier can be UUID, job number of pattern for job name.
+    First job name that matches is accessed (allows patterns)."""
+    api = __get_api()
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    print("Output for", api.get_job(job_id))
+    output_path, stderr_file, stdout_file = api.get_job_output(job_id)
+    for location in [stdout_file, stderr_file]:
+        print(location.name, "\n==============================================\n")
+        try:
+            with location.open("r") as file_input:
+                print(file_input.read())
+        except FileNotFoundError:  # File has not yet been created, continue silently
+            continue
+    print("Job output folder:", output_path, "\n")
+
+
+@cli.command()
+@click.argument("job_identifier")
+def notifications(job_identifier):
+    """Retrieves notification history for a given job. job_identifier can be UUID, job number of pattern for job name.
+    First job name that matches is accessed (allows patterns)."""
+    api = __get_api()
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    notification_history = api.get_notification_history(job_id)
+    print("Notifications for", api.get_job(job_id))
+    # Create index list based on longest history available
+    row_ids = range(1, max([len(history) for history in notification_history.values()])+1)
+    print(tabulate.tabulate(notification_history, headers="keys", showindex=row_ids, tablefmt="fancy_grid"))
 
 
 @cli.command()
@@ -304,6 +345,32 @@ def im_bored():
     author = os.path.splitext(os.path.basename(source))[0].capitalize()  # Create "Author"
     res = requests.get(source).text.split('\n')  # Get the document and split per line
     print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))  # Choose line at random
+
+
+def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
+    """Finds a job by accessing UUID, job numbers and job names.
+    Returns the actual job-id if matching. Otherwise returns None.
+    """
+    # Determine identifier type and search over scheduler
+    api = __get_api()
+    job_id = job_number = None
+    try:
+        job_id = uuid.UUID(identifier)
+    except ValueError:
+        pass
+
+    try:
+        job_number = int(identifier)
+        if job_number < 1:  # Only accept valid job numbers.
+            job_number = None
+    except ValueError:
+        pass
+
+    # Treat `identifier` as pattern by default (bottom priority when looking up anyway)
+    return api.find_job_id(job_id=job_id, job_number=job_number, pattern=identifier)
+
+
+
 
 
 if __name__ == '__main__':

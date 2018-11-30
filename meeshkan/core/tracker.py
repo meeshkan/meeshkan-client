@@ -71,8 +71,6 @@ class TrackerBase(object):
         :return Absolute path to generated image if the image was generated, otherwise null
         """
         # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
-        logger = logging.getLogger('matplotlib')
-        logger.setLevel(logging.WARNING)  # reduce logging for Matplotlib
         import matplotlib  # TODO - switch to a different backend (macosx?) or different module for plots (ggplot?)
         if sys.platform == 'darwin':  # MacOS fix - try setting explicit backend, see
             #  https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
