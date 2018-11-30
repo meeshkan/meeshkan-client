@@ -13,3 +13,5 @@ class NotificationType(Enum):
 
 # Keys are class names of different Notifiers
 NotificationWithStatus = Tuple[NotificationType, NotificationStatus]
+# Adds a string to the above tuple to allow for additional identifier (e.g. time/date)
+NotificationWithStatusTime = Tuple[str, NotificationType, NotificationStatus]

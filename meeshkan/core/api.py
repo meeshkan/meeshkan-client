@@ -1,4 +1,4 @@
-from typing import Callable, Any, Tuple, Union, List, Optional
+from typing import Callable, Any, Tuple, Union, List, Optional, Dict
 import logging
 import uuid
 from pathlib import Path
@@ -50,7 +50,7 @@ class Api(object):
             res_list = []
             for notifier, result in results.items():
                 if result is not None:
-                    notification, status = result
+                    _, notification, status = result
                     res_list.append("{notifier}: {notification} ({result})".format(notification=notification,
                                                                                    notifier=notifier,
                                                                                    result=status.name))
@@ -69,8 +69,18 @@ class Api(object):
     # Exposed methods
 
     @Pyro4.expose
-    def get_notification_history(self, job_id: uuid.UUID):
-        pass
+    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[str]]:
+        """Returns the entire notification history for a given job ID"""
+        notification_history = self.notifier.get_notification_history(job_id)
+        # Normalize the data to human-readable format
+        new_table_history = dict()  # type: Dict[str, List[str]]
+        for notifier_name, notifier_history in notification_history.items():
+            formatted_history = list()
+            for (time, notif_type, notif_status) in notifier_history:
+                formatted_history.append("[{time}] {type}: {status}".format(time=time, type=notif_type.name,
+                                                                            status=notif_status.name))
+            new_table_history[notifier_name] = formatted_history
+        return new_table_history
 
     @Pyro4.expose
     def find_job_id(self, id: uuid.UUID = None, job_number: int = None, pattern: str = None) -> Optional[uuid.UUID]:

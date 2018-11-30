@@ -249,9 +249,9 @@ def list_jobs():
     if not jobs:
         print('No jobs submitted yet.')
         return
-    keys = jobs[0].keys()
-    table_values = [[job[key] for key in keys] for job in jobs]
-    print(tabulate.tabulate(table_values, headers=keys))
+    # keys = jobs[0].keys()
+    # table_values = [[job[key] for key in keys] for job in jobs]
+    print(tabulate.tabulate(jobs, headers="keys", tablefmt="fancy_grid"))
 
 
 @cli.command()
@@ -264,7 +264,6 @@ def logs(job_identifier):
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
-    # Get relevant job output files and folders and sort so that files come first (for printing)
     output_path, stderr_file, stdout_file = api.get_job_output(job_id)
     for location in [stdout_file, stderr_file]:
         print(location.name, "\n==============================================\n")
@@ -278,7 +277,15 @@ def logs(job_identifier):
 def notifications(job_identifier):
     """Retrieves notification history for a given job. job_identifier can be UUID, job number of pattern for job name.
     First job name that matches is accessed (allows patterns)."""
-    pass
+    api = __get_api()
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    notification_history = api.get_notification_history(job_id)
+    # Create index list based on longest history available
+    row_ids = range(1, max([len(history) for history in notification_history.values()])+1)
+    print(tabulate.tabulate(notification_history, headers="keys", showindex=row_ids, tablefmt="fancy_grid"))
 
 
 @cli.command()

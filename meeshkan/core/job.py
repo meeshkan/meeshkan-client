@@ -125,6 +125,17 @@ class ProcessExecutable(Executable):
     def __str__(self):
         return ' '.join(self.args)
 
+    def __repr__(self):
+        """Formats arguments by truncating filenames and paths if available to '...'.
+        Example: /usr/bin/python3 /some/path/to/a/file/to/run.py -> ...python3 ...run.py"""
+        truncated_args = list()
+        for arg in self.args:
+            if os.path.exists(arg):
+                truncated_args.append("...{arg}".format(arg=os.path.basename(arg)))
+            else:
+                truncated_args.append(arg)
+        return ' '.join(truncated_args)
+
 
 class Job(object):
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
@@ -209,11 +220,11 @@ class Job(object):
             self.status = JobStatus.CANCELLED_BY_USER  # Safe to modify as worker has not started
 
     def to_dict(self):
-        return {'id': str(self.id),
-                'number': self.number,
+        return {'number': self.number,
+                'id': str(self.id),
                 'name': self.name,
                 'status': self.status.name,
-                'args': str(self.executable)}
+                'args': repr(self.executable)}
 
     @staticmethod
     def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
