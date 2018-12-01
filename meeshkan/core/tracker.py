@@ -9,7 +9,6 @@ import logging
 import sys
 import asyncio
 
-from .job import Job
 from ..__types__ import HistoryByScalar
 from ..exceptions import TrackedScalarNotFoundException
 
@@ -27,20 +26,19 @@ __all__ = []  # type: List[str]
 
 
 class TrackingPoller(object):
-    DEF_POLLING_INTERVAL = 3600  # Default is notifications every hour.
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._notify = notify_function
 
-    async def poll(self, job: Job):
+    async def poll(self, job_id, poll_time: float):
         """Asynchronous polling function for scalars in given job"""
-        LOGGER.debug("Starting job tracking for job %s", job)
-        sleep_time = job.poll_time or TrackingPoller.DEF_POLLING_INTERVAL
+        LOGGER.debug("Starting job tracking for job %s", job_id)
+        sleep_time = poll_time
         try:
             while True:
                 await asyncio.sleep(sleep_time)  # Let other tasks run meanwhile
-                self._notify(job.id)  # Synchronously notify of changes.
+                self._notify(job_id)  # Synchronously notify of changes.
         except asyncio.CancelledError:
-            LOGGER.debug("Job tracking cancelled for job %s", job.id)
+            LOGGER.debug("Job tracking cancelled for job %s", job_id)
 
 
 class TrackerBase(object):

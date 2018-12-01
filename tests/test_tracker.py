@@ -10,6 +10,7 @@ from meeshkan.core.tracker import TrackerBase, TrackingPoller
 from meeshkan.core.job import Job
 import meeshkan.exceptions
 
+
 def test_tracker_history():
     tb = TrackerBase()
     tracked_value = 0
@@ -55,6 +56,7 @@ def test_get_updates_with_image():
     assert history[1] == 2
     assert os.path.isfile(fname)
     os.remove(fname)
+
 
 def test_get_latest_updates():
     tb = TrackerBase()
@@ -124,7 +126,7 @@ async def test_tracker_polling():
 
     t_start = time.time()
     event_loop = asyncio.get_event_loop()
-    task = event_loop.create_task(tp.poll(fake_job))
+    task = event_loop.create_task(tp.poll(fake_job, fake_job.poll_time))
     await task  # Wait for the task.cancel(), otherwise it would run indefinitely
     assert counter == 2
     tot_time = time.time() - t_start

@@ -154,6 +154,11 @@ class Api(object):
         self.scheduler.report_scalar(pid, name, val)
 
     @Pyro4.expose
+    def condition(self, pid, vals, condition):
+        """Sets a condition for notifications"""
+
+
+    @Pyro4.expose
     def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[HistoryByScalar, Optional[str]]:
         if not isinstance(job_id, uuid.UUID):
             job_id = uuid.UUID(job_id)

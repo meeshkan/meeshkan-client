@@ -80,7 +80,6 @@ class Scheduler(object):
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
-        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]  # TODO: Refactor into Job/TrackingPoller?
         self._job_poller = TrackingPoller(self.__query_and_report)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
         self._notifier = notifier  # type: Optional[Notifier]
@@ -108,10 +107,9 @@ class Scheduler(object):
         LOGGER.debug("Handling job: %s", job)
         if job.stale:
             return
-
         self._running_job = job
         # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
-        task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
+        task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))  # type: asyncio.Task
         if self._notifier:
             self._notifier.notify_job_start(job)
         try:
@@ -128,7 +126,6 @@ class Scheduler(object):
 
     def submit_job(self, job: Job):
         job.status = JobStatus.QUEUED
-        self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
         self._job_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
@@ -147,10 +144,13 @@ class Scheduler(object):
         if not job_id:
             raise JobNotFoundException(job_id=str(pid))
         job_id = job_id[0]
-        self._history_by_job[job_id].add_tracked(val_name=name, value=val)
+        self.submitted_jobs[job_id].scalar_history.add_tracked(val_name=name, value=val)
 
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
-        return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
+        job_id = self.submitted_jobs.get(job_id)
+        if not job_id:
+            raise JobNotFoundException(job_id=str(job_id))
+        return self.submitted_jobs[job_id].scalar_history.get_updates(name=name, plot=plot, latest=latest_only)
 
     def __query_and_report(self, job_id: uuid.UUID):
         if self._notifier:
