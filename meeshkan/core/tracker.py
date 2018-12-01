@@ -1,7 +1,7 @@
 """Module to enable remote querying of python processeses from outside the current process."""
 import os
 from numbers import Number
-from typing import Union, List, Dict, Tuple, Optional, Callable, Any
+from typing import Union, List, Dict, Tuple, Optional, Callable, Any, Sequence
 from pathlib import Path
 import time
 import uuid
@@ -44,18 +44,18 @@ class TrackingPoller(object):
 
 
 class TrackerCondition(object):
-    DEF_COOLDOWN_PERIOD = 10  # 30 seconds interval default cooldown period
-    def __init__(self, *value_names: Tuple[str, ...], condition: Callable[[List[str]], bool], title: str,
-                 default_value = None, cooldown_period: int = None):
+    DEF_COOLDOWN_PERIOD = 30  # 30 seconds interval default cooldown period
+    def __init__(self, *value_names: Sequence[str], condition: Callable[[List[str]], bool], title: str,
+                 default_value=None, cooldown_period: int = None):
         if len(value_names) != len(inspect.signature(condition).parameters):
             raise RuntimeError("Number of arguments for condition {func} does not"
-                               "match given number of arguments {vals}!".format(func=condition, vals=vals))
-        self.names = value_names
+                               "match given number of arguments {vals}!".format(func=condition, vals=value_names))
+        self.names = list(*value_names)  # Unpacked for MyPy...
         self.condition = condition
         self.title = title or str(condition)
         self.default = default_value
         self.cooldown_period = cooldown_period or TrackerCondition.DEF_COOLDOWN_PERIOD
-        self.last_time_condition_met = 0  # The last time condition() returned True
+        self.last_time_condition_met = 0.0  # The last time condition() returned True
 
     def __contains__(self, val_name: str):
         return val_name in self.names
@@ -88,7 +88,7 @@ class TrackerBase(object):
         self._last_index = dict()  # type: Dict[str, int]
         self._conditions = list()  # type: List[TrackerCondition]
 
-    def add_tracked(self, val_name: str, value: Number) -> Optional[TrackerCondition]:
+    def add_tracked(self, val_name: str, value: float) -> Optional[TrackerCondition]:
         # Add/create to dictionaries
         self._history_by_scalar.setdefault(val_name, list()).append(value)
         self._last_index.setdefault(val_name, -1)  # Initial index
@@ -167,7 +167,7 @@ class TrackerBase(object):
             raise TrackedScalarNotFoundException(name=name)
 
         if name:
-            data = {value_: value for value_, value in self._history_by_scalar.items() if value_name == name}
+            data = {value_name: value for value_name, value in self._history_by_scalar.items() if value_name == name}
         else:
             data = dict(self._history_by_scalar)  # Create a copy
 
