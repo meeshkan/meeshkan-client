@@ -138,27 +138,40 @@ class Scheduler(object):
 
     # Tracking methods
 
-    def report_scalar(self, pid, name, val):
-        # Find the right job id
+    def __get_job_by_pid(self, pid):
         job_id = [job.id for job in self.jobs if job.pid == pid]
         if not job_id:
             raise JobNotFoundException(job_id=str(pid))
-        job_id = job_id[0]
-        self.submitted_jobs[job_id].scalar_history.add_tracked(val_name=name, value=val)
+        return job_id[0]
+
+    def condition(self, pid, *vals, condition):
+        job_id = self.__get_job_by_pid(pid)
+        self.submitted_jobs[job_id].add_condition(*vals, condition=condition)
+
+    def report_scalar(self, pid, name, val):
+        # Find the right job id
+        job_id = self.__get_job_by_pid(pid)
+        condition = self.submitted_jobs[job_id].add_scalar_to_history(scalar_name=name, scalar_value=val)
+        if condition and self._notifier:
+            # TODO - we can add the condition that triggered the notification...
+            vals, imgpath = self.query_scalars(job_id, latest_only=False, plot=True)
+            self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+            if imgpath is not None:
+                os.remove(imgpath)
 
     def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
-        job_id = self.submitted_jobs.get(job_id)
-        if not job_id:
+        job = self.submitted_jobs.get(job_id)
+        if not job:
             raise JobNotFoundException(job_id=str(job_id))
-        return self.submitted_jobs[job_id].scalar_history.get_updates(name=name, plot=plot, latest=latest_only)
+        return job.get_updates(name=name, plot=plot, latest=latest_only)
 
     def __query_and_report(self, job_id: uuid.UUID):
         if self._notifier:
             # Get updates; TODO - vals should be reported once we update schema...
-            # pylint: disable=unused-variable
             vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
-            if vals and imgpath is not None:  # Only send updates if there exists any updates and a valid imgpath
+            if vals:  # Only send updates if there exists any updates
                 self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+            if imgpath is not None:
                 os.remove(imgpath)
 
     # Scheduler service methods

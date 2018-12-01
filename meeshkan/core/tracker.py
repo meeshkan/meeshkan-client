@@ -8,6 +8,7 @@ import tempfile
 import logging
 import sys
 import asyncio
+import inspect
 
 from ..__types__ import HistoryByScalar
 from ..exceptions import TrackedScalarNotFoundException
@@ -41,6 +42,39 @@ class TrackingPoller(object):
             LOGGER.debug("Job tracking cancelled for job %s", job_id)
 
 
+class TrackerCondition(object):
+    def __init__(self, *value_names: Tuple[str, ...], condition: Callable[[List[str]], bool], title: str,
+                 default_value = None):
+        if len(value_names) != len(inspect.signature(condition).parameters):
+            raise RuntimeError("Number of arguments for condition {func} does not"
+                               "match given number of arguments {vals}!".format(func=condition, vals=vals))
+        self.names = value_names
+        self.condition = condition
+        self.title = title or str(condition)
+        self.default = default_value
+        # TODO - cooldown period?
+
+    def __contains__(self, val_name: str):
+        return val_name in self.names
+
+    def __len__(self):
+        return len(self.names)
+
+    def __call__(self, *args, **kwargs) -> bool:
+        # match args/kwargs to given names
+        if kwargs:
+            vals = [kwargs.get(name, self.default) for name in self.names]
+        elif args:
+            if len(args) <= len(self.names):  # Add default values as needed
+                vals = args + [self.default] * abs(len(args) - len(self.names))
+            else:  # Truncate values as needed
+                vals = args[:len(self.names)]
+        else:
+            vals = [self.default] * len(self.names)
+        return self.condition(*vals)
+
+
+
 class TrackerBase(object):
     DEF_IMG_EXT = "png"
     """Defines common API for Tracker objects"""
@@ -49,15 +83,27 @@ class TrackerBase(object):
         self._history_by_scalar = dict()  # type: HistoryByScalar
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
+        self._conditions = list()  # type: List[TrackerCondition]
 
-    def add_tracked(self, val_name: str, value: Union[Number, List[Number]]) -> None:
-        if isinstance(value, Number):
-            value = [value]
-        if val_name not in self._history_by_scalar:
-            self._history_by_scalar[val_name] = value
-            self._last_index[val_name] = -1  # Marks initial index
-        else:
-            self._history_by_scalar[val_name] += value
+    def add_tracked(self, val_name: str, value: Number) -> Optional[TrackerCondition]:
+        # Add/create to dictionaries
+        self._history_by_scalar.setdefault(val_name, list()).append(value)
+        self._last_index.setdefault(val_name, -1)  # Initial index
+        # Verify with conditions
+        for condition in self._conditions:
+            if val_name in condition:  # Condition is relevant for this scalar
+                existing_values = [name for name in condition.names if name in self._history_by_scalar]
+                kwargs = {name: self._history_by_scalar[name][-1] for name in existing_values}
+                if condition(**kwargs):
+                    return condition
+        return None
+
+    def add_condition(self, *vals, condition: Callable[[List[Any]], bool], title: str = "", default_value=None):
+        """Adds a condition for this tracker. Once a condition is met, it is reported immediately.
+        If a variable listed in vals does not exist, the default value (or None) will be sent instead. """
+        self._conditions.append(TrackerCondition(*vals, condition=condition, title=title, default_value=default_value))
+
+
 
     @staticmethod
     def generate_image(history: HistoryByScalar, output_path: Union[str, Path], title=None) -> Optional[str]:
@@ -113,10 +159,7 @@ class TrackerBase(object):
             raise TrackedScalarNotFoundException(name=name)
 
         if name:
-            data = dict()  # type: HistoryByScalar
-            for scalar_name, value_list in self._history_by_scalar.items():
-                if scalar_name == name:
-                    data[scalar_name] = value_list
+            data = {value_: value for value_, value in self._history_by_scalar.items() if value_name == name}
         else:
             data = dict(self._history_by_scalar)  # Create a copy
 

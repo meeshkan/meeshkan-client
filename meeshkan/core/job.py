@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional, List, Union
+from typing import Tuple, Optional, List, Union, Callable, Any
 import uuid
 import datetime
 import os
@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from .config import JOBS_DIR
-from .tracker import TrackerBase
+from .tracker import TrackerBase, TrackerCondition
 
 LOGGER = logging.getLogger(__name__)
 
@@ -218,6 +218,19 @@ class Job(object):
     def __str__(self):
         return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
                                                                         id=self.id, status=self.status.name)
+
+    def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
+        return self.scalar_history.add_tracked(scalar_name, scalar_value)
+
+    def add_condition(self, *val_names, condition: Callable[[List[Any]], bool]):
+        self.scalar_history.add_condition(*val_names, condition=condition)
+
+    def get_updates(self, name, plot, latest):
+        """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
+        If latest == True, returns only latest updates, otherwise returns entire history.
+        """
+        # Delegate to HistoryTracker
+        return self.scalar_history.get_updates(name, plot, latest)
 
     def cancel(self):
         """

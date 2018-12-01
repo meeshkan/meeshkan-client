@@ -37,7 +37,7 @@ def report_scalar(val_name, value, *vals, condition=None) -> bool:
     return True
 
 
-def condition(*vals, condition) -> bool:
+def condition(*vals, condition):
     """Sets a condition to send notification for given values
 
     :param vals: A list of value names to monitor
@@ -45,6 +45,7 @@ def condition(*vals, condition) -> bool:
         condition has been met.
     """
     import os  # pylint: disable=redefined-outer-name
+    import dill
     from .core.service import Service  # pylint: disable=redefined-outer-name
 
     if not vals:
@@ -53,6 +54,6 @@ def condition(*vals, condition) -> bool:
     pid = os.getpid()
     # TODO - fill in the gap
     # TODO - probably includes moving Scalar History to Job, querying from the Job itself, etc.
-    # with Service().api as proxy:
-        # proxy.condition(pid, vals, condition)
-    return True
+    with Service().api as proxy:
+        # Uses old encoding, see https://stackoverflow.com/a/27527728/4133131
+        proxy.condition(pid, dill.dumps(condition).decode('cp437'), *vals)
