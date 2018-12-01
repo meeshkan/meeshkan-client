@@ -3,6 +3,7 @@ import os
 from numbers import Number
 from typing import Union, List, Dict, Tuple, Optional, Callable, Any
 from pathlib import Path
+import time
 import uuid
 import tempfile
 import logging
@@ -43,8 +44,9 @@ class TrackingPoller(object):
 
 
 class TrackerCondition(object):
+    DEF_COOLDOWN_PERIOD = 10  # 30 seconds interval default cooldown period
     def __init__(self, *value_names: Tuple[str, ...], condition: Callable[[List[str]], bool], title: str,
-                 default_value = None):
+                 default_value = None, cooldown_period: int = None):
         if len(value_names) != len(inspect.signature(condition).parameters):
             raise RuntimeError("Number of arguments for condition {func} does not"
                                "match given number of arguments {vals}!".format(func=condition, vals=vals))
@@ -52,7 +54,8 @@ class TrackerCondition(object):
         self.condition = condition
         self.title = title or str(condition)
         self.default = default_value
-        # TODO - cooldown period?
+        self.cooldown_period = cooldown_period or TrackerCondition.DEF_COOLDOWN_PERIOD
+        self.last_time_condition_met = 0  # The last time condition() returned True
 
     def __contains__(self, val_name: str):
         return val_name in self.names
@@ -60,19 +63,19 @@ class TrackerCondition(object):
     def __len__(self):
         return len(self.names)
 
-    def __call__(self, *args, **kwargs) -> bool:
+    def __call__(self, **kwargs) -> bool:
         # match args/kwargs to given names
         if kwargs:
             vals = [kwargs.get(name, self.default) for name in self.names]
-        elif args:
-            if len(args) <= len(self.names):  # Add default values as needed
-                vals = args + [self.default] * abs(len(args) - len(self.names))
-            else:  # Truncate values as needed
-                vals = args[:len(self.names)]
         else:
             vals = [self.default] * len(self.names)
-        return self.condition(*vals)
 
+        condition_result = self.condition(*vals)
+        has_enough_time_passed = (time.monotonic() - self.last_time_condition_met) >= self.cooldown_period
+        result = condition_result and has_enough_time_passed
+        if result:
+            self.last_time_condition_met = time.monotonic()
+        return result
 
 
 class TrackerBase(object):
@@ -115,7 +118,8 @@ class TrackerBase(object):
         :return Absolute path to generated image if the image was generated, otherwise null
         """
         # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
-        import matplotlib  # TODO - switch to a different backend (macosx?) or different module for plots (ggplot?)
+        import matplotlib
+        matplotlib.use('svg')  # TODO - check if this solves for MacOSX as well?
         if sys.platform == 'darwin':  # MacOS fix - try setting explicit backend, see
             #  https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
             matplotlib.use("TkAgg")
@@ -124,9 +128,13 @@ class TrackerBase(object):
         has_plotted = False
         plt.clf()  # Clear figure
         for tag, vals in history.items():  # All all scalar values to plot
-            if len(vals) > 1:  # Only bother plotting values with at least 2 data points (a line in space!)
+            if vals:  # Some values exist
                 has_plotted = True
-                plt.plot(vals, label=tag)
+                if len(vals) > 1:
+                    plt.plot(vals, label=tag)
+                else:  # scatter=plot the single point on x=0 :shrug:
+                    plt.scatter(0, vals, label=tag)
+
         if has_plotted:
             plt.legend(loc='upper right')
             if title is not None:  # Title if given
