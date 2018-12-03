@@ -1,11 +1,11 @@
 # Meeshkan client
 
 ## Getting started
-Sign up at [app.meeshkan.com](https://app.meeshkan.com) and get your token.
-You can either run `meeshkan setup` to set things up, or manually add the **folder** `.meeshkan` in your home directory and, inside the folder, add a **file** named `credentials` with the following format:
+Sign up at [app.meeshkan.com](https://app.meeshkan.com) and you will get your _client secret_ via email.
+You can then either run `meeshkan setup` to set things up, or manually add the **folder** `.meeshkan` in your home directory and, inside the folder, add a **file** named `credentials` with the following format:
 ```ini
 [meeshkan]
-token=my-token
+token=my-client-secret
 ```
 
 ## Installation
