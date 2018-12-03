@@ -53,7 +53,7 @@ You should get the message `Service is up and running`.
 ### Submit a Python script for execution
 Submit the example script [hello_world.py](./examples/hello_world.py) for execution:
 ```bash
-meeshkan submit [--name job_name] examples/train.py
+meeshkan submit [--name job_name] examples/hello_world.py
 ```
 
 ### List submitted jobs
