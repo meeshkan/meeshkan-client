@@ -2,7 +2,7 @@
 
 ## Getting started
 Sign up at [app.meeshkan.com](https://app.meeshkan.com) and you will get your _client secret_ via email.
-You can then either run `meeshkan setup` to set things up, or manually add the **folder** `.meeshkan` in your home directory and, inside the folder, add a **file** named `credentials` with the following format:
+Install the client in your Python environment with `pip install meeshkan`. You can then either run `meeshkan setup` to set things up, or manually add the **folder** `.meeshkan` in your home directory and, inside the folder, add a **file** named `credentials` with the following format:
 ```ini
 [meeshkan]
 token=my-client-secret
@@ -92,7 +92,7 @@ meeshkan submit --poll 10 examples/report.py
 
 ### PyTorch
 See [examples/pytorch_mnist.py](./examples/pytorch_mnist.py) for an example script. To run the script,
-first ensure that [PyTorch]() is installed in your Python environment. Then submit the example as
+first ensure that [PyTorch](https://pytorch.org/) is installed in your Python environment. Then submit the example as
  ```bash
 meeshkan submit --poll 10 examples/pytorch_mnist.py
 ```
