@@ -174,9 +174,9 @@ def setup():
         if res and res.lower() != "y":  # Any response other than empty or "Y"/"y"
             print("Aborting")
             sys.exit(2)
-    token = input("Please enter your refresh token: ")
+    token = input("Please enter your client secret: ")
     meeshkan.config.Credentials.to_isi(refresh_token=token)
-
+    print("You're all set up! Now run \"meeshkan start\" to start the service.")
 
 @cli.command()
 def start():
