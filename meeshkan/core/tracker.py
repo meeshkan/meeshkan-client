@@ -47,6 +47,17 @@ class TrackerCondition(object):
     DEF_COOLDOWN_PERIOD = 30  # 30 seconds interval default cooldown period
     def __init__(self, *value_names: str, condition: Callable[[float], bool], title: str,
                  default_value=1, cooldown_period: int = None, only_relevant: bool = False):
+        """
+        Initializes a new condition for tracking
+        :param value_names: List of scalar names (strings)
+        :param condition: A callable that accepts as many values as the length of value_names
+        :param title: An optional title for this condition to be reported with the notification
+        :param default_value: A default value to use when scalar values are missing (default is 1)
+        :param cooldown_period: A cooldown interval (in seconds) from last notification, to prevent spamming when the
+            condition is met (default is 30 seconds)
+        :param only_relevant: A boolean flag to represent whether when this condition is met, only values relevant to
+            this condition should be reported (default is False, i.e. report all scalars for relevant job)
+        """
         if len(value_names) != len(inspect.signature(condition).parameters):
             raise RuntimeError("Number of arguments for condition {func} does not"
                                "match given number of arguments {vals}!".format(func=condition, vals=value_names))

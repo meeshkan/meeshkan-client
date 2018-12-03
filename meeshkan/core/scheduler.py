@@ -109,9 +109,10 @@ class Scheduler(object):
             return
         self._running_job = job
 
-        if job.poll_time > 0:
+        task = None  # type: Optional[asyncio.Task]
+        if job.poll_time:
             # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
-            task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))  # type: asyncio.Task
+            task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))
         if self._notifier:
             self._notifier.notify_job_start(job)
         try:
@@ -119,7 +120,7 @@ class Scheduler(object):
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
         finally:
-            if job.poll_time > 0:
+            if task:
                 task.cancel()
 
         if self._notifier:
@@ -147,7 +148,15 @@ class Scheduler(object):
             raise JobNotFoundException(job_id=str(pid))
         return job_id[0]
 
-    def add_condition(self, pid, *vals, condition, only_relevant):
+    def add_condition(self, pid: int, *vals: str, condition: Callable[[float], bool], only_relevant: bool):
+        """Adds a new condition for a job that matches the given process id.
+        :param pid: process id
+        :param vals: list of scalar names (strings)
+        :param condition: a callable that accepts as many values as vals, and returns a boolean whether a condition has
+            been met
+        :param only_relevant: a boolean, whether or not only the values relevant to the condition should be plotted when
+            this condition is met
+        """
         job_id = self.__get_job_by_pid(pid)
         self.submitted_jobs[job_id].add_condition(*vals, condition=condition, only_relevant=only_relevant)
 

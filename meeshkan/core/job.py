@@ -159,7 +159,7 @@ class Job(object):
         self.status = JobStatus.CREATED
         self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
-        self.poll_time = poll_interval or Job.DEF_POLLING_INTERVAL
+        self.poll_time = poll_interval
 
     # Properties
 

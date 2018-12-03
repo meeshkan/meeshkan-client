@@ -30,6 +30,7 @@ from .core.cloud import CloudClient
 from .core.cloud import TokenStore
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
+from .core.job import Job
 
 LOGGER = None
 
@@ -228,10 +229,9 @@ def report(job_identifier):
 @cli.command()
 @click.argument('args', nargs=-1)
 @click.option("--name", type=str)
-@click.option("--report-interval", "-r", type=int, help="Number of seconds between each report for this job. Set to -1"
-                                                        " for no reports (equivalent to calling with `--no-poll`")
-@click.option("--no-poll", "-n", is_flag=True, help="Cancels report interval for this job")
-def submit(args, name, report_interval, no_poll):
+@click.option("--report-interval", "-r", type=int, help="Number of seconds between each report for this job.",
+              default=Job.DEF_POLLING_INTERVAL, show_default=True)
+def submit(args, name, report_interval):
     """Submits a new job to the service daemon."""
     if not args:
         print("CLI error: Specify job.")
@@ -240,7 +240,6 @@ def submit(args, name, report_interval, no_poll):
     api = __get_api()  # type: Api
     cwd = os.getcwd()
     try:
-        report_interval = -1 if no_poll else report_interval
         job = api.submit(args, name=name, poll_interval=report_interval, cwd=cwd)
     except IOError:
         print("Cannot create job from given arguments! Do all files given exist? {command}".format(command=args))
