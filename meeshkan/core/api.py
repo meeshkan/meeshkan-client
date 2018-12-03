@@ -69,6 +69,10 @@ class Api(object):
     # Exposed methods
 
     @Pyro4.expose
+    def cancel_job(self, job_id: uuid.UUID):
+        self.scheduler.stop_job(job_id)
+
+    @Pyro4.expose
     def get_job(self, job_id: uuid.UUID) -> Optional[Job]:
         return self.scheduler.submitted_jobs.get(job_id)
 

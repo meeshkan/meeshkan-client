@@ -86,6 +86,14 @@ Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a patter
 In the latter case, the first match is returned.
 
 
+### Canceling a job
+```bash
+meeshkan cancel JOB_IDENTIFIER
+```
+Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
+In the latter case, the first match is returned.
+
+
 ### Stop service
 ```bash
 meeshkan stop

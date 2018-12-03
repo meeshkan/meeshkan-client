@@ -247,6 +247,18 @@ def submit(args, name, report_interval):
     print("Job {number} submitted successfully with ID {id}.".format(number=job.number, id=job.id))
 
 
+@cli.command(name='cancel')
+@click.argument("job_identifier")
+def cancel_job(job_identifier):
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    api = __get_api()
+    api.cancel_job(job_id)
+    print("Canceled job", api.get_job(job_id))
+
+
 @cli.command()
 def stop():
     """Stops the service daemon."""
