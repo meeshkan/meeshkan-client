@@ -92,6 +92,7 @@ meeshkan cancel JOB_IDENTIFIER
 ```
 Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
 In the latter case, the first match is returned.
+If the job is currently running, you will be prompted to verify you want to abruptly cancel a running job.
 
 
 ### Stop service

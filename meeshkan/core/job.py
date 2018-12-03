@@ -169,6 +169,11 @@ class Job(object):
         return self.status == JobStatus.RUNNING or self.is_processed
 
     @property
+    def is_running(self):
+        """Returns whether or not the job is currently running"""
+        return self.status == JobStatus.RUNNING
+
+    @property
     def is_processed(self):
         return self.status in [JobStatus.CANCELED, JobStatus.FAILED, JobStatus.FINISHED]
 

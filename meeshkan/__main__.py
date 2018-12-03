@@ -222,7 +222,7 @@ def report(job_identifier):
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
-    print("Latest scalar reports for", api.get_job(job_id))
+    print("Latest scalar reports for '{name}'".format(api.get_job(job_id).name))
     print(tabulate.tabulate(api.get_updates(job_id), headers="keys", tablefmt="fancy_grid"))
 
 
@@ -255,8 +255,15 @@ def cancel_job(job_identifier):
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
     api = __get_api()
+    job = api.get_job(job_id)
+    if job.is_running:
+        res = input("Job '{name}' is currently running! "
+                    "Are you sure you want to cancel it? y/[N]: ".format(name=job.name))
+        if not res or res.lower() != "y":  # Any response other than "Y"/"y"
+            print("Aborted")
+            sys.exit(2)
     api.cancel_job(job_id)
-    print("Canceled job", api.get_job(job_id))
+    print("Canceled '{name}'".format(name=api.get_job(job_id).name))
 
 
 @cli.command()
@@ -291,7 +298,7 @@ def logs(job_identifier):
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
-    print("Output for", api.get_job(job_id))
+    print("Output for '{name}'".format(name=api.get_job(job_id).name))
     output_path, stderr_file, stdout_file = api.get_job_output(job_id)
     for location in [stdout_file, stderr_file]:
         print(location.name, "\n==============================================\n")
@@ -314,7 +321,7 @@ def notifications(job_identifier):
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
     notification_history = api.get_notification_history(job_id)
-    print("Notifications for", api.get_job(job_id))
+    print("Notifications for '{name}'".format(api.get_job(job_id).name))
     # Create index list based on longest history available
     row_ids = range(1, max([len(history) for history in notification_history.values()])+1)
     print(tabulate.tabulate(notification_history, headers="keys", showindex=row_ids, tablefmt="fancy_grid"))
@@ -402,9 +409,6 @@ def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
 
     # Treat `identifier` as pattern by default (bottom priority when looking up anyway)
     return api.find_job_id(job_id=job_id, job_number=job_number, pattern=identifier)
-
-
-
 
 
 if __name__ == '__main__':
