@@ -29,6 +29,7 @@ Commands:
   list           Lists the job queue and status for each job.
   logs           Retrieves the logs for a given job.
   notifications  Retrieves notification history for a given job.
+  report         Returns latest scalar from given job identifier
   setup          Configures the Meeshkan client.
   sorry          Send error logs to Meeshkan HQ.
   start          Starts Meeshkan service daemon.
@@ -160,16 +161,6 @@ OR
 meeshkan submit --report-interval 10 examples/pytorch_mnist.py
 ```
 Meeshkan reports the training and test loss values to you every 10 seconds.
-
-If you're using the Meeshkan Python API, you may want to cancel the interval-based notifications when submitting a job.
-```bash
-meeshkan submit -n examples/pytorch_mnist.py
-```
-OR
-```bash
-meeshkan submit --no-poll examples/pytorch_mnist.py
-```
-Meeshkan runs the job and will not send any interval-based notifications.
 
 
 ## Development
