@@ -144,7 +144,7 @@ class Scheduler(object):
             raise JobNotFoundException(job_id=str(pid))
         return job_id[0]
 
-    def condition(self, pid, *vals, condition):
+    def add_condition(self, pid, *vals, condition):
         job_id = self.__get_job_by_pid(pid)
         self.submitted_jobs[job_id].add_condition(*vals, condition=condition)
 

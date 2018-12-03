@@ -10,13 +10,13 @@ __all__ = ["__version__", "exceptions", "report_scalar", "config"]
 del core  # Clean-up (make `meeshkan.core` unavailable)
 
 
-def report_scalar(val_name, value, *vals, cond=None) -> bool:
+def report_scalar(val_name, value, *vals) -> bool:
     """Reports scalars to the meeshkan service API
 
     :param val_name: The name of the scalar to report
     :param value: The value of the scalar
     :param vals: any additional value_name, value to add.
-    :param cond: A callable that accepts all scalars registered in this statement, and return True or False,
+    :param condition: A callable that accepts all scalars registered in this statement, and return True or False,
         indicating whether a notification is required.
     """
     # These imports are defined locally to prevent them from being visible in `help(meeshkan)` etc
@@ -37,11 +37,11 @@ def report_scalar(val_name, value, *vals, cond=None) -> bool:
     return True
 
 
-def condition(*vals, cond):
+def add_condition(*vals, condition):
     """Sets a condition to send notification for given values
 
     :param vals: A list of value names to monitor
-    :param cond: A callable accepting as many arguments as listed values, and returns whether the notification
+    :param condition: A callable accepting as many arguments as listed values, and returns whether the notification
         condition has been met.
     """
     import os  # pylint: disable=redefined-outer-name
@@ -56,4 +56,4 @@ def condition(*vals, cond):
     # TODO - probably includes moving Scalar History to Job, querying from the Job itself, etc.
     with Service().api as proxy:
         # Uses old encoding, see https://stackoverflow.com/a/27527728/4133131
-        proxy.condition(pid, dill.dumps(cond).decode('cp437'), *vals)
+        proxy.add_condition(pid, dill.dumps(condition).decode('cp437'), *vals)

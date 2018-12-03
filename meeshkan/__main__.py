@@ -336,6 +336,13 @@ def clear():
 
 
 @cli.command()
+@click.pass_context
+def clean(ctx):
+    """Alias for `meeshkan clear`"""
+    ctx.invoke(clear)
+
+
+@cli.command()
 def im_bored():
     sources = [r'http://smacie.com/randomizer/family_guy/stewie.txt',
                r'http://smacie.com/randomizer/simpsons/bart.txt',

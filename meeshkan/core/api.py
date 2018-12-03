@@ -155,9 +155,9 @@ class Api(object):
         self.scheduler.report_scalar(pid, name, val)
 
     @Pyro4.expose
-    def condition(self, pid, condition, *vals):
+    def add_condition(self, pid, condition, *vals):
         """Sets a condition for notifications"""
-        self.scheduler.condition(pid, *vals, condition=dill.loads(condition.encode('cp437')))
+        self.scheduler.add_condition(pid, *vals, condition=dill.loads(condition.encode('cp437')))
 
     @Pyro4.expose
     def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[HistoryByScalar, Optional[str]]:

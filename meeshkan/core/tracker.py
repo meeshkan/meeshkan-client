@@ -1,7 +1,7 @@
 """Module to enable remote querying of python processeses from outside the current process."""
 import os
 from numbers import Number
-from typing import Union, List, Dict, Tuple, Optional, Callable, Any, Sequence
+from typing import Union, List, Dict, Tuple, Optional, Callable, Any
 from pathlib import Path
 import time
 import uuid
@@ -45,12 +45,12 @@ class TrackingPoller(object):
 
 class TrackerCondition(object):
     DEF_COOLDOWN_PERIOD = 30  # 30 seconds interval default cooldown period
-    def __init__(self, *value_names: Sequence[str], condition: Callable[[List[str]], bool], title: str,
-                 default_value=None, cooldown_period: int = None):
+    def __init__(self, *value_names: str, condition: Callable[[float], bool], title: str,
+                 default_value=1, cooldown_period: int = None):
         if len(value_names) != len(inspect.signature(condition).parameters):
             raise RuntimeError("Number of arguments for condition {func} does not"
                                "match given number of arguments {vals}!".format(func=condition, vals=value_names))
-        self.names = list(*value_names)  # Unpacked for MyPy...
+        self.names = value_names  # type: Tuple[str, ...]
         self.condition = condition
         self.title = title or str(condition)
         self.default = default_value
@@ -63,10 +63,10 @@ class TrackerCondition(object):
     def __len__(self):
         return len(self.names)
 
-    def __call__(self, **kwargs) -> bool:
+    def __call__(self, **kwargs: float) -> bool:
         # match args/kwargs to given names
         if kwargs:
-            vals = [kwargs.get(name, self.default) for name in self.names]
+            vals = [kwargs.get(name, self.default) for name in self.names]  # type: List[float]
         else:
             vals = [self.default] * len(self.names)
 
@@ -101,9 +101,9 @@ class TrackerBase(object):
                     return condition
         return None
 
-    def add_condition(self, *vals, condition: Callable[[List[Any]], bool], title: str = "", default_value=None):
+    def add_condition(self, *vals, condition: Callable[[float], bool], title: str = "", default_value=1):
         """Adds a condition for this tracker. Once a condition is met, it is reported immediately.
-        If a variable listed in vals does not exist, the default value (or None) will be sent instead. """
+        If a variable listed in vals does not exist, the given default value (or 1 by default) will be sent instead. """
         self._conditions.append(TrackerCondition(*vals, condition=condition, title=title, default_value=default_value))
 
 
