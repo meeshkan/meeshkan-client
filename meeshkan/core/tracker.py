@@ -3,13 +3,14 @@ import os
 from numbers import Number
 from typing import Union, List, Dict, Tuple, Optional, Callable, Any
 from pathlib import Path
+import time
 import uuid
 import tempfile
 import logging
 import sys
 import asyncio
+import inspect
 
-from .job import Job
 from ..__types__ import HistoryByScalar
 from ..exceptions import TrackedScalarNotFoundException
 
@@ -27,20 +28,66 @@ __all__ = []  # type: List[str]
 
 
 class TrackingPoller(object):
-    DEF_POLLING_INTERVAL = 3600  # Default is notifications every hour.
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._notify = notify_function
 
-    async def poll(self, job: Job):
+    async def poll(self, job_id, poll_time: float):
         """Asynchronous polling function for scalars in given job"""
-        LOGGER.debug("Starting job tracking for job %s", job)
-        sleep_time = job.poll_time or TrackingPoller.DEF_POLLING_INTERVAL
+        LOGGER.debug("Starting job tracking for job %s", job_id)
+        sleep_time = poll_time
         try:
             while True:
                 await asyncio.sleep(sleep_time)  # Let other tasks run meanwhile
-                self._notify(job.id)  # Synchronously notify of changes.
+                self._notify(job_id)  # Synchronously notify of changes.
         except asyncio.CancelledError:
-            LOGGER.debug("Job tracking cancelled for job %s", job.id)
+            LOGGER.debug("Job tracking cancelled for job %s", job_id)
+
+
+class TrackerCondition(object):
+    DEF_COOLDOWN_PERIOD = 30  # 30 seconds interval default cooldown period
+    def __init__(self, *value_names: str, condition: Callable[[float], bool], title: str,
+                 default_value=1, cooldown_period: int = None, only_relevant: bool = False):
+        """
+        Initializes a new condition for tracking
+        :param value_names: List of scalar names (strings)
+        :param condition: A callable that accepts as many values as the length of value_names
+        :param title: An optional title for this condition to be reported with the notification
+        :param default_value: A default value to use when scalar values are missing (default is 1)
+        :param cooldown_period: A cooldown interval (in seconds) from last notification, to prevent spamming when the
+            condition is met (default is 30 seconds)
+        :param only_relevant: A boolean flag to represent whether when this condition is met, only values relevant to
+            this condition should be reported (default is False, i.e. report all scalars for relevant job)
+        """
+        if len(value_names) != len(inspect.signature(condition).parameters):
+            raise RuntimeError("Number of arguments for condition {func} does not"
+                               "match given number of arguments {vals}!".format(func=condition, vals=value_names))
+        self.names = value_names  # type: Tuple[str, ...]
+        self.condition = condition
+        self.title = title or str(condition)
+        self.default = default_value
+        self.cooldown_period = cooldown_period or TrackerCondition.DEF_COOLDOWN_PERIOD
+        self.last_time_condition_met = 0.0  # The last time condition() returned True
+        self.only_relevant = only_relevant
+
+    def __contains__(self, val_name: str):
+        return val_name in self.names
+
+    def __len__(self):
+        return len(self.names)
+
+    def __call__(self, **kwargs: float) -> bool:
+        # match args/kwargs to given names
+        if kwargs:
+            vals = [kwargs.get(name, self.default) for name in self.names]  # type: List[float]
+        else:
+            vals = [self.default] * len(self.names)
+
+        condition_result = self.condition(*vals)
+        has_enough_time_passed = (time.monotonic() - self.last_time_condition_met) >= self.cooldown_period
+        result = condition_result and has_enough_time_passed
+        if result:
+            self.last_time_condition_met = time.monotonic()
+        return result
 
 
 class TrackerBase(object):
@@ -51,15 +98,29 @@ class TrackerBase(object):
         self._history_by_scalar = dict()  # type: HistoryByScalar
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
+        self._conditions = list()  # type: List[TrackerCondition]
 
-    def add_tracked(self, val_name: str, value: Union[Number, List[Number]]) -> None:
-        if isinstance(value, Number):
-            value = [value]
-        if val_name not in self._history_by_scalar:
-            self._history_by_scalar[val_name] = value
-            self._last_index[val_name] = -1  # Marks initial index
-        else:
-            self._history_by_scalar[val_name] += value
+    def add_tracked(self, val_name: str, value: float) -> Optional[TrackerCondition]:
+        # Add/create to dictionaries
+        self._history_by_scalar.setdefault(val_name, list()).append(value)
+        self._last_index.setdefault(val_name, -1)  # Initial index
+        # Verify with conditions
+        for condition in self._conditions:
+            if val_name in condition:  # Condition is relevant for this scalar
+                existing_values = [name for name in condition.names if name in self._history_by_scalar]
+                kwargs = {name: self._history_by_scalar[name][-1] for name in existing_values}
+                if condition(**kwargs):
+                    return condition
+        return None
+
+    def add_condition(self, *vals, condition: Callable[[float], bool], title: str = "", default_value=1,
+                      only_relevant: bool):
+        """Adds a condition for this tracker. Once a condition is met, it is reported immediately.
+        If a variable listed in vals does not exist, the given default value (or 1 by default) will be sent instead. """
+        self._conditions.append(TrackerCondition(*vals, condition=condition, title=title, default_value=default_value,
+                                                 only_relevant=only_relevant))
+
+
 
     @staticmethod
     def generate_image(history: HistoryByScalar, output_path: Union[str, Path], title=None) -> Optional[str]:
@@ -71,7 +132,8 @@ class TrackerBase(object):
         :return Absolute path to generated image if the image was generated, otherwise null
         """
         # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
-        import matplotlib  # TODO - switch to a different backend (macosx?) or different module for plots (ggplot?)
+        import matplotlib
+        matplotlib.use('svg')  # TODO - check if this solves for MacOSX as well?
         if sys.platform == 'darwin':  # MacOS fix - try setting explicit backend, see
             #  https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
             matplotlib.use("TkAgg")
@@ -80,9 +142,13 @@ class TrackerBase(object):
         has_plotted = False
         plt.clf()  # Clear figure
         for tag, vals in history.items():  # All all scalar values to plot
-            if len(vals) > 1:  # Only bother plotting values with at least 2 data points (a line in space!)
+            if vals:  # Some values exist
                 has_plotted = True
-                plt.plot(vals, label=tag)
+                if len(vals) > 1:
+                    plt.plot(vals, label=tag)
+                else:  # scatter=plot the single point on x=0 :shrug:
+                    plt.scatter(0, vals, label=tag)
+
         if has_plotted:
             plt.legend(loc='upper right')
             if title is not None:  # Title if given
@@ -94,6 +160,7 @@ class TrackerBase(object):
             return fname
         return None
 
+
     def _update_access(self, name: str = ""):
         if name:
             if name in self._history_by_scalar:
@@ -102,28 +169,31 @@ class TrackerBase(object):
             for val_name, vals, in self._history_by_scalar.items():
                 self._last_index[val_name] = len(vals) - 1
 
-    def get_updates(self, name: str = "", plot: bool = True,
+
+    def get_updates(self, *names: str, plot: bool = True,
                     latest: bool = True) -> Tuple[HistoryByScalar, Optional[str]]:
         """Gets updates since last push update, possibly with an image
 
-        :param name: name of value to lookup (or empty for all tracked history)
+        :param names: names of value to lookup (or empty for all tracked history)
         :param plot: whether or not to plot the history and return the image path
         :param latest: whether or not to include all history, or just history since previous call
         :return tuple of data (HistoryByScalar) and location to image (if created, otherwise None)
         """
-        if name and name not in self._history_by_scalar:
-            raise TrackedScalarNotFoundException(name=name)
+        if names:
+            for name in names:  # Verify all names are valid
+                if name not in self._history_by_scalar:
+                    raise TrackedScalarNotFoundException(name=name)
 
-        if name:
-            data = dict()  # type: HistoryByScalar
-            for scalar_name, value_list in self._history_by_scalar.items():
-                if scalar_name == name:
-                    data[scalar_name] = value_list
+            data = dict()  # type: Dict[str, List[float]]
+            for value_name, values in self._history_by_scalar.items():
+                for name in names:
+                    if name == value_name:
+                        data[name] = values
         else:
             data = dict(self._history_by_scalar)  # Create a copy
 
         imgname = None
-        if plot:  # TODO: maybe include an output directory so we write these directly to the job folder?
+        if plot:
             # pylint: disable=protected-access
             imgname = os.path.abspath(next(tempfile._get_candidate_names()))  # type: ignore
             imgname = self.generate_image(history=data, output_path=imgname)
@@ -131,7 +201,11 @@ class TrackerBase(object):
         if latest:  # Trim data as needed
             for val_name, vals, in data.items():
                 data[val_name] = vals[self._last_index[val_name] + 1:]
-        self._update_access(name)
+        if names:
+            for name in names:
+                self._update_access(name)
+        else:
+            self._update_access()
         return data, imgname
 
 

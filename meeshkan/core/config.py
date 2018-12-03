@@ -29,12 +29,13 @@ del os
 del List
 del Optional
 
-def ensure_base_dirs():
+def ensure_base_dirs(verbose=True):
 
     def create_dir_if_not_exist(path: Path):
         if not path.is_dir():
             # Print instead of logging as loggers may not have been configured yet
-            print("Creating directory {path}".format(path=path))
+            if verbose:
+                print("Creating directory {path}".format(path=path))
             path.mkdir()
 
     create_dir_if_not_exist(BASE_DIR)
@@ -74,8 +75,18 @@ class Credentials:
         conf.read(str(path))
         return Credentials(refresh_token=conf['meeshkan']['token'])
 
+    @staticmethod
+    def to_isi(refresh_token: str, path: Path = CREDENTIALS_FILE):
+        """Creates the credential file with given refresh token. Overrides previous token if exists.
+        Does not create missing folders along `path`, instead, raises FileNotFound exception.
+
+        """
+        with path.open("w") as credential_file:
+            credential_file.write("[meeshkan]\ntoken={token}\n".format(token=refresh_token))
+            credential_file.flush()
 
 def init_config(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_FILE):
+    """Allows a one-time initialization of CONFIG and CREDENTIALS."""
     global CONFIG, CREDENTIALS  # pylint:disable=global-statement
     if CONFIG is None:
         CONFIG = Configuration.from_yaml(config_path)

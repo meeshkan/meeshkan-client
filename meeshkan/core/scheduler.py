@@ -9,11 +9,9 @@ import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
 from .job import ProcessExecutable, JobStatus, Job
-from .notifiers import Notifier
-from .tasks import Task, TaskType, TaskPoller
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
-
+from ..notifications.notifiers import Notifier
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
@@ -77,20 +75,14 @@ class QueueProcessor:
 
 
 class Scheduler(object):
-    def __init__(self, queue_processor: QueueProcessor,
-                 task_poller: TaskPoller = None,
-                 img_upload_func: Callable[[Union[str, Path], bool], Optional[str]] = None):
+    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
-        self._task_poller = task_poller
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
-        self._task_queue = queue.Queue()  # type: queue.Queue
-        self._listeners = []  # type: List[Notifier]
+        self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
-        self._notification_status = dict()  # type: Dict[uuid.UUID, str]
-        self._history_by_job = dict()  # type: Dict[uuid.UUID, TrackerBase]
-        self._job_poller = TrackingPoller(self.notify_updates)
-        self._image_upload = img_upload_func
+        self._job_poller = TrackingPoller(self.__query_and_report)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
+        self._notifier = notifier  # type: Optional[Notifier]
 
     # Properties and Python magic
 
@@ -109,100 +101,37 @@ class Scheduler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    # Notifaction related methods
-
-    def get_notification_status(self, job_id: uuid.UUID):
-        return self._notification_status[job_id]
-
-    def register_listener(self, listener: Notifier):
-        self._listeners.append(listener)
-
-    def notify_listeners(self, job: Job, image_url: str, n_iterations: int,
-                         iterations_unit: str = "iterations") -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify(job, image_url, n_iterations,
-                                                                                  iterations_unit))
-
-    def notify_listeners_job_start(self, job: Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_start(job))
-
-    def notify_listeners_job_end(self, job: Job) -> bool:
-        return self._internal_notifier_loop(job, lambda notifier: notifier.notify_job_end(job))
-
-    def notify_updates(self, job_id: uuid.UUID) -> bool:
-        # Get updates; TODO - vals should be reported once we update schema...
-        # pylint: disable=unused-variable
-        vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=self._image_upload is not None)
-        if vals:  # Only send updates if there exists any updates, doh
-            download_link = ""
-            if imgpath is not None:
-                try:  # Upload image if we're given an image_upload function...
-                    download_link = self._image_upload(imgpath, download_link=True)  # type: ignore
-                except Exception:  # pylint:disable=broad-except
-                    LOGGER.error("Could not post image to cloud server!")
-            status = self.notify_listeners(self.submitted_jobs[job_id], download_link, -1, "NA")
-            if imgpath is not None:
-                os.remove(imgpath)
-            return status
-        return False
-
-    def _internal_notifier_loop(self, job: Job, notify_method: Callable[[Notifier], None]) -> bool:
-        status = True
-        for notifier in self._listeners:
-            try:
-                notify_method(notifier)
-                self._notification_status[job.id] = "Success"
-            except Exception:  # pylint: disable=broad-except
-                LOGGER.exception("Notifier %s failed", notifier.__class__.__name__)
-                self._notification_status[job.id] = "Failed"
-                status = False
-        return status
-
     # Job handling methods
 
     def _handle_job(self, job: Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.stale:
             return
-
         self._running_job = job
-        # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
-        task = self._event_loop.create_task(self._job_poller.poll(job))  # type: asyncio.Task
-        self.notify_listeners_job_start(job)
+
+        task = None  # type: Optional[asyncio.Task]
+        if job.poll_time:
+            # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
+            task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))
+        if self._notifier:
+            self._notifier.notify_job_start(job)
         try:
             job.launch_and_wait()
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
         finally:
-            task.cancel()
+            if task:
+                task.cancel()
 
-        self.notify_listeners_job_end(job)
+        if self._notifier:
+            self._notifier.notify_job_end(job)
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
-    @staticmethod
-    def _verify_python_executable(args: Tuple[str, ...]):
-        """Simply checks if the first argument's extension is .py, and if so, prepends 'python' to args"""
-        if len(args) > 0:    # pylint: disable=len-as-condition
-            if os.path.splitext(args[0])[1] == ".py":
-                args = ("python",) + args
-        return args
-
-    def create_job(self, args: Tuple[str, ...], name: str = None, poll_interval: int = None):
-        job_number = len(self.jobs)
-        job_uuid = uuid.uuid4()
-        args = self._verify_python_executable(args)
-        LOGGER.debug("Creating job for %s", args)
-        output_path = JOBS_DIR.joinpath(str(job_uuid))
-        executable = ProcessExecutable(args, output_path=output_path)
-        job_name = name or "Job #{job_number}".format(job_number=job_number)
-        return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval)
-
     def submit_job(self, job: Job):
         job.status = JobStatus.QUEUED
-        self._notification_status[job.id] = "NA"
-        self._history_by_job[job.id] = TrackerBase()
         self.submitted_jobs[job.id] = job
-        self._task_queue.put(job)  # TODO Blocks if queue full
+        self._job_queue.put(job)  # TODO Blocks if queue full
         LOGGER.debug("Job submitted: %s", job)
 
     def stop_job(self, job_id: uuid.UUID):
@@ -213,24 +142,57 @@ class Scheduler(object):
 
     # Tracking methods
 
+    def __get_job_by_pid(self, pid):
+        job_id = [job.id for job in self.jobs if job.pid == pid]
+        if not job_id:
+            raise JobNotFoundException(job_id=str(pid))
+        return job_id[0]
+
+    def add_condition(self, pid: int, *vals: str, condition: Callable[[float], bool], only_relevant: bool):
+        """Adds a new condition for a job that matches the given process id.
+        :param pid: process id
+        :param vals: list of scalar names (strings)
+        :param condition: a callable that accepts as many values as vals, and returns a boolean whether a condition has
+            been met
+        :param only_relevant: a boolean, whether or not only the values relevant to the condition should be plotted when
+            this condition is met
+        """
+        job_id = self.__get_job_by_pid(pid)
+        self.submitted_jobs[job_id].add_condition(*vals, condition=condition, only_relevant=only_relevant)
+
     def report_scalar(self, pid, name, val):
         # Find the right job id
-        job_id = [job.id for job in self.jobs if job.pid == pid]
-        if len(job_id) != 1:
-            raise JobNotFoundException(job_id=str(pid))
-        job_id = job_id[0]
-        self._history_by_job[job_id].add_tracked(val_name=name, value=val)
-        LOGGER.debug("Logged scalar %s with new value %s", name, val)
+        job_id = self.__get_job_by_pid(pid)
+        condition = self.submitted_jobs[job_id].add_scalar_to_history(scalar_name=name, scalar_value=val)
+        if condition and self._notifier:
+            # TODO - we can add the condition that triggered the notification...
+            names = condition.names if condition.only_relevant else list()
+            vals, imgpath = self.query_scalars(*names, job_id=job_id, latest_only=False, plot=True)
+            self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+            if imgpath is not None:
+                os.remove(imgpath)
 
-    def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
-        return self._history_by_job[job_id].get_updates(name=name, plot=plot, latest=latest_only)
+    def query_scalars(self, *names: Tuple[str, ...], job_id, latest_only: bool = True, plot: bool = False):
+        job = self.submitted_jobs.get(job_id)
+        if not job:
+            raise JobNotFoundException(job_id=str(job_id))
+        return job.get_updates(*names, plot=plot, latest=latest_only)
+
+    def __query_and_report(self, job_id: uuid.UUID):
+        if self._notifier:
+            # Get updates; TODO - vals should be reported once we update schema...
+            vals, imgpath = self.query_scalars(job_id=job_id, latest_only=True, plot=True)
+            if vals:  # Only send updates if there exists any updates
+                self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+            if imgpath is not None:
+                os.remove(imgpath)
 
     # Scheduler service methods
 
     def start(self):
         if not self._queue_processor.is_running():
             LOGGER.debug("Start queue processor")
-            self._queue_processor.start(queue_=self._task_queue, process_item=self._handle_job)
+            self._queue_processor.start(queue_=self._job_queue, process_item=self._handle_job)
             LOGGER.debug("Queue processor started")
 
     def stop(self):
@@ -242,13 +204,3 @@ class Scheduler(object):
         if self._queue_processor.is_running():
             # Wait for the thread to finish
             self._queue_processor.wait_stop()
-
-    async def handle_task(self, task: Task):
-        # TODO Do something with the item
-        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
-        if task.type == TaskType.StopJobTask:
-            self.stop_job(task.job_id)
-
-    async def poll(self):
-        if self._task_poller is not None:
-            await self._task_poller.poll(handle_task=self.handle_task)

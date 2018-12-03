@@ -12,14 +12,15 @@ import meeshkan
 from meeshkan.core.oauth import TokenStore
 from meeshkan.core.cloud import CloudClient
 from meeshkan.core.service import Service
+from meeshkan.exceptions import UnauthorizedRequestException
 import meeshkan.__main__ as main
 from .utils import MockResponse
 
 CLI_RUNNER = CliRunner()
 
 
-def run_cli(args):
-    return CLI_RUNNER.invoke(main.cli, args=args, catch_exceptions=True)
+def run_cli(args, inputs=None, catch_exceptions=True):
+    return CLI_RUNNER.invoke(main.cli, args=args, catch_exceptions=catch_exceptions, input=inputs)
 
 
 def _build_session(post_return_value=None, request_return_value=None):
@@ -54,6 +55,9 @@ def pre_post_tests():
             requests_counter += 1
             return str(requests_counter)
         return fetch
+
+    def _no_tasks():
+        return []
     # Stuff before tests
     tokenstore_patcher = mock.patch('meeshkan.__main__.TokenStore._fetch_token', _get_fetch_token())
     tokenstore_patcher.start()  # Augment TokenStore
@@ -65,13 +69,74 @@ def pre_post_tests():
     tokenstore_patcher.stop()
 
 
-def test_version_break(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
+def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
+    """Tests `meeshkan setup` if the credentials file exists"""
+    # Mock credentials writing (tested in test_config.py)
+    temp_token = "abc"
+
+    def to_isi(refresh_token, *args):
+        assert refresh_token == temp_token
+
+    with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
+        with mock.patch("os.path.isfile") as mock_isfile:
+            mock_isfile.return_value = True
+            mock_to_isi.side_effect = to_isi
+
+            # Test with proper interaction
+            run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 1
+
+            # Test with empty response
+            run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+
+            # Test with non-positive answer
+            config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
+                                    catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+            assert config_result.exit_code == 2
+
+
+def test_setup_if_doesnt_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
+    """Tests `meeshkan setup` if the credentials file does not exist"""
+    # Mock credentials writing (tested in test_config.py)
+    temp_token = "abc"
+
+    def to_isi(refresh_token, *args):
+        assert refresh_token == temp_token
+
+    with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
+        with mock.patch("os.path.isfile") as mock_isfile:
+            mock_isfile.return_value = False
+            mock_to_isi.side_effect = to_isi
+            # Test with proper interaction
+            run_cli(args=['setup'], inputs="{token}\n".format(token=temp_token), catch_exceptions=False)
+            assert mock_to_isi.call_count == 1
+
+            # Test with empty response
+            temp_token = ''
+            run_cli(args=['setup'], inputs="\n", catch_exceptions=False)
+            assert mock_to_isi.call_count == 2
+
+
+def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     original_version = meeshkan.__version__
     meeshkan.__version__ = '0.0.0'
-    with pytest.raises(meeshkan.exceptions.OldVersionException):
-        CLI_RUNNER.invoke(meeshkan.__main__.cli, args='start', catch_exceptions=False)
+    with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
+        mock_requests_get.return_value = MockResponse({"releases": {"20.0.0": {}, "2.0.0": {}}}, 200)
+        version_result = run_cli(args=['start'], catch_exceptions=False)
+        assert "pip install" in version_result.stdout
     meeshkan.__version__ = original_version
 
+def test_version_mismatch(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
+    original_version = meeshkan.__version__
+    meeshkan.__version__ = '0.0.0'
+    with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
+        mock_requests_get.return_value = MockResponse({"releases": {"0.1.0": {}, "0.0.1": {}}}, 200)
+        version_result = run_cli(args=['start'], catch_exceptions=False)
+        assert "pip install" not in version_result.stdout
+        assert "newer version" in version_result.stdout
+    meeshkan.__version__ = original_version
 
 def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     service = Service()
@@ -129,6 +194,7 @@ def test_help(pre_post_tests):  # pylint: disable=unused-argument,redefined-oute
     commands = ['clear', 'help', 'list', 'sorry', 'start', 'status', 'stop', 'submit']
     assert all([any([output.startswith(command) for output in help_result]) for command in commands])
 
+
 def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     with mock.patch('meeshkan.__main__.requests', autospec=True) as mock_requests:
         def fail_get(*args, **kwargs):   # pylint: disable=unused-argument,redefined-outer-name
@@ -149,7 +215,7 @@ def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argumen
         start_result = run_cli('--silent start')
 
     assert start_result.exit_code == 1
-    assert start_result.stdout == "Unauthorized. Check your credentials.\n"
+    assert start_result.stdout == UnauthorizedRequestException().message + '\n'
     assert not service.is_running()
     assert mock_cloud_client.return_value.notify_service_start.call_count == 1
 
@@ -174,7 +240,7 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
     match = re.match(stdout_pattern, submit_result.stdout)
 
     job_number = int(match.group(1))
-    assert job_number == 0
+    assert job_number == 1
 
     job_uuid = match.group(2)
     assert uuid.UUID(job_uuid)

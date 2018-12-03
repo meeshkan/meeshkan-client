@@ -13,7 +13,7 @@ MP_CTX = mp.get_context("spawn")
 
 def _build_api(service: Service):
     task_poller = create_autospec(TaskPoller).return_value
-    return Api(scheduler=Scheduler(QueueProcessor(), task_poller=task_poller), service=service)
+    return Api(scheduler=Scheduler(QueueProcessor()), task_poller=task_poller, service=service)
 
 
 def test_start_stop():

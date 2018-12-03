@@ -9,7 +9,6 @@ from pathlib import Path
 
 import requests
 
-import meeshkan
 from ..__types__ import Token, Payload
 from .tasks import TaskType, Task
 from .oauth import TokenStore
@@ -48,35 +47,70 @@ class CloudClient:
         headers = {"Authorization": "Bearer {token}".format(token=token)}
         return self._session.post(self._cloud_url, json=payload, headers=headers, timeout=5)
 
-    def _post_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> requests.Response:
-        """Post to `cloud_url` with retry: If unauthorized, fetch a new token and retry the given number of times.
+    @staticmethod
+    def _check_for_errors(body):
+        """
+        Check GraphQL response body for errors.
+        :param body: GraphQL response body
+        :raises meeshkan.exceptions.Unauthorized if one of errors was "UNAUTHENTICATED"
+        :raises RuntimeError if there were any other errors
+        :return: None
+        """
+
+        errors = body.get("errors", list())
+
+        if not errors:
+            return
+
+        def contains_unauthenticated(errs):
+            for err in errs:
+                code = err.get("extensions", {}).get("code", "")
+                if code == "UNAUTHENTICATED":
+                    return True
+            return False
+
+        if contains_unauthenticated(errors):
+            LOGGER.error('Could not post to server: unauthenticated')
+            raise UnauthorizedRequestException()
+
+        raise RuntimeError("Error posting to server")
+
+    def _post_gql_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> dict:
+        """Post to `cloud_url` with retry: If unauthenticated, fetch a new token and retry the given number of times.
+        Checks that the response does not contain any errors, raises error if yes.
         :param payload:
         :param retries:
         :param delay:
-        :return:
-
-        :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
+        :return: GraphQL response data
+        :raises meeshkan.exceptions.Unauthorized if received UNAUTHENTICATED for all retries requested.
         :raises RuntimeError if response status is not OK (not 200 and not 400)
         """
-        res = self._post(payload, self._token_store.get_token())
+
+        token = self._token_store.get_token()
+
         retries = 1 if retries < 1 else retries  # At least once
-        for _ in range(retries):
-            if res.status_code != HTTPStatus.UNAUTHORIZED:  # Authed properly
-                break
-            # Unauthorized, try a new token
-            time.sleep(delay)  # Wait to not overload the server
-            res = self._post(payload, self._token_store.get_token(refresh=True))
-        if res.status_code == HTTPStatus.UNAUTHORIZED:  # Unauthorized for #retries attempts, raise exception
-            LOGGER.error('Cannot post to server: unauthorized')
-            raise UnauthorizedRequestException()
-        if res.status_code != HTTPStatus.OK:
-            LOGGER.error("Error from server: %s", res.text)
-            raise RuntimeError("Post failed with status code {status_code}".format(status_code=res.status_code))
-        LOGGER.debug("Got response from server: %s, status %d", res.text, res.status_code)
-        return res
+
+        for try_count in range(retries + 1):
+            time.sleep(try_count * delay)  # Wait to not overload the server
+
+            res = self._post(payload, token)
+
+            LOGGER.debug("Got response from server: %s, status %d", res.text, res.status_code)
+
+            if not res.ok:
+                LOGGER.error("Error from server: %s", res.text)
+                res.raise_for_status()
+
+            try:
+                CloudClient._check_for_errors(res.json())
+                return res.json()['data']
+            except UnauthorizedRequestException:  # Raise other errors
+                token = self._token_store.get_token(refresh=True)
+
+        raise UnauthorizedRequestException
 
     def post_payload(self, payload: Payload) -> None:
-        self._post_payload(payload, delay=0)
+        self._post_gql_payload(payload)
 
     def _upload_file(self, method, url, headers, file):
         """Uploads a file to given URL with method and headers
@@ -102,7 +136,7 @@ class CloudClient:
         :return: download link if requested, otherwise None
 
         :raises meeshkan.exceptions.Unauthorized if received 401 for all retries requested.
-        :raises RuntimeError if response status is not OK (not 200 and not 400)
+        :raises RuntimeError if response status is not OK
         """
         file = str(file)  # Removes dependency on Path or str
         query = "query ($ext: String!, $download_flag: Boolean) {" \
@@ -113,10 +147,8 @@ class CloudClient:
         extension = "".join(Path(file).suffixes)[1:]  # Extension(s), and remove prefix dot...
         payload = {"query": query,
                    "variables": {"ext": extension, "download_flag": download_link}}  # type: Payload
-        res = self._post_payload(payload, retries=1)  # type: Any  # Allow changing types below
+        res = self._post_gql_payload(payload)
 
-        # Parse response
-        res = res.json()['data']
         res = res[list(res)[0]]  # Get the first (and only) element within 'data'
         upload_url = res['upload']  # Upload URL
         download_url = res.get('download')  # Final return value; None if does not exist
@@ -146,12 +178,9 @@ class CloudClient:
         mutation = "mutation { popClientTasks { __typename job { id } } }"
         payload = {"query": mutation, "variables": {}}
 
-        res = self._post_payload(payload=payload)
+        data = self._post_gql_payload(payload=payload)
 
-        if not res.ok:
-            res.raise_for_status()
-
-        tasks_json = res.json()['data']['popClientTasks']
+        tasks_json = data['popClientTasks']
 
         def build_task(json_task):
             task_type = TaskType[json_task['__typename']]

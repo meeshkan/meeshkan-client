@@ -36,6 +36,8 @@ handlers:
 loggers:
     urllib3.connectionpool:
         level: WARNING
+    matplotlib:
+        level: WARNING
 
 root:
     level: DEBUG
