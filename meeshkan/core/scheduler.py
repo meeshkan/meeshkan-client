@@ -108,8 +108,10 @@ class Scheduler(object):
         if job.stale:
             return
         self._running_job = job
-        # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
-        task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))  # type: asyncio.Task
+
+        if job.poll_time > 0:
+            # Create and schedule a task from the Polling job, so we can cancel it without killing the event loop
+            task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))  # type: asyncio.Task
         if self._notifier:
             self._notifier.notify_job_start(job)
         try:
@@ -117,7 +119,8 @@ class Scheduler(object):
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Running job failed")
         finally:
-            task.cancel()
+            if job.poll_time > 0:
+                task.cancel()
 
         if self._notifier:
             self._notifier.notify_job_end(job)
@@ -144,9 +147,9 @@ class Scheduler(object):
             raise JobNotFoundException(job_id=str(pid))
         return job_id[0]
 
-    def add_condition(self, pid, *vals, condition):
+    def add_condition(self, pid, *vals, condition, only_relevant):
         job_id = self.__get_job_by_pid(pid)
-        self.submitted_jobs[job_id].add_condition(*vals, condition=condition)
+        self.submitted_jobs[job_id].add_condition(*vals, condition=condition, only_relevant=only_relevant)
 
     def report_scalar(self, pid, name, val):
         # Find the right job id
@@ -154,21 +157,22 @@ class Scheduler(object):
         condition = self.submitted_jobs[job_id].add_scalar_to_history(scalar_name=name, scalar_value=val)
         if condition and self._notifier:
             # TODO - we can add the condition that triggered the notification...
-            vals, imgpath = self.query_scalars(job_id, latest_only=False, plot=True)
+            names = condition.names if condition.only_relevant else list()
+            vals, imgpath = self.query_scalars(*names, job_id=job_id, latest_only=False, plot=True)
             self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
             if imgpath is not None:
                 os.remove(imgpath)
 
-    def query_scalars(self, job_id, name: str = "", latest_only: bool = True, plot: bool = False):
+    def query_scalars(self, *names: Tuple[str, ...], job_id, latest_only: bool = True, plot: bool = False):
         job = self.submitted_jobs.get(job_id)
         if not job:
             raise JobNotFoundException(job_id=str(job_id))
-        return job.get_updates(name=name, plot=plot, latest=latest_only)
+        return job.get_updates(*names, plot=plot, latest=latest_only)
 
     def __query_and_report(self, job_id: uuid.UUID):
         if self._notifier:
             # Get updates; TODO - vals should be reported once we update schema...
-            vals, imgpath = self.query_scalars(job_id, latest_only=True, plot=True)
+            vals, imgpath = self.query_scalars(job_id=job_id, latest_only=True, plot=True)
             if vals:  # Only send updates if there exists any updates
                 self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
             if imgpath is not None:

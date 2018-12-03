@@ -213,10 +213,25 @@ def daemon_status():
 
 
 @cli.command()
+@click.argument("job_identifier")
+def report(job_identifier):
+    """Returns latest scalar from given job identifier"""
+    api = __get_api()
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    print("Latest scalar reports for", api.get_job(job_id))
+    print(tabulate.tabulate(api.get_updates(job_id), headers="keys", tablefmt="fancy_grid"))
+
+
+@cli.command()
 @click.argument('args', nargs=-1)
 @click.option("--name", type=str)
-@click.option("--poll", type=int)
-def submit(args, name, poll):
+@click.option("--report-interval", "-r", type=int, help="Number of seconds between each report for this job. Set to -1"
+                                                        " for no reports (equivalent to calling with `--no-poll`")
+@click.option("--no-poll", "-n", is_flag=True, help="Cancels report interval for this job")
+def submit(args, name, report_interval, no_poll):
     """Submits a new job to the service daemon."""
     if not args:
         print("CLI error: Specify job.")
@@ -225,7 +240,8 @@ def submit(args, name, poll):
     api = __get_api()  # type: Api
     cwd = os.getcwd()
     try:
-        job = api.submit(args, name=name, poll_interval=poll, cwd=cwd)
+        report_interval = -1 if no_poll else report_interval
+        job = api.submit(args, name=name, poll_interval=report_interval, cwd=cwd)
     except IOError:
         print("Cannot create job from given arguments! Do all files given exist? {command}".format(command=args))
         sys.exit(1)

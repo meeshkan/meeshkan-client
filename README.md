@@ -23,6 +23,7 @@ Options:
   --version   Show the version and exit.
 
 Commands:
+  clean          Alias for `meeshkan clear`
   clear          Clears Meeshkan log and job directories in ~/.meeshkan.
   help           Show this message and exit.
   list           Lists the job queue and status for each job.
@@ -77,6 +78,13 @@ Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a patter
 In the latter case, the first match is returned.
 
 
+### Review latest scalar reports
+```bash
+meeshkan report JOB_IDENTIFER
+```
+Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
+In the latter case, the first match is returned.
+
 ### Stop service
 ```bash
 meeshkan stop
@@ -94,9 +102,23 @@ meeshkan submit --poll 10 examples/report.py
 See [examples/pytorch_mnist.py](./examples/pytorch_mnist.py) for an example script. To run the script,
 first ensure that [PyTorch]() is installed in your Python environment. Then submit the example as
  ```bash
-meeshkan submit --poll 10 examples/pytorch_mnist.py
+meeshkan submit -r 10 examples/pytorch_mnist.py
+```
+OR
+```bash
+meeshkan submit --report-interval 10 examples/pytorch_mnist.py
 ```
 Meeshkan reports the training and test loss values to you every 10 seconds.
+
+If you're using the Meeshkan Python API, you may want to cancel the interval-based notifications when submitting a job.
+```bash
+meeshkan submit -n examples/pytorch_mnist.py
+```
+OR
+```bash
+meeshkan submit --no-poll examples/pytorch_mnist.py
+```
+Meeshkan runs the job and will not send any interval-based notifications.
 
 
 ## Development

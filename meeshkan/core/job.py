@@ -222,15 +222,15 @@ class Job(object):
     def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
         return self.scalar_history.add_tracked(scalar_name, scalar_value)
 
-    def add_condition(self, *val_names, condition: Callable[[float], bool]):
-        self.scalar_history.add_condition(*val_names, condition=condition)
+    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
+        self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
 
-    def get_updates(self, name, plot, latest):
+    def get_updates(self, *names, plot, latest):
         """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
         If latest == True, returns only latest updates, otherwise returns entire history.
         """
         # Delegate to HistoryTracker
-        return self.scalar_history.get_updates(name, plot, latest)
+        return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
 
     def cancel(self):
         """

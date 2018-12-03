@@ -5,7 +5,7 @@ from . import core
 from . import exceptions
 
 # Only make the following available by default
-__all__ = ["__version__", "exceptions", "report_scalar", "config"]
+__all__ = ["__version__", "exceptions", "report_scalar", "add_condition", "config"]
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 
@@ -37,23 +37,23 @@ def report_scalar(val_name, value, *vals) -> bool:
     return True
 
 
-def add_condition(*vals, condition):
-    """Sets a condition to send notification for given values
+def add_condition(*vals, condition, only_reported=False):
+    """Adds a condition to send notification for given values when condition holds
 
     :param vals: A list of value names to monitor
     :param condition: A callable accepting as many arguments as listed values, and returns whether the notification
         condition has been met.
+    :param only_reported: Flag whether or not to report all scalars in a job, or just the ones relevant to the condition
+        (False by default -> reports all scalars in the job)
     """
     import os  # pylint: disable=redefined-outer-name
-    import dill
+    import dill  # pylint: disable=redefined-outer-name
     from .core.service import Service  # pylint: disable=redefined-outer-name
 
     if not vals:
         raise RuntimeError("No arguments given for condition!")
 
     pid = os.getpid()
-    # TODO - fill in the gap
-    # TODO - probably includes moving Scalar History to Job, querying from the Job itself, etc.
     with Service().api as proxy:
         # Uses old encoding, see https://stackoverflow.com/a/27527728/4133131
-        proxy.add_condition(pid, dill.dumps(condition).decode('cp437'), *vals)
+        proxy.add_condition(pid, dill.dumps(condition).decode('cp437'), only_reported, *vals)

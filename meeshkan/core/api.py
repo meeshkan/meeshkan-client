@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 
 @Pyro4.behavior(instance_mode="single")  # Singleton
 class Api(object):
-    """Partially xposed by the Pyro server for communications with the CLI."""
+    """Partially exposed by the Pyro server for communications with the CLI."""
 
     # Private methods
     def __init__(self, scheduler: Scheduler, service: Service = None, task_poller: TaskPoller = None,
@@ -155,18 +155,17 @@ class Api(object):
         self.scheduler.report_scalar(pid, name, val)
 
     @Pyro4.expose
-    def add_condition(self, pid, condition, *vals):
+    def add_condition(self, pid, condition, only_relevant, *vals):
         """Sets a condition for notifications"""
-        self.scheduler.add_condition(pid, *vals, condition=dill.loads(condition.encode('cp437')))
+        self.scheduler.add_condition(pid, *vals, condition=dill.loads(condition.encode('cp437')),
+                                     only_relevant=only_relevant)
 
     @Pyro4.expose
-    def get_updates(self, job_id, recent_only=True, img=False) -> Tuple[HistoryByScalar, Optional[str]]:
-        if not isinstance(job_id, uuid.UUID):
-            job_id = uuid.UUID(job_id)
-        vals, fname = self.scheduler.query_scalars(job_id, latest_only=recent_only, plot=img)
-        if img:
-            return vals, fname
-        return vals, None
+    def get_updates(self, job_id: uuid.UUID) -> HistoryByScalar:
+        vals, _ = self.scheduler.query_scalars(job_id=job_id, latest_only=False, plot=False)
+        # We leave the recent_vals in a list for easy use in tabulate
+        recent_vals = {val_name: values[-1:] for val_name, values in vals.items()}
+        return recent_vals
 
     @Pyro4.expose
     def stop(self):

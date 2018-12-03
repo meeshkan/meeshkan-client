@@ -46,7 +46,7 @@ class TrackingPoller(object):
 class TrackerCondition(object):
     DEF_COOLDOWN_PERIOD = 30  # 30 seconds interval default cooldown period
     def __init__(self, *value_names: str, condition: Callable[[float], bool], title: str,
-                 default_value=1, cooldown_period: int = None):
+                 default_value=1, cooldown_period: int = None, only_relevant: bool = False):
         if len(value_names) != len(inspect.signature(condition).parameters):
             raise RuntimeError("Number of arguments for condition {func} does not"
                                "match given number of arguments {vals}!".format(func=condition, vals=value_names))
@@ -56,6 +56,7 @@ class TrackerCondition(object):
         self.default = default_value
         self.cooldown_period = cooldown_period or TrackerCondition.DEF_COOLDOWN_PERIOD
         self.last_time_condition_met = 0.0  # The last time condition() returned True
+        self.only_relevant = only_relevant
 
     def __contains__(self, val_name: str):
         return val_name in self.names
@@ -101,10 +102,12 @@ class TrackerBase(object):
                     return condition
         return None
 
-    def add_condition(self, *vals, condition: Callable[[float], bool], title: str = "", default_value=1):
+    def add_condition(self, *vals, condition: Callable[[float], bool], title: str = "", default_value=1,
+                      only_relevant: bool):
         """Adds a condition for this tracker. Once a condition is met, it is reported immediately.
         If a variable listed in vals does not exist, the given default value (or 1 by default) will be sent instead. """
-        self._conditions.append(TrackerCondition(*vals, condition=condition, title=title, default_value=default_value))
+        self._conditions.append(TrackerCondition(*vals, condition=condition, title=title, default_value=default_value,
+                                                 only_relevant=only_relevant))
 
 
 
@@ -146,6 +149,7 @@ class TrackerBase(object):
             return fname
         return None
 
+
     def _update_access(self, name: str = ""):
         if name:
             if name in self._history_by_scalar:
@@ -154,20 +158,26 @@ class TrackerBase(object):
             for val_name, vals, in self._history_by_scalar.items():
                 self._last_index[val_name] = len(vals) - 1
 
-    def get_updates(self, name: str = "", plot: bool = True,
+
+    def get_updates(self, *names: str, plot: bool = True,
                     latest: bool = True) -> Tuple[HistoryByScalar, Optional[str]]:
         """Gets updates since last push update, possibly with an image
 
-        :param name: name of value to lookup (or empty for all tracked history)
+        :param names: names of value to lookup (or empty for all tracked history)
         :param plot: whether or not to plot the history and return the image path
         :param latest: whether or not to include all history, or just history since previous call
         :return tuple of data (HistoryByScalar) and location to image (if created, otherwise None)
         """
-        if name and name not in self._history_by_scalar:
-            raise TrackedScalarNotFoundException(name=name)
+        if names:
+            for name in names:  # Verify all names are valid
+                if name not in self._history_by_scalar:
+                    raise TrackedScalarNotFoundException(name=name)
 
-        if name:
-            data = {value_name: value for value_name, value in self._history_by_scalar.items() if value_name == name}
+            data = dict()  # type: Dict[str, List[float]]
+            for value_name, values in self._history_by_scalar.items():
+                for name in names:
+                    if name == value_name:
+                        data[name] = values
         else:
             data = dict(self._history_by_scalar)  # Create a copy
 
@@ -180,7 +190,11 @@ class TrackerBase(object):
         if latest:  # Trim data as needed
             for val_name, vals, in data.items():
                 data[val_name] = vals[self._last_index[val_name] + 1:]
-        self._update_access(name)
+        if names:
+            for name in names:
+                self._update_access(name)
+        else:
+            self._update_access()
         return data, imgname
 
 

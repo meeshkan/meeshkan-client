@@ -83,7 +83,7 @@ def test_get_updates_with_name():
     tb = TrackerBase()
     tb.add_tracked("tracked_value", 1)
     tb.add_tracked("another value", 1)
-    history, _ = tb.get_updates(name="tracked_value", plot=False, latest=True)
+    history, _ = tb.get_updates("tracked_value", plot=False, latest=True)
     assert len(history) == 1
     assert len(history["tracked_value"]) == 1
 
