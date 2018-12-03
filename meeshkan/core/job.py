@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional, List, Union
+from typing import Tuple, Optional, List, Union, Callable, Any
 import uuid
 import datetime
 import os
@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from .config import JOBS_DIR
-
+from .tracker import TrackerBase, TrackerCondition
 
 LOGGER = logging.getLogger(__name__)
 
@@ -138,6 +138,7 @@ class ProcessExecutable(Executable):
 
 
 class Job(object):
+    DEF_POLLING_INTERVAL = 3600.0  # Default is notifications every hour.
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
                  desc: str = None, poll_interval: float = None):
         """
@@ -149,46 +150,27 @@ class Job(object):
         :param poll_interval
         """
         self.executable = executable
+        self.scalar_history = TrackerBase()
+        # General descriptors
         # Absolutely unique identifier
         self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
         self.number = job_number  # Human-readable integer ID
         self.created = datetime.datetime.utcnow()
-        self.is_launched = False
         self.status = JobStatus.CREATED
-        self.is_processed = False
         self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
         self.poll_time = poll_interval
 
-    def launch_and_wait(self) -> int:
-        """
-        Run the executable, updating job status accordingly
-        :return: return code
-        """
-        try:
-            self.status = JobStatus.RUNNING
-            self.is_launched = True
-            return_code = self.executable.launch_and_wait()
-            if return_code in SUCCESS_RETURN_CODE:
-                self.status = JobStatus.FINISHED
-            elif return_code in CANCELED_RETURN_CODES:
-                self.status = JobStatus.CANCELED
-            else:
-                self.status = JobStatus.FAILED
-            return return_code
-        except IOError as ex:
-            LOGGER.exception("Could not execute, is the job executable? Job: %s", str(self.executable))
-            self.status = JobStatus.FAILED
-            raise ex
-        finally:
-            self.is_processed = True
+    # Properties
 
-    def terminate(self):
-        self.executable.terminate()
+    @property
+    def is_launched(self):
+        """Returns whether or not the job has been running at all"""
+        return self.status == JobStatus.RUNNING or self.is_processed
 
-    def __str__(self):
-        return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
-                                                                        id=self.id, status=self.status.name)
+    @property
+    def is_processed(self):
+        return self.status in [JobStatus.CANCELED, JobStatus.FAILED, JobStatus.FINISHED]
 
     @property
     def stale(self):
@@ -209,6 +191,46 @@ class Job(object):
     @property
     def stderr(self):
         return self.executable.stderr
+
+    def launch_and_wait(self) -> int:
+        """
+        Run the executable, updating job status accordingly
+        :return: return code
+        """
+        try:
+            self.status = JobStatus.RUNNING
+            return_code = self.executable.launch_and_wait()
+            if return_code in SUCCESS_RETURN_CODE:
+                self.status = JobStatus.FINISHED
+            elif return_code in CANCELED_RETURN_CODES:
+                self.status = JobStatus.CANCELED
+            else:
+                self.status = JobStatus.FAILED
+            return return_code
+        except IOError as ex:
+            LOGGER.exception("Could not execute, is the job executable? Job: %s", str(self.executable))
+            self.status = JobStatus.FAILED
+            raise ex
+
+    def terminate(self):
+        self.executable.terminate()
+
+    def __str__(self):
+        return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
+                                                                        id=self.id, status=self.status.name)
+
+    def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
+        return self.scalar_history.add_tracked(scalar_name, scalar_value)
+
+    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
+        self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
+
+    def get_updates(self, *names, plot, latest):
+        """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
+        If latest == True, returns only latest updates, otherwise returns entire history.
+        """
+        # Delegate to HistoryTracker
+        return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
 
     def cancel(self):
         """

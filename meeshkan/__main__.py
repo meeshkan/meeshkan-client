@@ -30,6 +30,7 @@ from .core.cloud import CloudClient
 from .core.cloud import TokenStore
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
+from .core.job import Job
 
 LOGGER = None
 
@@ -213,10 +214,24 @@ def daemon_status():
 
 
 @cli.command()
+@click.argument("job_identifier")
+def report(job_identifier):
+    """Returns latest scalar from given job identifier"""
+    api = __get_api()
+    job_id = __find_job_by_identifier(job_identifier)
+    if not job_id:
+        print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
+        sys.exit(1)
+    print("Latest scalar reports for", api.get_job(job_id))
+    print(tabulate.tabulate(api.get_updates(job_id), headers="keys", tablefmt="fancy_grid"))
+
+
+@cli.command()
 @click.argument('args', nargs=-1)
 @click.option("--name", type=str)
-@click.option("--poll", type=int)
-def submit(args, name, poll):
+@click.option("--report-interval", "-r", type=int, help="Number of seconds between each report for this job.",
+              default=Job.DEF_POLLING_INTERVAL, show_default=True)
+def submit(args, name, report_interval):
     """Submits a new job to the service daemon."""
     if not args:
         print("CLI error: Specify job.")
@@ -225,7 +240,7 @@ def submit(args, name, poll):
     api = __get_api()  # type: Api
     cwd = os.getcwd()
     try:
-        job = api.submit(args, name=name, poll_interval=poll, cwd=cwd)
+        job = api.submit(args, name=name, poll_interval=report_interval, cwd=cwd)
     except IOError:
         print("Cannot create job from given arguments! Do all files given exist? {command}".format(command=args))
         sys.exit(1)
@@ -333,6 +348,13 @@ def clear():
     print("Removing logs directory at {}".format(meeshkan.config.LOGS_DIR))
     shutil.rmtree(str(meeshkan.config.LOGS_DIR))
     meeshkan.config.ensure_base_dirs()  # Recreate structure
+
+
+@cli.command()
+@click.pass_context
+def clean(ctx):
+    """Alias for `meeshkan clear`"""
+    ctx.invoke(clear)
 
 
 @cli.command()

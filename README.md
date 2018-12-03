@@ -23,6 +23,7 @@ Options:
   --version   Show the version and exit.
 
 Commands:
+  clean          Alias for `meeshkan clear`
   clear          Clears Meeshkan log and job directories in ~/.meeshkan.
   help           Show this message and exit.
   list           Lists the job queue and status for each job.
@@ -77,26 +78,89 @@ Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a patter
 In the latter case, the first match is returned.
 
 
+### Review latest scalar reports
+```bash
+meeshkan report JOB_IDENTIFER
+```
+Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
+In the latter case, the first match is returned.
+
+
 ### Stop service
 ```bash
 meeshkan stop
 ```
+
+## Python API
+
+### General
+The purpose of the Python API is to be as intuitive, minimal and least invasive as possible.
+Once the service daemon is running (using `meeshkan start`), you can communicate with it through the Python library.
+To begin, `import meeshkan`.
+
+### Reporting scalars
+You can report scalars from within a given script using `meeshkan.report_scalar(name1, value1, name2, value2, ...)`.
+The command allows reporting multiple values at once, and giving them self-documenting names (you may use anything, as
+long as it's a string!).
+Some examples include (assume the mentioned variables exist, and are updated in some loop, e.g. a training/evaluation
+loop), you may:
+```python
+meeshkan.report_scalar("train loss", train_loss)  # Adds a single value for this process
+# Or add multiple scalars simulatenously
+meeshkan.report_scalar("train loss", train_loss, "evaluation loss", eval_loss, "evaluation accuracy", eval_acc)
+# Or possibly combine them for a new metric
+meeshkan.report_scalar("F1", 2*precision*recall/(precision+recall))
+```
+
+### Adding conditions
+The service daemon only notifies you on either a scheduled notification (using the `--report-interval/-r` flag, e.g.
+hourly notifications), or when a certain criteria has been met.
+You can define these criteria anywhere in your code (but outside of loops, these conditions only need to be set once!),
+even before your scalars have been registered. When a scalar is used before it is registered, a default value of 1 is
+used in its place.
+Consider the following examples:
+```python
+# Notify when evaluation loss and train loss are significantly different.
+meeshkan.add_condition("train loss", "evaluation loss", lambda train_loss, eval_loss: abs(train_loss - eval_loss) > 0.2)
+# Notify when the F1 score is suspiciously low
+meeshkan.add_condition("F1", lambda f1: f1 < 0.1)
+```
+
 
 ## Reporting scalars from PyTorch
 
 ### Get started
 Start the service first, then run
 ``` bash
-meeshkan submit --poll 10 examples/report.py
+meeshkan submit --report-interval 10 examples/report.py
 ```
+
+By default, the `submit` command will run your code without time-based notifications.
+When presented with the `-r/--report-interval` flag, the service will notify you with recent updates every time the
+*report interval* has elapsed. The report interval is measured in **seconds**.
+The default argument (if none are provided) is 3600 seconds (i.e. hourly notifications).
 
 ### PyTorch
 See [examples/pytorch_mnist.py](./examples/pytorch_mnist.py) for an example script. To run the script,
 first ensure that [PyTorch](https://pytorch.org/) is installed in your Python environment. Then submit the example as
  ```bash
-meeshkan submit --poll 10 examples/pytorch_mnist.py
+meeshkan submit -r 10 examples/pytorch_mnist.py
+```
+OR
+```bash
+meeshkan submit --report-interval 10 examples/pytorch_mnist.py
 ```
 Meeshkan reports the training and test loss values to you every 10 seconds.
+
+If you're using the Meeshkan Python API, you may want to cancel the interval-based notifications when submitting a job.
+```bash
+meeshkan submit -n examples/pytorch_mnist.py
+```
+OR
+```bash
+meeshkan submit --no-poll examples/pytorch_mnist.py
+```
+Meeshkan runs the job and will not send any interval-based notifications.
 
 
 ## Development
@@ -129,6 +193,12 @@ pylint -f msvs meeshkan
 ```
 
 ### Building the documentation
+```bash
+python setup.py docs
+```
+
+OR
+
 ```bash
 cd docs
 sphinx-apidoc -f -e -o source/ ../meeshkan/
