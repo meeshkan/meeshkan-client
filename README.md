@@ -29,6 +29,7 @@ Commands:
   list           Lists the job queue and status for each job.
   logs           Retrieves the logs for a given job.
   notifications  Retrieves notification history for a given job.
+  report         Returns latest scalar from given job identifier
   setup          Configures the Meeshkan client.
   sorry          Send error logs to Meeshkan HQ.
   start          Starts Meeshkan service daemon.
@@ -37,6 +38,10 @@ Commands:
   submit         Submits a new job to the service daemon.
 
 ```
+
+In all instances used, a *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match against 
+the job's name. In the latter case, the first match is returned.
+
 
 ### Start service daemon
 ```bash
@@ -53,7 +58,7 @@ You should get the message `Service is up and running`.
 ### Submit a Python script for execution
 Submit the example script [hello_world.py](./examples/hello_world.py) for execution:
 ```bash
-meeshkan submit [--name job_name] examples/train.py
+meeshkan submit [--name job_name] examples/hello_world.py
 ```
 
 ### List submitted jobs
@@ -65,8 +70,6 @@ meeshkan list
 ```bash
 meeshkan logs JOB_IDENTIFIER
 ```
-Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
-In the latter case, the first match is returned.
 
 You will get a complete output of stderr and stdout for the given job, and it's output path for any additional files.
 
@@ -74,24 +77,18 @@ You will get a complete output of stderr and stdout for the given job, and it's 
 ```bash
 meeshkan notifications JOB_IDENTIFIER
 ```
-Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
-In the latter case, the first match is returned.
 
 
 ### Review latest scalar reports
 ```bash
 meeshkan report JOB_IDENTIFER
 ```
-Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
-In the latter case, the first match is returned.
 
 
 ### Canceling a job
 ```bash
 meeshkan cancel JOB_IDENTIFIER
 ```
-Where *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match for the job's name.
-In the latter case, the first match is returned.
 If the job is currently running, you will be prompted to verify you want to abruptly cancel a running job.
 
 
@@ -154,22 +151,10 @@ See [examples/pytorch_mnist.py](./examples/pytorch_mnist.py) for an example scri
 first ensure that [PyTorch](https://pytorch.org/) is installed in your Python environment. Then submit the example as
  ```bash
 meeshkan submit -r 10 examples/pytorch_mnist.py
-```
-OR
-```bash
+# OR using the "long" option:
 meeshkan submit --report-interval 10 examples/pytorch_mnist.py
 ```
 Meeshkan reports the training and test loss values to you every 10 seconds.
-
-If you're using the Meeshkan Python API, you may want to cancel the interval-based notifications when submitting a job.
-```bash
-meeshkan submit -n examples/pytorch_mnist.py
-```
-OR
-```bash
-meeshkan submit --no-poll examples/pytorch_mnist.py
-```
-Meeshkan runs the job and will not send any interval-based notifications.
 
 
 ## Development
@@ -188,11 +173,7 @@ pip install -e .[dev]
 ### Running tests
 ```{bash}
 pytest
-```
-
-OR
-
-```{bash}
+# OR
 python setup.py test
 ```
 
@@ -204,11 +185,7 @@ pylint -f msvs meeshkan
 ### Building the documentation
 ```bash
 python setup.py docs
-```
-
-OR
-
-```bash
+# OR (the long way...)
 cd docs
 sphinx-apidoc -f -e -o source/ ../meeshkan/
 make html
