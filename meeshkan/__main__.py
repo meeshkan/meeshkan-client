@@ -222,8 +222,12 @@ def report(job_identifier):
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
-    print("Latest scalar reports for '{name}'".format(api.get_job(job_id).name))
-    print(tabulate.tabulate(api.get_updates(job_id), headers="keys", tablefmt="fancy_grid"))
+    print("Latest scalar reports for '{name}'".format(name=api.get_job(job_id).name))
+    scalar_history = api.get_updates(job_id)
+    values_without_time = dict()  # Remove timestamp from report
+    for scalar_name, values_with_time in scalar_history.items():
+        values_without_time[scalar_name] = [timevalue.value for timevalue in values_with_time]
+    print(tabulate.tabulate(values_without_time, headers="keys", tablefmt="fancy_grid"))
 
 
 @cli.command()
@@ -321,7 +325,7 @@ def notifications(job_identifier):
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
     notification_history = api.get_notification_history(job_id)
-    print("Notifications for '{name}'".format(api.get_job(job_id).name))
+    print("Notifications for '{name}'".format(name=api.get_job(job_id).name))
     # Create index list based on longest history available
     row_ids = range(1, max([len(history) for history in notification_history.values()])+1)
     print(tabulate.tabulate(notification_history, headers="keys", showindex=row_ids, tablefmt="fancy_grid"))

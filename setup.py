@@ -10,7 +10,7 @@ DESCRIPTION = 'The Meeshkan Client for interactive machine learning'
 URL = 'https://www.meeshkan.com/'
 EMAIL = 'dev@meeshkan.com'
 AUTHOR = 'Meeshkan Dev Team'
-REQUIRES_PYTHON = '>=3.5.0'
+REQUIRES_PYTHON = '>=3.6.0'
 SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 
 # Required packages
@@ -137,7 +137,6 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Operating System :: MacOS',

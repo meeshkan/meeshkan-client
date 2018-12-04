@@ -11,7 +11,7 @@ import sys
 import asyncio
 import inspect
 
-from ..__types__ import HistoryByScalar
+from ..__types__ import HistoryByScalar, ScalarTimePairing
 from ..exceptions import TrackedScalarNotFoundException
 
 TF_EXISTS = True
@@ -99,16 +99,20 @@ class TrackerBase(object):
         # Last index which was submitted to cloud, used for statistics
         self._last_index = dict()  # type: Dict[str, int]
         self._conditions = list()  # type: List[TrackerCondition]
+        self._shared_index = 0
 
     def add_tracked(self, val_name: str, value: float) -> Optional[TrackerCondition]:
         # Add/create to dictionaries
-        self._history_by_scalar.setdefault(val_name, list()).append(value)
+        if val_name in self._history_by_scalar and self._history_by_scalar[val_name][-1].time == self._shared_index:
+            self._shared_index += 1
+        value_with_time = ScalarTimePairing(value, self._shared_index)
+        self._history_by_scalar.setdefault(val_name, list()).append(value_with_time)
         self._last_index.setdefault(val_name, -1)  # Initial index
         # Verify with conditions
         for condition in self._conditions:
             if val_name in condition:  # Condition is relevant for this scalar
                 existing_values = [name for name in condition.names if name in self._history_by_scalar]
-                kwargs = {name: self._history_by_scalar[name][-1] for name in existing_values}
+                kwargs = {name: self._history_by_scalar[name][-1].value for name in existing_values}
                 if condition(**kwargs):
                     return condition
         return None
@@ -133,23 +137,32 @@ class TrackerBase(object):
         """
         # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
         import matplotlib
-        matplotlib.use('svg')  # TODO - check if this solves for MacOSX as well?
-        if sys.platform == 'darwin':  # MacOS fix - try setting explicit backend, see
-            #  https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
-            matplotlib.use("TkAgg")
+        matplotlib.use('svg')
         import matplotlib.pyplot as plt
 
         has_plotted = False
         plt.clf()  # Clear figure
+        longest_iteration = 0  # Used for relabeling the x-axis by "iterations" or "reports"
         for tag, vals in history.items():  # All all scalar values to plot
             if vals:  # Some values exist
                 has_plotted = True
+                time_axis = list()
+                value_axis = list()
+                for value_with_time in vals:  # Separate axes
+                    time_axis.append(value_with_time.time)
+                    value_axis.append(value_with_time.value)
+                longest_iteration = max(longest_iteration, len(value_axis))
                 if len(vals) > 1:
-                    plt.plot(vals, label=tag)
+                    plt.plot(time_axis, value_axis, label=tag, linewidth=1)
                 else:  # scatter=plot the single point on x=0 :shrug:
-                    plt.scatter(0, vals, label=tag)
+                    plt.scatter(time_axis, value_axis, label=tag)
 
         if has_plotted:
+            # Relabel the x-axis for longest number of reports
+            # TODO - this can probably be improved with self._shared_index
+            locs, _ = plt.xticks()
+            stepsize = longest_iteration // len(locs) or 1  # Minimal step size of 1
+            plt.xticks(locs, range(0, longest_iteration, stepsize))
             plt.legend(loc='upper right')
             if title is not None:  # Title if given
                 plt.title(title)
@@ -184,7 +197,7 @@ class TrackerBase(object):
                 if name not in self._history_by_scalar:
                     raise TrackedScalarNotFoundException(name=name)
 
-            data = dict()  # type: Dict[str, List[float]]
+            data = dict()  # type: HistoryByScalar
             for value_name, values in self._history_by_scalar.items():
                 for name in names:
                     if name == value_name:
