@@ -22,12 +22,12 @@ def test_tracker_history():
     assert "tracked_value" in history  # Keeps correct naming
     history = history["tracked_value"]
     assert len(history) == 2  # Correct number of values tracked
-    assert history[0] == 0
-    assert history[1] == 1e-7
+    assert history[0].value == 0
+    assert history[1].value == 1e-7
 
     tb.add_tracked("another value", -2.3)  # Checks multiple value names
     assert len(tb._history_by_scalar) == 2
-    assert tb._history_by_scalar["another value"][0] == -2.3
+    assert tb._history_by_scalar["another value"][0].value == -2.3
 
 
 def test_generate_image():
@@ -52,8 +52,8 @@ def test_get_updates_with_image():
     assert len(history) == 1
     history = history["tracked_value"]
     assert len(history) == 2
-    assert history[0] == 1
-    assert history[1] == 2
+    assert history[0].value == 1
+    assert history[1].value == 2
     assert os.path.isfile(fname)
     os.remove(fname)
 
@@ -67,7 +67,7 @@ def test_get_latest_updates():
     history = history["tracked_value"]
     assert fname is None
     assert len(history) == 3
-    assert history == [1, 2.2, -4.1]
+    assert [timevalue.value for timevalue in history] == [1, 2.2, -4.1]
 
     tb.add_tracked("tracked_value", 0)
     history, _ = tb.get_updates(plot=False)
