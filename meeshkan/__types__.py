@@ -3,9 +3,9 @@ from typing import NewType, Dict, Any, List, Tuple
 import time
 
 class ScalarTimePairing(object):
-    def __init__(self, value: float):
+    def __init__(self, value: float, timevalue=None):
         self.value = value
-        self.time = time.monotonic()
+        self.time = timevalue if timevalue is not None else time.monotonic()
 
 Token = NewType("Token", str)
 Payload = Dict[str, Any]
