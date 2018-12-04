@@ -133,10 +133,7 @@ class TrackerBase(object):
         """
         # Import matplotlib (or other future libraries) inside the function to prevent non-declaration in forked process
         import matplotlib
-        matplotlib.use('svg')  # TODO - check if this solves for MacOSX as well?
-        if sys.platform == 'darwin':  # MacOS fix - try setting explicit backend, see
-            #  https://stackoverflow.com/questions/21784641/installation-issue-with-matplotlib-python
-            matplotlib.use("TkAgg")
+        matplotlib.use('svg')
         import matplotlib.pyplot as plt
 
         has_plotted = False
