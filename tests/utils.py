@@ -1,10 +1,14 @@
 import time
+from typing import Callable
+import requests
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan.core.job import Job
+from meeshkan.core.oauth import TokenStore
+from meeshkan.__types__ import Token
 
 FUTURE_TIMEOUT = 10  # In seconds
 
-class MockResponse:
+class MockResponse(object):
     def __init__(self, json_data=None, status_code=None):
         self.json_data = json_data
         self.status_code = status_code
@@ -32,6 +36,23 @@ class MockResponse:
     @staticmethod
     def for_unauthenticated():
         return MockResponse({"errors": [{"extensions": {"code": "UNAUTHENTICATED"}}]}, 200)
+
+
+class DummyStore(TokenStore):
+    def __init__(self, cloud_url: str, refresh_token: str,
+                 build_session: Callable[[], requests.Session] = requests.Session):
+        super(DummyStore, self).__init__(refresh_token)
+        self._auth_url = cloud_url
+        self._session = build_session()
+
+    def _fetch_token(self) -> Token:
+        resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
+        if resp.status_code == HTTPStatus.OK:
+            resp_dict = resp.json()['data']
+            return resp_dict['token']['access_token']
+        if resp.status_code == HTTPStatus.UNAUTHORIZED:
+            raise UnauthorizedRequestException()
+        raise RuntimeError("Failed requesting authentication.")
 
 
 class MockNotifier(Notifier):

@@ -56,8 +56,8 @@ def __get_api() -> Api:
 def __build_cloud_client(config: meeshkan.config.Configuration,
                          credentials: meeshkan.config.Credentials) -> CloudClient:
 
-    token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-    cloud_client = CloudClient(cloud_url=config.cloud_url, token_store=token_store)
+    # token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+    cloud_client = CloudClient(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     return cloud_client
 
 
@@ -85,7 +85,6 @@ def __build_api(config: meeshkan.config.Configuration,
         if cmd_folder not in sys_.path:
             sys_.path.insert(0, cmd_folder)
 
-        from meeshkan.core.oauth import TokenStore as TokenStore_
         from meeshkan.core.cloud import CloudClient as CloudClient_
         from meeshkan.core.api import Api as Api_
         from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
@@ -98,8 +97,8 @@ def __build_api(config: meeshkan.config.Configuration,
         ensure_base_dirs_()
         setup_logging_(silent=True)
 
-        token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-        cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
+        # token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+        cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)#token_store=token_store)
 
         cloud_notifier = CloudNotifier(name="Cloud Service", post_payload=cloud_client.post_payload,
                                        upload_file=cloud_client.post_payload_with_file)

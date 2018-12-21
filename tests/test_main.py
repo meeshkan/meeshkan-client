@@ -14,7 +14,7 @@ from meeshkan.core.cloud import CloudClient
 from meeshkan.core.service import Service
 from meeshkan.exceptions import UnauthorizedRequestException
 import meeshkan.__main__ as main
-from .utils import MockResponse
+from .utils import MockResponse, DummyStore
 
 CLI_RUNNER = CliRunner()
 
@@ -32,13 +32,15 @@ def _build_session(post_return_value=None, request_return_value=None):
     return session
 
 
+
 def _token_store(build_session=None):
     """Returns a TokenStore for unit testing"""
     _cloud_url = 'favorite-url-yay.com'
     _refresh_token = 'meeshkan-top-secret'
+    # return DummyStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
     if build_session is None:
-        return TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
-    return TokenStore(cloud_url=_cloud_url, refresh_token=_refresh_token, build_session=build_session)
+        return DummyStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
+    return DummyStore(cloud_url=_cloud_url, refresh_token=_refresh_token, build_session=build_session)
 
 
 @pytest.fixture
