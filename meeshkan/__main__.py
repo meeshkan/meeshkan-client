@@ -149,7 +149,6 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 def cli(debug, silent):
     if not debug:
         sys.tracebacklimit = 0
-    __verify_version()
 
     global LOGGER  # pylint: disable=global-statement
     meeshkan.config.ensure_base_dirs()
@@ -182,6 +181,7 @@ def setup():
 @cli.command()
 def start():
     """Starts Meeshkan service daemon."""
+    __verify_version()
     service = Service()
     if service.is_running():
         print("Service is already running.")
