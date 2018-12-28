@@ -127,7 +127,7 @@ def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argume
     with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
         mock_requests_get.return_value = MockResponse({"releases": {"20.0.0": {}, "2.0.0": {}}}, 200)
         version_result = run_cli(args=['start'], catch_exceptions=False)
-        assert "pip install" not in version_result.stdout, "New version available! Client should suggest how to update"
+        assert "pip install" in version_result.stdout, "New version available! Client should suggest how to update"
         assert "newer version" in version_result.stdout, "New major version available! Client should notify user"
     meeshkan.__version__ = original_version
 
