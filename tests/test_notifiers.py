@@ -41,63 +41,50 @@ def test_logging_notifier_job_start_end(cleanup):  # pylint:disable=unused-argum
         result[job_id] = message
 
     job = _get_job()
-    assert len(result) == 0
+    assert len(result) == 0, "Sanity test - `result` dictionary should be empty at this point"
 
     with mock.patch('meeshkan.notifications.notifiers.LoggingNotifier.log', fake_log):
         logging_notifier = LoggingNotifier()
         logging_notifier.notify_job_start(job)
         # Verify internal state
-        assert len(result) == 1
-        assert job.id in result
-        assert "Job started" in result[job.id]
+        assert len(result) == 1, "There should be a single key-value pair in `result` pertaining to the submitted job"
+        assert job.id in result, "The key should match the job ID '{}'".format(job.id)
+        assert "Job started" in result[job.id], "The notification should be about the 'Job Start' event"
 
         logging_notifier.notify_job_end(job)
         # Verify internal state
-        assert len(result) == 1
-        assert job.id in result
-        assert "Job finished" in result[job.id]
+        assert len(result) == 1, "There should be a single key-value pair in `result` pertaining to the submitted job"
+        assert job.id in result, "The key should match the job ID '{}'".format(job.id)
+        assert "Job finished" in result[job.id], "The notification should be about the 'Job End' event"
 
 
 def test_logging_notifier_job_update_no_file_no_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job update for LoggingNotifier when neither image or directory exist"""
-    result = dict()
-    def fake_log(self, job_id, message):
-        # No need to check with exceptions (for history management), as it's checked in another test
-        nonlocal result
-        result[job_id] = message
-
-    assert len(result) == 0
-
     job = _get_job()
     logging_notifier = LoggingNotifier()
 
     # Job directory doesn't exist but file does exist -> expected a failure in notification!
     logging_notifier.notify(job, __file__, -1)
+    # Assumes this works from previous tests (and onwards)
     last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
-    assert last_notification.type == NotificationType.JOB_UPDATE
-    assert last_notification.status == NotificationStatus.FAILED
+    assert last_notification.type == NotificationType.JOB_UPDATE, "The notification type should be an update " \
+                                                                  "pertaining to the job"
+    assert last_notification.status == NotificationStatus.FAILED, "The notification should fail when the Job output " \
+                                                                  "path does not exist."
 
 def test_logging_notifier_job_update_no_file_with_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job update for LoggingNotifier when an image doesn't exist bu the directory does"""
-    result = dict()
-
-    def fake_log(self, job_id, message):
-        # No need to check with exceptions (for history management), as it's checked in another test
-        nonlocal result
-        result[job_id] = message
-
-    assert len(result) == 0
-
     job = _get_job()
     logging_notifier = LoggingNotifier()
 
     job.output_path.mkdir()
-    logging_notifier.notify(job, __file__, -1)
     # Job directory exists but file doesn't -> expected a failure in notification still!
     logging_notifier.notify(job, "does_not_exist", -1)
     last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
-    assert last_notification.type == NotificationType.JOB_UPDATE
-    assert last_notification.status == NotificationStatus.FAILED
+    assert last_notification.type == NotificationType.JOB_UPDATE, "The notification type should be an update " \
+                                                                  "pertaining to the job"
+    assert last_notification.status == NotificationStatus.FAILED, "The notification should fail when the plot file " \
+                                                                  "does not exist."
 
     # Cleanup
     shutil.rmtree(job.output_path, ignore_errors=True)
@@ -112,7 +99,7 @@ def test_logging_notifier_job_update_file_dir(cleanup):  # pylint:disable=unused
         nonlocal result
         result[job_id] = message
 
-    assert len(result) == 0
+    assert len(result) == 0, "Sanity test - `result` dictionary should be empty at this point"
 
     job = _get_job()
     logging_notifier = LoggingNotifier()
@@ -124,11 +111,13 @@ def test_logging_notifier_job_update_file_dir(cleanup):  # pylint:disable=unused
         logging_notifier = LoggingNotifier()
         logging_notifier.notify(job, __file__, -1)
         last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
-        assert last_notification.type == NotificationType.JOB_UPDATE
-        assert last_notification.status == NotificationStatus.SUCCESS
-        assert len(result) == 1
-        assert job.id in result
-        assert "view at" in result[job.id]
+        assert last_notification.type == NotificationType.JOB_UPDATE, "The notification type should be an update " \
+                                                                  "pertaining to the job"
+        assert last_notification.status == NotificationStatus.SUCCESS, "With both folder and image path existing, the" \
+                                                                       " notification is expected to succeed."
+        assert len(result) == 1, "There should only be one key-value pair for `result`"
+        assert job.id in result, "The key should match the job ID '{}'".format(job.id)
+        assert "view at" in result[job.id], "The notification should point to the plot"
 
 
 # CloudNotifier Tests
@@ -141,33 +130,33 @@ def test_cloud_notifier_job_start_end_queries(cleanup):  # pylint:disable=unused
         posted_payload = payload
 
     # Initializations (sanity checks)
-    assert posted_payload == {}
+    assert posted_payload == {}, "Sanity test - `posted_payload` dictionary should be empty at this point"
     cloud_notifier = CloudNotifier(fake_post, _empty_upload)
     job = _get_job()
     expected_payload_start = {"query": "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"}
     expected_payload_end = {"query": "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"}
 
     notifications = cloud_notifier.get_notification_history(job.id)[cloud_notifier.name]
-    assert len(notifications) == 0
+    assert len(notifications) == 0, "Expecting no notification at this point as no events have occurred"
     last_notification = cloud_notifier.get_last_notification_status(job.id)[cloud_notifier.name]
-    assert last_notification is None
+    assert last_notification is None, "There is no last notification either, expected `None` value"
 
     cloud_notifier.notify_job_start(job)
 
     # Validate query for notify_job_start
-    assert "query" in posted_payload
-    assert posted_payload["query"] == expected_payload_start["query"]
+    assert "query" in posted_payload, "Payload is expected to contain the key 'query'"
+    assert posted_payload["query"] == expected_payload_start["query"], "GraphQL queries should be identical"
 
 
     cloud_notifier.notify_job_end(job)
 
     # Validate query for notify_job_end
-    assert "query" in posted_payload
-    assert posted_payload["query"] == expected_payload_end["query"]
+    assert "query" in posted_payload, "Payload is expected to contain the key 'query'"
+    assert posted_payload["query"] == expected_payload_end["query"], "GraphQL queries should be identical"
 
-    assert "variables" in posted_payload
+    assert "variables" in posted_payload, "Posted payload is expected to contain a 'variables' key"
     variables = posted_payload["variables"]
-    assert "in" in variables
+    assert "in" in variables, "'variables' dictionary is expected to contain a key called 'in'"
 
 
 def test_cloud_notifier_job_update_no_image(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -185,14 +174,14 @@ def test_cloud_notifier_job_update_no_image(cleanup):  # pylint:disable=unused-a
         expected_payload = {'query': 'mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!)'
                                      ' {notifyJobScalarChangesWithImage(input: $in)}'}
         # Verify query structure
-        assert 'query' in posted_payload
-        assert posted_payload['query'] == expected_payload['query']
-        assert 'variables' in posted_payload
-        assert 'in' in posted_payload['variables']
+        assert 'query' in posted_payload, "Payload is expected to contain the key 'query'"
+        assert posted_payload['query'] == expected_payload['query'], "GraphQL queries should be identical"
+        assert 'variables' in posted_payload, "Payload is expected to contain the key 'variables'"
+        assert 'in' in posted_payload['variables'], "'variables' dictionary is expected to contain a key called 'in'"
         # Verify empty imageUrl
         variables = posted_payload['variables']['in']
-        assert 'imageUrl' in variables
-        assert variables['imageUrl'] == ''
+        assert 'imageUrl' in variables, "'in' dictionary is expected to contain a key called 'imageUrl'"
+        assert variables['imageUrl'] == '', "`imageUrl` value is expected to be empty"
 
 
 def test_cloud_notifier_job_update_existing_file(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -204,7 +193,7 @@ def test_cloud_notifier_job_update_existing_file(cleanup):  # pylint:disable=unu
         posted_payload = payload
 
     def fake_upload(image_path, download_link):
-        assert image_path == __file__
+        assert image_path == __file__, "Expecting given mock `image_path` to match '{}'".format(__file__)
         return "no_upload"
 
     cloud_notifier = CloudNotifier(fake_post, fake_upload)
@@ -213,14 +202,14 @@ def test_cloud_notifier_job_update_existing_file(cleanup):  # pylint:disable=unu
     expected_payload = {'query': 'mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!)'
                                  ' {notifyJobScalarChangesWithImage(input: $in)}'}
     # Verify query structure
-    assert 'query' in posted_payload
-    assert posted_payload['query'] == expected_payload['query']
-    assert 'variables' in posted_payload
-    assert 'in' in posted_payload['variables']
+    assert 'query' in posted_payload, "Payload is expected to contain the key 'query'"
+    assert posted_payload['query'] == expected_payload['query'], "GraphQL queries should be identical"
+    assert 'variables' in posted_payload, "Payload is expected to contain the key 'variables'"
+    assert 'in' in posted_payload['variables'], "'variables' dictionary is expected to contain a key called 'in'"
     # Verify empty imageUrl
     variables = posted_payload['variables']['in']
-    assert 'imageUrl' in variables
-    assert variables['imageUrl'] == "no_upload"
+    assert 'imageUrl' in variables, "'in' dictionary is expected to contain a key called 'imageUrl'"
+    assert variables['imageUrl'] == "no_upload", "`imageUrl` value is expected to contain hard-coded value `no_upload`"
 
 
 # General Notifier Tests
@@ -240,48 +229,51 @@ def test_notifier_history(cleanup):  # pylint:disable=unused-argument,redefined-
 
     # Validate history for notify_job_start
     notifications = cloud_notifier.get_notification_history(job.id)[cloud_notifier.name]
-    assert len(notifications) == 1
-    assert notifications[0].type == NotificationType.JOB_START
-    assert notifications[0].status == NotificationStatus.SUCCESS
+    assert len(notifications) == 1, "Expecting a single notification at this point (JobStart)"
+    assert notifications[0].type == NotificationType.JOB_START, "Notification type should be Job Start"
+    assert notifications[0].status == NotificationStatus.SUCCESS, "Notification is expected to succeed with Mock `post`"
 
     last_notification = cloud_notifier.get_last_notification_status(job.id)[cloud_notifier.name]
-    assert last_notification is not None
-    assert last_notification.type == NotificationType.JOB_START
-    assert last_notification.status == NotificationStatus.SUCCESS
+    assert last_notification is not None, "There was a single notification, we expect a concrete value"
+    assert last_notification.type == NotificationType.JOB_START, "Notification type should be Job Start"
+    assert last_notification.status == NotificationStatus.SUCCESS, "Notification was expected to succeed"
 
     should_raise = True
     cloud_notifier.notify_job_end(job)
 
     # Validate history for notify_job_end
     notifications = cloud_notifier.get_notification_history(job.id)[cloud_notifier.name]
-    assert len(notifications) == 2
-    assert notifications[1].type == NotificationType.JOB_END
-    assert notifications[1].status == NotificationStatus.FAILED
+    assert len(notifications) == 2, "Expecting two notification at this point (JobStart, JobEnd)"
+    assert notifications[1].type == NotificationType.JOB_END, "Second notification type should be Job End"
+    assert notifications[1].status == NotificationStatus.FAILED, "Notification has failed here due to set flag"
 
     last_notification = cloud_notifier.get_last_notification_status(job.id)[cloud_notifier.name]
-    assert last_notification is not None
-    assert last_notification.type == NotificationType.JOB_END
-    assert last_notification.status == NotificationStatus.FAILED
+    assert last_notification is not None, "We expect a concrete value after any event has happened"
+    assert last_notification.type == NotificationType.JOB_END, "Last notification type was Job End"
+    assert last_notification.status == NotificationStatus.FAILED, "Last notification has failed to due to set flag"
 
 
 # NotifierCollection Tests
 def test_notifier_collection_notifiers_init(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests init with notifiers"""
+    assert_msg1 = "Both created notifiers should be found in the `_notifiers` list"
     cloud_notifier = CloudNotifier(_empty_post, _empty_upload)
     logging_notifier = LoggingNotifier()
 
     # Proper init
     collection = NotifierCollection(*[cloud_notifier, logging_notifier])
-    assert len(collection._notifiers) == 2
-    assert cloud_notifier in collection._notifiers and logging_notifier in collection._notifiers
+    assert len(collection._notifiers) == 2, "There are two registered notifiers in the collection"
+    assert cloud_notifier in collection._notifiers and logging_notifier in collection._notifiers, assert_msg1
 
     # Empty init
     collection = NotifierCollection()
-    assert len(collection._notifiers) == 0
+    assert len(collection._notifiers) == 0, "NotifierCollection was instantiated without any notifiers! " \
+                                            "How come there are any registered?"
 
     # Bad init
     collection = NotifierCollection(*[cloud_notifier, cloud_notifier])
-    assert len(collection._notifiers) == 1
+    assert len(collection._notifiers) == 1, "NotifierCollection was instantiated with the same object multiple times," \
+                                            " but only one unique instance of an object can be stored."
 
 
 def test_notifier_collection_registering_notifiers(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -291,22 +283,28 @@ def test_notifier_collection_registering_notifiers(cleanup):  # pylint:disable=u
     collection = NotifierCollection()
 
     # Sanity check
-    assert len(collection._notifiers) == 0
+    assert len(collection._notifiers) == 0, "Sanity check - empty NotifierCollection"
 
     # Adding
-    assert collection.register_notifier(cloud_notifier)
-    assert len(collection._notifiers) == 1
+    assert collection.register_notifier(cloud_notifier), "Adding a new notifier should return True"
+    assert len(collection._notifiers) == 1, "A single notifier was added to the collection!"
 
     # Adding again?
-    assert not collection.register_notifier(cloud_notifier)
+    assert not collection.register_notifier(cloud_notifier), "Trying to add an already-added notifier should return " \
+                                                             "False and not add the notifier to the list"
 
     # Adding same class, different name
-    assert collection.register_notifier(cloud_notifier2)
-    assert len(collection._notifiers) == 2
+    assert collection.register_notifier(cloud_notifier2), "Adding a new notifier of the same class should succeed"
+    assert len(collection._notifiers) == 2, "There are now two registered notifiers!"
 
 
 def test_notifier_collection_notifications(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     """Tests the job notifications are sent to all registered notifiers, along with history management"""
+    assert_msg1 = "Last notification type was JobUpdate"
+    assert_msg2 = "CloudNotifier is expected to succeed with a fake `post` method"
+    assert_msg3 = "LoggingNotifier is expected to fail with non-existing output path"
+    assert_msg4 = "History for CloudNotifier from NotifierCollection should match CloudNotifier internal history"
+    assert_msg5 = "History for LoggingNotifier from NotifierCollection should match LoggingNotifier internal history"
     cloud_counter = 0
     logging_counter = 0
 
@@ -326,32 +324,37 @@ def test_notifier_collection_notifications(cleanup):  # pylint:disable=unused-ar
 
         # Test with notify_job_start
         collection.notify_job_start(job)
-        assert cloud_counter == logging_counter == 1
+        assert cloud_counter == logging_counter == 1, "A single event (JobStart) should be sent to both notifiers"
 
         # Test with notify_job_end
         collection.notify_job_end(job)
-        assert cloud_counter == logging_counter == 2
+        assert cloud_counter == logging_counter == 2, "Two events have now been registered to both notifiers " \
+                                                      "(JobStart, JobEnd)"
 
         # Test with notify
         collection.notify(job, "", -1)
         # Validate `notify` via job_history
         last_notification = collection.get_last_notification_status(job.id)
-        assert len(last_notification) == 2
-        assert cloud_notifier.name in last_notification
-        assert logging_notifier.name in last_notification
-        assert last_notification[cloud_notifier.name].type == NotificationType.JOB_UPDATE
-        assert last_notification[logging_notifier.name].type == NotificationType.JOB_UPDATE
+        assert len(last_notification) == 2, "There are two notifiers, so we expect two keys in the last notification"
+        assert cloud_notifier.name in last_notification, "CloudNotifier name '{}' should be a " \
+                                                         "key".format(cloud_notifier.name)
+        assert logging_notifier.name in last_notification, "LoggingNotifier name '{}' should be a " \
+                                                           "key".format(logging_notifier.name)
+        assert last_notification[cloud_notifier.name].type == NotificationType.JOB_UPDATE, assert_msg1
+        assert last_notification[logging_notifier.name].type == NotificationType.JOB_UPDATE, assert_msg1
         # Cloud notification is expected to be successful as we emulate the upload and posting process
-        assert last_notification[cloud_notifier.name].status == NotificationStatus.SUCCESS
+        assert last_notification[cloud_notifier.name].status == NotificationStatus.SUCCESS, assert_msg2
         # Logging notification is expected to fail as the target directory does not exist
-        assert last_notification[logging_notifier.name].status == NotificationStatus.FAILED
+        assert last_notification[logging_notifier.name].status == NotificationStatus.FAILED, assert_msg3
 
         # Test history
         history = collection.get_notification_history(job.id)
-        assert len(history) == 2
-        assert cloud_notifier.name in last_notification
-        assert logging_notifier.name in last_notification
+        assert len(history) == 2, "The entire history should have two keys - one for each notifier"
+        assert cloud_notifier.name in last_notification, "CloudNotifier name '{}' should be a " \
+                                                         "key".format(cloud_notifier.name)
+        assert logging_notifier.name in last_notification, "LoggingNotifier name '{}' should be a " \
+                                                           "key".format(logging_notifier.name)
         cloud_history = history[cloud_notifier.name]
         logging_history = history[logging_notifier.name]
-        assert cloud_history == cloud_notifier.get_notification_history(job.id)[cloud_notifier.name]
-        assert logging_history == logging_notifier.get_notification_history(job.id)[logging_notifier.name]
+        assert cloud_history == cloud_notifier.get_notification_history(job.id)[cloud_notifier.name], assert_msg4
+        assert logging_history == logging_notifier.get_notification_history(job.id)[logging_notifier.name], assert_msg5

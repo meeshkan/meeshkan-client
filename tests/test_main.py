@@ -77,7 +77,7 @@ def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,rede
     temp_token = "abc"
 
     def to_isi(refresh_token, *args):
-        assert refresh_token == temp_token
+        assert refresh_token == temp_token, "Refresh token token used is '{}'!".format(temp_token)
 
     with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
         with mock.patch("os.path.isfile") as mock_isfile:
@@ -86,17 +86,17 @@ def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,rede
 
             # Test with proper interaction
             run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
-            assert mock_to_isi.call_count == 1
+            assert mock_to_isi.call_count == 1, "`to_isi` should only be called once (proper response)"
 
             # Test with empty response
             run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
-            assert mock_to_isi.call_count == 2
+            assert mock_to_isi.call_count == 2, "`to_isi` should be called twice here (default response)"
 
             # Test with non-positive answer
             config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
                                     catch_exceptions=False)
-            assert mock_to_isi.call_count == 2
-            assert config_result.exit_code == 2
+            assert mock_to_isi.call_count == 2, "`to_isi` should still be called only twice (negative answer)"
+            assert config_result.exit_code == 2, "Exit code should be non-zero (2 - cancelled by user)"
 
 
 def test_setup_if_doesnt_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
@@ -105,7 +105,7 @@ def test_setup_if_doesnt_exists(pre_post_tests):  # pylint:disable=unused-argume
     temp_token = "abc"
 
     def to_isi(refresh_token, *args):
-        assert refresh_token == temp_token
+        assert refresh_token == temp_token, "Refresh token token used is '{}'!".format(temp_token)
 
     with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
         with mock.patch("os.path.isfile") as mock_isfile:
@@ -113,12 +113,12 @@ def test_setup_if_doesnt_exists(pre_post_tests):  # pylint:disable=unused-argume
             mock_to_isi.side_effect = to_isi
             # Test with proper interaction
             run_cli(args=['setup'], inputs="{token}\n".format(token=temp_token), catch_exceptions=False)
-            assert mock_to_isi.call_count == 1
+            assert mock_to_isi.call_count == 1, "`to_isi` should only be called once (token given)"
 
             # Test with empty response
             temp_token = ''
             run_cli(args=['setup'], inputs="\n", catch_exceptions=False)
-            assert mock_to_isi.call_count == 2
+            assert mock_to_isi.call_count == 2, "`to_isi` should be called twice here (empty token)"
 
 
 def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
@@ -127,8 +127,10 @@ def test_version_mismatch_major(pre_post_tests):  # pylint:disable=unused-argume
     with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
         mock_requests_get.return_value = MockResponse({"releases": {"20.0.0": {}, "2.0.0": {}}}, 200)
         version_result = run_cli(args=['start'], catch_exceptions=False)
-        assert "pip install" in version_result.stdout
+        assert "pip install" not in version_result.stdout, "New version available! Client should suggest how to update"
+        assert "newer version" in version_result.stdout, "New major version available! Client should notify user"
     meeshkan.__version__ = original_version
+
 
 def test_version_mismatch(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
     original_version = meeshkan.__version__
@@ -136,9 +138,10 @@ def test_version_mismatch(pre_post_tests):  # pylint:disable=unused-argument,red
     with mock.patch("requests.get") as mock_requests_get:  # Mock requests.get specifically for version test...
         mock_requests_get.return_value = MockResponse({"releases": {"0.1.0": {}, "0.0.1": {}}}, 200)
         version_result = run_cli(args=['start'], catch_exceptions=False)
-        assert "pip install" not in version_result.stdout
-        assert "newer version" in version_result.stdout
+        assert "pip install" not in version_result.stdout, "New version minor available! Client should be quieter..."
+        assert "newer version" in version_result.stdout, "New major version available! Client should notify user"
     meeshkan.__version__ = original_version
+
 
 def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     service = Service()
@@ -148,14 +151,15 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
         # Mock notify service start, enough for start-up
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
-        assert service.is_running()
+        assert service.is_running(), "Service should be running after using `meeshkan start`"
         stop_result = run_cli(args=['stop'])
-        assert not service.is_running()
+        assert not service.is_running(), "Service should NOT be running after using `meeshkan stop`"
 
-    assert start_result.exit_code == 0
-    assert stop_result.exit_code == 0
+    assert start_result.exit_code == 0, "`meeshkan start` is expected to run without errors"
+    assert stop_result.exit_code == 0, "`meeshkan stop` is expected to run without errors"
 
-    assert mock_cloud_client.return_value.notify_service_start.call_count == 1
+    assert mock_cloud_client.return_value.notify_service_start.call_count == 1, "`notify_service_start` is expected " \
+                                                                                "to be called only once."
 
 
 def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -163,13 +167,14 @@ def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefi
     with mock.patch('meeshkan.__main__.CloudClient', autospec=True) as mock_cloud_client:
         mock_cloud_client.return_value.notify_service_start.return_value = None
         start_result = run_cli('start')
-        assert service.is_running()
+        assert service.is_running(), "Service should be running after using `meeshkan start`"
         double_start_result = run_cli('start')
-        assert double_start_result.stdout == "Service is already running.\n"
+        assert double_start_result.stdout == "Service is already running.\n", "Service should already be running"
 
-    assert start_result.exit_code == 0
-    assert double_start_result.exit_code == 1
-    assert mock_cloud_client.return_value.notify_service_start.call_count == 1
+    assert start_result.exit_code == 0, "`meeshkan start` should succeed by default"
+    assert double_start_result.exit_code == 1, "Consecutive calls to `meeshkan start` should fail"
+    assert mock_cloud_client.return_value.notify_service_start.call_count == 1, "`notify_service_start` is expected " \
+                                                                                "to be called only once"
 
 
 def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -182,19 +187,21 @@ def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefine
     patcher.start()
     start_result =  run_cli('start')
 
-    assert start_result.stdout == "Starting service failed.\n"
-    assert start_result.exit_code == 1
-    assert not service.is_running()
+    assert start_result.stdout == "Starting service failed.\n", "`meeshkan start` is expected to fail"
+    assert start_result.exit_code == 1, "`meeshkan start` exit code should be non-zero upon failure"
+    assert not service.is_running(), "Service should not be running!"
     patcher.stop()
 
 
 def test_help(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
+    assert_msg1 = "All the commands in __main__ should be listed under `meeshkan help`"
     help_result = run_cli('help')
-    assert help_result.exit_code == 0
+    assert help_result.exit_code == 0, "`meeshkan help` should run without errors!"
 
     help_result = [x.strip() for x in help_result.stdout.split("\n")]
-    commands = ['clear', 'help', 'list', 'sorry', 'start', 'status', 'stop', 'submit']
-    assert all([any([output.startswith(command) for output in help_result]) for command in commands])
+    commands = ['cancel', 'clean', 'clear', 'help', 'list', 'logs', 'notifications', 'report', 'setup', 'sorry',
+                'start', 'status', 'stop', 'submit']
+    assert all([any([output.startswith(command) for output in help_result]) for command in commands]), assert_msg1
 
 
 def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -202,7 +209,7 @@ def test_verify_version_failure(pre_post_tests):  # pylint: disable=unused-argum
         def fail_get(*args, **kwargs):   # pylint: disable=unused-argument,redefined-outer-name
             raise Exception
         mock_requests.get.side_effect = fail_get
-        assert main.__verify_version() is None
+        assert main.__verify_version() is None, "`__verify_version` is expected to silently fail and return `None`"
 
 
 def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -216,10 +223,15 @@ def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argumen
         mock_cloud_client.return_value.notify_service_start.side_effect = side_effect
         start_result = run_cli('--silent start')
 
-    assert start_result.exit_code == 1
-    assert start_result.stdout == UnauthorizedRequestException().message + '\n'
-    assert not service.is_running()
-    assert mock_cloud_client.return_value.notify_service_start.call_count == 1
+    assert start_result.exit_code == 1, "`meeshkan start` is expected to fail with UnauthorizedRequestException and " \
+                                        "return a non-zero exit code"
+    assert start_result.stdout == UnauthorizedRequestException().message + '\n', "stdout when running `meeshkan " \
+                                                                                 "start` should match the error " \
+                                                                                 "message in " \
+                                                                                 "UnauthorizedRequestException"
+    assert not service.is_running(), "Service should not be running after a failed `start`"
+    assert mock_cloud_client.return_value.notify_service_start.call_count == 1, "`notify_service_start` should be " \
+                                                                                "called once (where it fails)"
 
 
 def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -232,30 +244,31 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
         mock_cloud_client.return_value.post_payload.return_value = None
         start_result = run_cli(args=['start'])
 
-    assert start_result.exit_code == 0
-    assert service.is_running()
+    assert start_result.exit_code == 0, "`start` should run smoothly"
+    assert service.is_running(), "Service should be running after `start`"
 
     submit_result = run_cli(args='submit echo Hello')
-    assert submit_result.exit_code == 0
+    assert submit_result.exit_code == 0, "`submit` is expected to succeed"
 
     stdout_pattern = r"Job\s(\d+)\ssubmitted\ssuccessfully\swith\sID\s([\w-]+)"
     match = re.match(stdout_pattern, submit_result.stdout)
 
     job_number = int(match.group(1))
-    assert job_number == 1
+    assert job_number == 1, "Submitted job should have a HID of 1 (first job submitted)"
 
     job_uuid = match.group(2)
-    assert uuid.UUID(job_uuid)
+    assert uuid.UUID(job_uuid), "Job UUID should be a valid UUID and match the regex pattern"
 
-    assert service.is_running()
+    assert service.is_running(), "Service should still be running!"
 
     list_result = run_cli(args='list')
-    assert list_result.exit_code == 0  # Better testing at some point.
+    # Better testing at some point.
+    assert list_result.exit_code == 0, "`list` is expected to succeed"
 
     def verify_finished(out):
         out = out.split("\n")  # Split per line
         line = [x for x in out if job_uuid in x]  # Find the one relevant job_id
-        assert len(line) == 1
+        assert len(line) == 1, "There should be only one line with the given job id"
         return "FINISHED" in line[0]
 
     list_result = run_cli(args='list')
@@ -264,8 +277,10 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
         list_result = run_cli(args='list')
 
     # Check stdout and stderr exist
-    assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file()
-    assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file()
+    assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stdout').is_file(), "stdout file is expected to exist after " \
+                                                                            "job is finished"
+    assert meeshkan.config.JOBS_DIR.joinpath(job_uuid, 'stderr').is_file(), "stderr file is expected to exist after " \
+                                                                            "job is finished"
 
 
 def test_sorry_success(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -281,8 +296,8 @@ def test_sorry_success(pre_post_tests):  # pylint: disable=unused-argument,redef
     with mock.patch('meeshkan.__main__.__build_cloud_client', mock_cc_builder):
         sorry_result = run_cli(args=['sorry'])
 
-    assert sorry_result.exit_code == 0
-    assert sorry_result.stdout == "Logs uploaded to server succesfully.\n"
+    assert sorry_result.exit_code == 0, "`sorry` is expected to succeed"
+    assert sorry_result.stdout == "Logs uploaded to server succesfully.\n", "`sorry` output message should match"
 
 
 def test_sorry_upload_fail(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -299,8 +314,8 @@ def test_sorry_upload_fail(pre_post_tests):  # pylint: disable=unused-argument,r
     with mock.patch('meeshkan.__main__.__build_cloud_client', mock_cc_builder):
         sorry_result = run_cli(args=['sorry'])
 
-    assert sorry_result.exit_code == 1
-    assert sorry_result.stdout == "Failed uploading logs to server.\n"
+    assert sorry_result.exit_code == 1, "`sorry` is expected to fail"
+    assert sorry_result.stdout == "Failed uploading logs to server.\n", "`sorry` output message should match"
 
 
 def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -316,8 +331,8 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
     with mock.patch('meeshkan.__main__.__build_cloud_client', mock_cc_builder):
         sorry_result = run_cli(args=['sorry'])
 
-    assert sorry_result.stdout == "Failed uploading logs to server.\n"
-    assert sorry_result.exit_code == 1
+    assert sorry_result.exit_code == 1, "`sorry` is expected to fail"
+    assert sorry_result.stdout == "Failed uploading logs to server.\n", "`sorry` output message should match"
 
 
 def test_empty_list(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -329,15 +344,15 @@ def test_empty_list(pre_post_tests):  # pylint: disable=unused-argument,redefine
         run_cli(args=['start'])
         list_result = run_cli(args=['list'])
 
-    assert service.is_running()
-    assert list_result.exit_code == 0
-    assert list_result.stdout == "No jobs submitted yet.\n"
+    assert service.is_running(), "Service should be running after running `start`"
+    assert list_result.exit_code == 0, "`list` is expected to succeed"
+    assert list_result.stdout == "No jobs submitted yet.\n", "`list` output message should match"
 
 
 def test_easter_egg(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
     easter_egg = run_cli('im-bored')  # No mocking as we don't care about get requests here?
-    assert easter_egg.exit_code == 0
-    assert easter_egg.stdout.index(":") > 0  # Separates author:name...
+    assert easter_egg.exit_code == 0, "easter egg is expected to succeed"
+    assert easter_egg.stdout.index(":") > 0, "A colon is used in stdout to separate author and content - where is it?"
 
 
 def test_clear(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -348,11 +363,12 @@ def test_clear(pre_post_tests):  # pylint: disable=unused-argument,redefined-out
 
     clear_result = run_cli(args=['clear'])
 
-    assert clear_result.exit_code == 0
-    assert "Removing jobs directory" in clear_result.stdout
-    assert "Removing logs directory" in clear_result.stdout
-    assert os.path.isdir(meeshkan.config.JOBS_DIR)
-    assert os.path.isdir(meeshkan.config.LOGS_DIR)
+    assert clear_result.exit_code == 0, "`clear` is expected to succeed"
+    assert "Removing jobs directory" in clear_result.stdout, "`clear` output messages should match"
+    assert "Removing logs directory" in clear_result.stdout, "`clear` output messages should match"
+    # Sanity tests as we're mocking rmtree -> but even if that fails, the directories should be recreated!
+    assert os.path.isdir(meeshkan.config.JOBS_DIR), "Default JOBS directory should exist after `clear`"
+    assert os.path.isdir(meeshkan.config.LOGS_DIR), "Default LOGS directory should exist after `clear`"
 
     patch_rmtree.stop()
 
@@ -364,11 +380,11 @@ def test_status(pre_post_tests):  # pylint: disable=unused-argument,redefined-ou
         mock_cloud_client.return_value.post_payload.return_value = None
 
         not_running_status = run_cli(args=['status'])
-        assert not_running_status.exit_code == 0
-        assert "configured to run" in not_running_status.stdout
+        assert not_running_status.exit_code == 0, "`status` is expected to succeed even if Service is not running"
+        assert "configured to run" in not_running_status.stdout, "`status` message should match"
 
         run_cli(args=['start'])
         running_status = run_cli(args=['status'])
-        assert running_status.exit_code == 0
-        assert "up and running" in running_status.stdout
-        assert "URI for Daemon is" in running_status.stdout
+        assert running_status.exit_code == 0, "`status` is expected to succeed"
+        assert "up and running" in running_status.stdout, "`status` message should match"
+        assert "URI for Daemon is" in running_status.stdout, "`status` message should match"

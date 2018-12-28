@@ -35,7 +35,12 @@ class CloudClient:
                  refresh_token: str = None,
                  build_session: Callable[[], requests.Session] = requests.Session):
         self._cloud_url = cloud_url
-        self._token_store = token_store or CloudTokenStore(self, refresh_token)
+        if token_store is not None:
+            self._token_store = token_store
+        elif refresh_token is not None:
+            self._token_store = CloudTokenStore(self, refresh_token)
+        else:
+            raise RuntimeError("Can't instantiate a CloudClient without either TokenStore or refresh token")
         self._session = build_session()
 
 

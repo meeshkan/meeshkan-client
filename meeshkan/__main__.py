@@ -97,7 +97,9 @@ def __build_api(config: meeshkan.config.Configuration,
         setup_logging_(silent=True)
 
         # token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-        cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)#token_store=token_store)
+        # cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token,
+        #                             token_store=token_store)
+        cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
 
         cloud_notifier = CloudNotifier(name="Cloud Service", post_payload=cloud_client.post_payload,
                                        upload_file=cloud_client.post_payload_with_file)
@@ -214,7 +216,7 @@ def daemon_status():
 @cli.command()
 @click.argument("job_identifier")
 def report(job_identifier):
-    """Returns latest scalar from given job identifier"""
+    """Returns latest scalar from given job identifier."""
     api = __get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
@@ -252,6 +254,7 @@ def submit(args, name, report_interval):
 @cli.command(name='cancel')
 @click.argument("job_identifier")
 def cancel_job(job_identifier):
+    """Cancels a queued/running job."""
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
@@ -374,12 +377,13 @@ def clear():
 @cli.command()
 @click.pass_context
 def clean(ctx):
-    """Alias for `meeshkan clear`"""
+    """Alias for `meeshkan clear`."""
     ctx.invoke(clear)
 
 
 @cli.command()
 def im_bored():
+    "???"
     sources = [r'http://smacie.com/randomizer/family_guy/stewie.txt',
                r'http://smacie.com/randomizer/simpsons/bart.txt',
                r'http://smacie.com/randomizer/simpsons/homer.txt',
