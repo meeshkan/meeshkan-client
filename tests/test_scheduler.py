@@ -33,6 +33,7 @@ class FutureWaitingExecutable(Executable):
         self._future = future
 
     def launch_and_wait(self):
+        self.pid = True
         results = wait([self._future])
         for result in results.done:
             return result.result()
