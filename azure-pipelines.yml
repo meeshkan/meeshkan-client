@@ -1,5 +1,6 @@
 jobs:
 - job: macOS
+  timeoutInMinutes: 10
   pool:
     vmImage: 'macOS-10.13'
   strategy:
@@ -14,6 +15,7 @@ jobs:
   - template: azure-steps.yml
 
 - job: Linux
+  timeoutInMinutes: 10
   pool:
     vmImage: 'ubuntu-16.04'
   strategy:
@@ -38,6 +40,7 @@ jobs:
       reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 - job: PiPy
+  timeoutInMinutes: 10
   pool:
     vmImage: 'ubuntu-16.04'
   condition: and(eq(variables['Build.SourceBranchName'], 'master'), succeeded())
