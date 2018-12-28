@@ -27,7 +27,6 @@ import tabulate
 import meeshkan
 from .core.api import Api
 from .core.cloud import CloudClient
-from .core.cloud import TokenStore
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
@@ -123,7 +122,7 @@ def __verify_version():
     urllib_logger.setLevel(logging.WARNING)
     pypi_url = "https://pypi.org/pypi/meeshkan/json"
     try:
-        res = requests.get(pypi_url)
+        res = requests.get(pypi_url, timeout=2)
     except Exception:  # pylint: disable=broad-except
         return  # If we can't access the server, assume all is good
     urllib_logger.setLevel(logging.DEBUG)

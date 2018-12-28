@@ -1,4 +1,5 @@
 import time
+from http import HTTPStatus
 from typing import Callable
 import requests
 from meeshkan.notifications.notifiers import Notifier
@@ -40,19 +41,26 @@ class MockResponse(object):
 
 class DummyStore(TokenStore):
     def __init__(self, cloud_url: str, refresh_token: str,
-                 build_session: Callable[[], requests.Session] = requests.Session):
+                 build_session: Callable[[], requests.Session] = None):
         super(DummyStore, self).__init__(refresh_token)
         self._auth_url = cloud_url
-        self._session = build_session()
+        self._session = build_session() if build_session is not None else None
+        self.requests_counter = 0
+        query = "query GetToken($refresh_token: String!) { token(refreshToken: $refresh_token) { access_token } }"
+        self._payload = {"query": query, "variables": {"refresh_token": refresh_token}}  # type: Payload
 
     def _fetch_token(self) -> Token:
-        resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
-        if resp.status_code == HTTPStatus.OK:
-            resp_dict = resp.json()['data']
-            return resp_dict['token']['access_token']
-        if resp.status_code == HTTPStatus.UNAUTHORIZED:
-            raise UnauthorizedRequestException()
-        raise RuntimeError("Failed requesting authentication.")
+        if self._session is not None:
+            resp = self._session.post(self._auth_url, json=self._payload, timeout=15)
+            if resp.status_code == HTTPStatus.OK:
+                resp_dict = resp.json()['data']
+                return resp_dict['token']['access_token']
+            if resp.status_code == HTTPStatus.UNAUTHORIZED:
+                raise UnauthorizedRequestException()
+            raise RuntimeError("Failed requesting authentication.")
+        else:
+            self.requests_counter += 1
+            return Token(str(self.requests_counter))
 
 
 class MockNotifier(Notifier):

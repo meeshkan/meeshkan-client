@@ -24,7 +24,7 @@ class TokenStore(object):
     def _fetch_token(self) -> Token:
         raise NotImplementedError
 
-    def get_token(self, refresh=True) -> Token:
+    def get_token(self, refresh=False) -> Token:
         if refresh or self._token is None:
             LOGGER.info("Retrieving new authentication token")
             self._token = self._fetch_token()

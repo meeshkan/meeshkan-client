@@ -61,14 +61,14 @@ def pre_post_tests():
     def _no_tasks():
         return []
     # Stuff before tests
-    tokenstore_patcher = mock.patch('meeshkan.__main__.TokenStore._fetch_token', _get_fetch_token())
-    tokenstore_patcher.start()  # Augment TokenStore
+    # tokenstore_patcher = mock.patch('meeshkan.__main__.cloud.CloudTokenStore', _get_fetch_token())
+    # tokenstore_patcher.start()  # Augment TokenStore
 
     def stop_service():
         run_cli(args=['stop'])
     yield stop_service()
     stop_service()  # Stuff to run after every test
-    tokenstore_patcher.stop()
+    # tokenstore_patcher.stop()
 
 
 def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
@@ -272,7 +272,7 @@ def test_sorry_success(pre_post_tests):  # pylint: disable=unused-argument,redef
     payload = {"data": {"uploadLink": {"upload": "http://localhost", "uploadMethod": "PUT", "headers": ["x:a"]}}}
     mock_session = _build_session(post_return_value=MockResponse(payload, 200),
                                   request_return_value=MockResponse(status_code=200))
-    mock_token_store = _token_store(build_session=lambda: mock_session)
+    mock_token_store = _token_store()  # no need to connect for a token in this instance
     cloud_client = CloudClient(cloud_url="http://localhost", token_store=mock_token_store,
                                build_session=lambda: mock_session)
 
