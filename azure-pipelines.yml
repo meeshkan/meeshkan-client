@@ -2,7 +2,7 @@ jobs:
 - job: macOS
   pool:
     vmImage: 'macOS-10.13'
-    timeoutInMinutes: 10
+  timeoutInMinutes: 10
   strategy:
     maxParallel: 2
     matrix:
@@ -17,7 +17,7 @@ jobs:
 - job: Linux
   pool:
     vmImage: 'ubuntu-16.04'
-    timeoutInMinutes: 10
+  timeoutInMinutes: 10
   strategy:
     matrix:
       Python36:
@@ -42,7 +42,7 @@ jobs:
 - job: PiPy
   pool:
     vmImage: 'ubuntu-16.04'
-    timeoutInMinutes: 10
+  timeoutInMinutes: 10
   condition: and(eq(variables['Build.SourceBranchName'], 'master'), succeeded())
   dependsOn:  
   - Linux

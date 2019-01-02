@@ -19,7 +19,7 @@ def _build_api(service: Service):
 def test_start_stop():
     service = Service()
     service.start(MP_CTX, dill.dumps(_build_api))
-    assert service.stop()
+    assert service.stop(), "Service should be able to stop cleanly after the service is already running!"
 
 
 def test_double_start():

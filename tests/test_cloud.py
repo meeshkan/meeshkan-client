@@ -31,9 +31,11 @@ def test_post_payloads():
         url = args[0]
         headers = kwargs["headers"]
         content = kwargs["json"]
-        assert url == CLOUD_URL
-        assert headers['Authorization'].startswith('Bearer')  # TokenStore is checked in test_oauth
-        assert 'query' in content
+        assert url == CLOUD_URL, "Expecting query URL to match '{}'".format(CLOUD_URL)
+        # TokenStore is checked in test_oauth
+        assert headers['Authorization'].startswith('Bearer'), "Expects the 'Bearer' keyword in beginning of " \
+                                                              "'Authorization' header"
+        assert 'query' in content, "Expected content of GraphQL payload to contain keyword 'query'"
         return MockResponse({"data": {}}, 200)
 
     session = _build_session(post_side_effect=mocked_requests_post)
@@ -42,7 +44,7 @@ def test_post_payloads():
     with CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session) as cloud_client:
         cloud_client.post_payload(QUERY_PAYLOAD)
 
-    assert session.post.call_count == 1
+    assert session.post.call_count == 1, "Mock `post` was only called once"
 
 
 def test_post_payloads_unauthorized_retry():
@@ -58,8 +60,9 @@ def test_post_payloads_unauthorized_retry():
         mock_calls += 1
         url = args[0]
         headers = kwargs["headers"]
-        assert url == CLOUD_URL
-        assert headers['Authorization'].startswith("Bearer")
+        assert url == CLOUD_URL, "Expecting query URL to match '{}'".format(CLOUD_URL)
+        assert headers['Authorization'].startswith("Bearer"), "Expects the 'Bearer' keyword in beginning of " \
+                                                              "'Authorization' header"
         if mock_calls == 1:
             return MockResponse.for_unauthenticated()
 
@@ -71,7 +74,8 @@ def test_post_payloads_unauthorized_retry():
     with CloudClient(cloud_url=CLOUD_URL, token_store=mock_store, build_session=lambda: session) as cloud_client:
         cloud_client.post_payload(QUERY_PAYLOAD)
 
-    assert session.post.call_count == mock_calls  # One failed post and a successful retry
+    assert session.post.call_count == mock_calls, "Mock `post` was called only {} times " \
+                                                  "(fail and success)".format(mock_calls)
 
 
 def test_post_payloads_raises_error_for_multiple_401s():
@@ -90,7 +94,8 @@ def test_post_payloads_raises_error_for_multiple_401s():
     with cloud_client, pytest.raises(UnauthorizedRequestException):
         cloud_client.post_payload(QUERY_PAYLOAD)
 
-    assert session.post.call_count == 2
+    assert session.post.call_count == 2, "Posting a payload should raise an error after being called TWICE at most " \
+                                         "(by default)."
 
 
 def test_pop_tasks():
@@ -113,8 +118,10 @@ def test_pop_tasks():
 
     mock_session.post.assert_called_once()
 
-    assert len(tasks) == 1
+    assert len(tasks) == 1, "Hard-coded GraphQL query returns a strict single-item list. What happened?"
     created_task = tasks[0]
 
-    assert created_task.job_id == job_id
-    assert created_task.type.name == task_name
+    assert created_task.job_id == job_id, "The job ID for the task should reflect the original job_id after creating " \
+                                          "a proper Task object"
+    assert created_task.type.name == task_name, "The task typename should match the original typename after creating " \
+                                                "a proper Task object"
