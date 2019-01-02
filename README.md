@@ -253,7 +253,9 @@ In macOS, running `meeshkan start` may fail with
 ```
 objc[60320]: +[NSValue initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
 ```
-This happens because of threading restrictions introduced in macOS High Sierra. You can read more about it [here](https://blog.phusion.nl/2017/10/13/why-ruby-app-servers-break-on-macos-high-sierra-and-what-can-be-done-about-it/). We hope to find a permanent fix for this, but in the meanwhile you can run
+This happens because of threading restrictions introduced in macOS High Sierra.
+You can read more about it [here](https://bugs.python.org/issue30837), [here](https://blog.phusion.nl/2017/10/13/why-ruby-app-servers-break-on-macos-high-sierra-and-what-can-be-done-about-it/), [here](https://github.com/rtomayko/shotgun/issues/69), and [here](https://stackoverflow.com/questions/50168647/multiprocessing-causes-python-to-crash-and-gives-an-error-may-have-been-in-progr).
+We hope to find a permanent fix for this, but in the meanwhile you can run
 ```bash
 $ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 ```
