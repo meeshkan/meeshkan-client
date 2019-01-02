@@ -158,8 +158,12 @@ starts Meeshkan agent as daemonized service.
 If you get `Unauthorized` error, please check your credentials. If the problem persists, please contact Meeshkan support.
 =======
 If you get `Unauthorized` error, please check your credentials. 
+<<<<<<< HEAD
 If starting the client fails for some other reason, check [known issues](#known-issues) and contact Meeshkan support at [dev@meeshkan.com](mailto:dev@meeshkan.com).
 >>>>>>> Add known issue.
+=======
+If starting the client fails for some other reason, check [known issues](#known-issues) and, if the problem persists, contact Meeshkan support at [dev@meeshkan.com](mailto:dev@meeshkan.com).
+>>>>>>> Small tweak.
 
 ### Submit a script for execution
 Submit a Python script as job:
