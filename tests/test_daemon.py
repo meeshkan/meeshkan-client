@@ -8,7 +8,7 @@ from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.tasks import TaskPoller
 
-MP_CTX = mp.get_context("spawn")
+MP_CTX = mp.get_context("fork")
 
 
 def _build_api(service: Service):
