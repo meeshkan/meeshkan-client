@@ -72,17 +72,6 @@ def __build_api(config: meeshkan.config.Configuration,
     # This MUST be serializable so it can be sent to the process starting Pyro daemon with forkserver
     def build_api(service: Service) -> Api:
         # Build all dependencies except for `Service` instance (attached when daemonizing)
-        import inspect
-        # Disable pylint tests for reimport
-        import sys as sys_  # pylint: disable=reimported
-        import os as os_  # pylint: disable=reimported
-
-        # TODO - do we need this?
-        current_file = inspect.getfile(inspect.currentframe())
-        current_dir = os_.path.split(current_file)[0]
-        cmd_folder = os_.path.realpath(os_.path.abspath(os_.path.join(current_dir, '../')))
-        if cmd_folder not in sys_.path:
-            sys_.path.insert(0, cmd_folder)
 
         from meeshkan.core.cloud import CloudClient as CloudClient_
         from meeshkan.core.api import Api as Api_
@@ -91,7 +80,6 @@ def __build_api(config: meeshkan.config.Configuration,
         from meeshkan.core.scheduler import Scheduler, QueueProcessor
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
         from meeshkan.core.logger import setup_logging as setup_logging_
-
 
         ensure_base_dirs_()
         setup_logging_(silent=True)
@@ -190,7 +178,7 @@ def start():
     try:
         __notify_service_start(config, credentials)
         build_api_serialized = dill.dumps(__build_api(config, credentials))
-        pyro_uri = service.start(mp.get_context("spawn"), build_api_serialized=build_api_serialized)
+        pyro_uri = service.start(mp.get_context("fork"), build_api_serialized=build_api_serialized)
         print('Service started.')
         return pyro_uri
     except meeshkan.exceptions.UnauthorizedRequestException as ex:
