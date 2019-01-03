@@ -85,9 +85,11 @@ Stop the agent:
 $ meeshkan stop
 ```
 
-#### Using PyTorch
-If you want to run a more realistic example using PyTorch to train a convolution neural network on MNIST,
-first install `torch` and `torchvision`:
+#### PyTorch example
+You can use Meeshkan with any Python machine learning framework. As an example, let us use PyTorch to train a
+convolution neural network on MNIST.
+
+First install `torch` and `torchvision`:
 ```bash
 $ pip install torch torchvision
 ```
@@ -232,19 +234,19 @@ meeshkan.add_condition("F1", lambda f1: f1 < 0.1)
 
 ## Development
 
-### Installation
-For users:
-```{bash}
-python setup.py install
+### Install from the source
+Without test dependencies:
+```bash
+pip install -e .
 ```
 
-For developers:
-```{bash}
+Include test dependencies:
+```bash
 pip install -e .[dev]
 ```
 
 ### Running tests
-```{bash}
+```bash
 pytest
 # OR
 python setup.py test
