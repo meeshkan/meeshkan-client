@@ -2,6 +2,14 @@
 This repository contains Meeshkan client-side code. Client code consists of two parts: Meeshkan agent controlled with
 [command-line interface](#command-line-interface) and [Python library](#usage-as-python-library) `meeshkan`.
 
+## Table of contents
+1. [Overview](#overview)
+2. [Quick start](#quick-start)
+3. [Command-line interface](#command-line-interface)
+4. [Usage as Python library](#usage-as-python-library)
+5. [Development](#development)
+
+## Overview
 ### Meeshkan agent
 Meeshkan agent is a daemonized process running in the background. Agent is responsible
 for scheduling _jobs_ (Python scripts) and interacting with them. Agent connects to the Meeshkan
@@ -233,9 +241,10 @@ meeshkan.add_condition("F1", lambda f1: f1 < 0.1)
 ```
 
 ## Development
+We welcome contributions!
 
 ### Install from the source
-Without test dependencies:
+First clone this repository. Then install dependencies excluding test dependencies:
 ```bash
 pip install -e .
 ```
@@ -248,8 +257,6 @@ pip install -e .[dev]
 ### Running tests
 ```bash
 pytest
-# OR
-python setup.py test
 ```
 
 ### Running lint
