@@ -1,36 +1,40 @@
 # Meeshkan client
-This repository contains Meeshkan client-side code. Client code consists of two parts: Meeshkan agent
-and Python library `meeshkan`.
+This repository contains Meeshkan client-side code. Client code consists of two parts: Meeshkan agent controlled with
+[command-line interface](#command-line-interface) and [Python library](#usage-as-python-library) `meeshkan`.
 
 ### Meeshkan agent
 Meeshkan agent is a daemonized process running in the background. Agent is responsible
 for scheduling _jobs_ (Python scripts) and interacting with them. Agent connects to the Meeshkan
-servers to notify job updates to the servers (so that you get notifications) and
-also listens to instructions from the server (so that you can, for example, stop a job
-remotely.)
+servers so that it can
+1. send job notifications so that you know how your jobs are doing, and
+2. listen to instructions from the server. If you want to, for example, stop a job
+remotely, agent gets the instruction to stop the job from the server and executes it.
 
-Agent is managed using the
+Meeshkan agent is managed using the
 [command-line-interface](#command-line-interface) (CLI). Executing `meeshkan start`
 starts the agent and `meeshkan stop` stops it.
 Jobs are submitted for execution using `meeshkan submit`.
 
 ### Meeshkan Python library
-Meeshkan Python library (imported with `import meeshkan` in your scripts) is used to
-control the notifications you get. By including commands such as `meeshkan.report_scalar`
-or `meeshkan.add_condition` you can control, respectively, which scalar values are reported to you and
-for which events you get notifications.
+Meeshkan Python library imported with `import meeshkan` in scripts is used to
+control the notifications you get. For example, by including a command such as 
+```python
+import meeshkan
+meeshkan.report_scalar("Train loss", loss)
+```
+in your Python script you specify that notifications you get should contain the current value for `loss`.
+Similarly, `meeshkan.add_condition` can be used to send notifications for any events.
 
 Note that using `meeshkan` in your Python scripts is optional (though recommended). If you do
 not specify reported scalars, you will only get notifications for started and finished jobs.
 
 ## Quick start
+We recommend running all command-line commands below in a [Python virtual environment](https://virtualenv.pypa.io/en/latest/).
 
 #### Sign-up
 Sign up at [meeshkan.com](https://www.meeshkan.com) and you will get your __client secret__ via email.
 
 #### Installation
-We recommend running all commands below in a [Python virtual environment](https://virtualenv.pypa.io/en/latest/).
-
 Install `meeshkan` with `pip`:
 ```bash
 $ pip install meeshkan
@@ -39,11 +43,11 @@ $ pip install meeshkan
 If install fails, your Python version may be too old. Please try again with **Python >= 3.6.2**.
 
 #### Setup
-Setup credentials:
+Setup your credentials:
 ```bash
 $ meeshkan setup
 ```
-You are prompted for your __client secret__ that you should have received when signing up so fill that in.
+You are prompted for your __client secret__ that you should have received when signing up, so fill that in.
 
 Download example script called [report.py](https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py)
 from [meeshkan-client](https://github.com/Meeshkan/meeshkan-client/tree/dev/examples) repository to your current directory:
@@ -51,25 +55,27 @@ from [meeshkan-client](https://github.com/Meeshkan/meeshkan-client/tree/dev/exam
 $ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py
 ```
 
-#### Using Meeshkan CLI
+#### Submitting jobs
 Start Meeshkan agent:
 ```bash
 $ meeshkan start
 ```
 
-Submit the example job with 10 second report interval:
+Submit the example job with 10 second reporting interval:
 ```bash
 $ meeshkan submit --name report-example --report-interval 10 report.py
 ```
 If you setup Slack integration in [meeshkan.com](https://www.meeshkan.com),
-you should receive a notification for job being started.
+you should receive a notification for job being started. You should get notifications every ten seconds. The script
+runs for 20 seconds, so you should get one notification containing scalar values.
 
+#### Other helpful commands
 List running jobs:
 ```bash
 $ meeshkan list
 ```
 
-Retrieve logs for the job:
+Retrieve logs for the job named `report-example`:
 ```bash
 $ meeshkan logs report-example
 ```
@@ -80,13 +86,13 @@ $ meeshkan stop
 ```
 
 #### Using PyTorch
-If you want to see a more realistic example using PyTorch to train a convolution neural network on MNIST,
+If you want to run a more realistic example using PyTorch to train a convolution neural network on MNIST,
 first install `torch` and `torchvision`:
 ```bash
 $ pip install torch torchvision
 ```
 
-Then download [PyTorch example](https://github.com/Meeshkan/meeshkan-client/blob/dev/examples/pytorch_mnist.py):
+Then download our [PyTorch example](https://github.com/Meeshkan/meeshkan-client/blob/dev/examples/pytorch_mnist.py):
 ```bash
 $ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/pytorch_mnist.py
 ```
@@ -96,7 +102,7 @@ Ensure that Meeshkan agent is running:
 $ meeshkan start
 ```
 
-Submit the PyTorch example with one-minute report interval:
+Submit the PyTorch example with a one-minute report interval:
 ```bash
 $ meeshkan submit --name pytorch-example --report-interval 60 pytorch_mnist.py
 ```
