@@ -1,20 +1,21 @@
-from unittest import mock
+# pylint: disable=no-self-use  # To avoid warnings with classes used to group tests
+import os
 from pathlib import Path
+from unittest import mock
+from unittest.mock import MagicMock
 import uuid
 import shutil
 import pytest
 
 from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
 from meeshkan.notifications.__types__ import NotificationStatus, NotificationType
-from meeshkan.core.job import Executable, Job
+from meeshkan.core.job import Executable, Job, JobStatus
 from meeshkan.core.config import JOBS_DIR
-
 
 
 @pytest.fixture
 def cleanup():
     yield None
-
     # Post-test code
     shutil.rmtree(_get_job().output_path, ignore_errors=True)
 
@@ -24,16 +25,19 @@ def _get_job():
     target_dir = JOBS_DIR.joinpath(str(job_id))
     return Job(Executable(output_path=target_dir), job_number=0, job_uuid=job_id)
 
+
 def _empty_upload(image_url, download_link):
     pass
+
 
 def _empty_post(payload):
     pass
 
 
+@pytest.mark.usefixtures("cleanup")
 class TestLoggingNotifier:
     # LoggingNotifier Tests
-    def test_logging_notifier_job_start_end(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_logging_notifier_job_start_end(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job start/end for Logging Notifier"""
         result = dict()
         def fake_log(self, job_id, message):
@@ -60,7 +64,7 @@ class TestLoggingNotifier:
             assert job.id in result, "The key should match the job ID '{}'".format(job.id)
             assert "Job finished" in result[job.id], "The notification should be about the 'Job End' event"
 
-    def test_logging_notifier_job_update_no_file_no_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_logging_notifier_job_update_no_file_no_dir(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job update for LoggingNotifier when neither image or directory exist"""
         job = _get_job()
         logging_notifier = LoggingNotifier()
@@ -75,7 +79,7 @@ class TestLoggingNotifier:
                                                                       "when the Job output " \
                                                                       "path does not exist."
 
-    def test_logging_notifier_job_update_no_file_with_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_logging_notifier_job_update_no_file_with_dir(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job update for LoggingNotifier when an image doesn't exist bu the directory does"""
         job = _get_job()
         logging_notifier = LoggingNotifier()
@@ -93,7 +97,7 @@ class TestLoggingNotifier:
         # Cleanup
         shutil.rmtree(job.output_path, ignore_errors=True)
 
-    def test_logging_notifier_job_update_file_dir(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_logging_notifier_job_update_file_dir(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job update for LoggingNotifier when both image and directory exist"""
         result = dict()
 
@@ -124,9 +128,16 @@ class TestLoggingNotifier:
             assert "view at" in result[job.id], "The notification should point to the plot"
 
 
+@pytest.fixture
+def job():
+    yield _get_job()
+    return None
+
+
+@pytest.mark.usefixtures("cleanup")
 class TestCloudNotifier:
     # CloudNotifier Tests
-    def test_cloud_notifier_job_start_end_queries(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_cloud_notifier_job_start_end_queries(self, job):  # pylint:disable=redefined-outer-name
         """Tests the job start/end for CloudNotifier"""
         posted_payload = {}
 
@@ -137,7 +148,6 @@ class TestCloudNotifier:
         # Initializations (sanity checks)
         assert posted_payload == {}, "Sanity test - `posted_payload` dictionary should be empty at this point"
         cloud_notifier = CloudNotifier(fake_post, _empty_upload)
-        job = _get_job()
         expected_payload_start = {"query": "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"}
         expected_payload_end = {"query": "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"}
 
@@ -162,7 +172,51 @@ class TestCloudNotifier:
         variables = posted_payload["variables"]
         assert "in" in variables, "'variables' dictionary is expected to contain a key called 'in'"
 
-    def test_cloud_notifier_job_update_no_image(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_cloud_notifier_notifies_failed_job(self):
+        # assert False
+        fake_post = MagicMock()
+        fake_upload = MagicMock()
+        cloud_notifier = CloudNotifier(fake_post, fake_upload)
+
+        def get_failed_job(job_id=None):
+            job_id = job_id or uuid.uuid4()
+            resource_dir = Path(os.path.dirname(__file__)).joinpath('resources')
+            job = Job(Executable(output_path=resource_dir), job_number=0, job_uuid=job_id)
+            job.status = JobStatus.FAILED
+            return job
+
+        job = get_failed_job()
+
+        cloud_notifier.notify_job_end(job)
+        notificationStatus = cloud_notifier.get_last_notification_status(job.id)
+        cloudNotificationStatus = notificationStatus["CloudNotifier"]
+        assert cloudNotificationStatus.status == NotificationStatus.SUCCESS, "Notification status should be success"
+
+        # Posted payload
+        fake_post.assert_called_once()
+        call_args = fake_post.call_args
+        args, _ = call_args
+        assert len(args) == 1, "Expected mock post to have been called with one argument"
+
+        payload = args[0]
+        assert payload is not None, "Expected posted payload to not be None"
+
+        # Query
+        assert "query" in payload, "Expected posted payload to have query field"
+        query = payload["query"]
+        assert query is not None
+
+        # Variables
+        assert "variables" in payload, "Expected posted payload to have variables field"
+        variables = payload["variables"]
+        assert variables is not None
+
+        assert "in" in variables, "Expected variables to have 'in' field"
+        inp = variables["in"]
+        assert inp["stderr"] is not None
+        assert inp["job_id"] is not None
+
+    def test_cloud_notifier_job_update_no_image(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job update for CloudNotifier when no image is available or image does not exist"""
         posted_payload = {}
 
@@ -187,8 +241,7 @@ class TestCloudNotifier:
             assert 'imageUrl' in variables, "'in' dictionary is expected to contain a key called 'imageUrl'"
             assert variables['imageUrl'] == '', "`imageUrl` value is expected to be empty"
 
-
-    def test_cloud_notifier_job_update_existing_file(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_cloud_notifier_job_update_existing_file(self, job):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job update for CloudNotifier when the image exists and is valid"""
         posted_payload = {}
 
@@ -201,7 +254,7 @@ class TestCloudNotifier:
             return "no_upload"
 
         cloud_notifier = CloudNotifier(fake_post, fake_upload)
-        cloud_notifier.notify(_get_job(), __file__, n_iterations=-1)
+        cloud_notifier.notify(job, __file__, n_iterations=-1)
 
         expected_payload = {'query': 'mutation NotifyJobEvent($in: JobScalarChangesWithImageInput!)'
                                      ' {notifyJobScalarChangesWithImage(input: $in)}'}
@@ -217,9 +270,10 @@ class TestCloudNotifier:
                                                      "contain hard-coded value `no_upload`"
 
 
+@pytest.mark.usefixtures("cleanup")
 class TestNotifierHistory:
     # General Notifier Tests
-    def test_notifier_history(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_notifier_history(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the Notifier's built-in history management via CloudNotifier"""
         should_raise = False
 
@@ -260,9 +314,10 @@ class TestNotifierHistory:
         assert last_notification.status == NotificationStatus.FAILED, "Last notification has failed to due to set flag"
 
 
+@pytest.mark.usefixtures("cleanup")
 class TestNotifierCollection:
     # NotifierCollection Tests
-    def test_notifier_collection_notifiers_init(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_notifier_collection_notifiers_init(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests init with notifiers"""
         assert_msg1 = "Both created notifiers should be found in the `_notifiers` list"
         cloud_notifier = CloudNotifier(_empty_post, _empty_upload)
@@ -283,7 +338,7 @@ class TestNotifierCollection:
         assert len(collection._notifiers) == 1, "NotifierCollection was instantiated with the same object multiple" \
                                                 "times, but only one unique instance of an object can be stored."
 
-    def test_notifier_collection_registering_notifiers(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_notifier_collection_registering_notifiers(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the register_notifier method"""
         cloud_notifier = CloudNotifier(_empty_post, _empty_upload)
         cloud_notifier2 = CloudNotifier(_empty_post, _empty_upload, name="smeagol")
@@ -304,7 +359,7 @@ class TestNotifierCollection:
         assert collection.register_notifier(cloud_notifier2), "Adding a new notifier of the same class should succeed"
         assert len(collection._notifiers) == 2, "There are now two registered notifiers!"
 
-    def test_notifier_collection_notifications(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    def test_notifier_collection_notifications(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job notifications are sent to all registered notifiers, along with history management"""
         assert_msg1 = "Last notification type was JobUpdate"
         assert_msg2 = "CloudNotifier is expected to succeed with a fake `post` method"
