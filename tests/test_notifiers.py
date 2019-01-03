@@ -180,7 +180,7 @@ class TestCloudNotifier:
 
         def get_failed_job(job_id=None):
             job_id = job_id or uuid.uuid4()
-            resource_dir = Path(os.path.dirname(__file__)).joinpath('resources')
+            resource_dir = Path(os.path.dirname(__file__)).joinpath('resources', 'logs')
             job = Job(Executable(output_path=resource_dir), job_number=0, job_uuid=job_id)
             job.status = JobStatus.FAILED
             return job
@@ -213,7 +213,11 @@ class TestCloudNotifier:
 
         assert "in" in variables, "Expected variables to have 'in' field"
         inp = variables["in"]
-        assert inp["stderr"] is not None
+
+        stderr = inp["stderr"]
+        assert stderr is not None
+        assert len(stderr) > 50
+
         assert inp["job_id"] is not None
 
     def test_cloud_notifier_job_update_no_image(self):  # pylint:disable=unused-argument,redefined-outer-name
