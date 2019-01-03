@@ -180,21 +180,19 @@ class TestCloudNotifier:
         def get_failed_job():
             job_id = uuid.uuid4()
             resource_dir = Path(os.path.dirname(__file__)).joinpath('resources', 'logs')
-            job = Job(Executable(output_path=resource_dir), job_number=0, job_uuid=job_id)
-            job.status = JobStatus.FAILED
-            return job
+            job_ = Job(Executable(output_path=resource_dir), job_number=0, job_uuid=job_id)
+            job_.status = JobStatus.FAILED
+            return job_
 
-        job = get_failed_job()
+        failed_job = get_failed_job()
 
-        cloud_notifier.notify_job_end(job)
-        notification_status = cloud_notifier.get_last_notification_status(job.id)
-        cloud_notification_status = notification_status["CloudNotifier"]
+        cloud_notifier.notify_job_end(failed_job)
+        cloud_notification_status = cloud_notifier.get_last_notification_status(failed_job.id)["CloudNotifier"]
         assert cloud_notification_status.status == NotificationStatus.SUCCESS, "Notification status should be success"
 
         # Posted payload
         fake_post.assert_called_once()
-        call_args = fake_post.call_args
-        args, _ = call_args
+        args, _ = fake_post.call_args
         assert len(args) == 1, "Expected mock post to have been called with one argument"
 
         payload = args[0]
