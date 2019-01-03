@@ -116,6 +116,9 @@ class LoggingNotifier(Notifier):
 
 
 class CloudNotifier(Notifier):
+    # How many lines from stderr to include in output
+    N_LINES_FROM_STDERR = 50
+
     def __init__(self, post_payload: Callable[[Payload], Any],
                  upload_file: Callable[[Union[str, Path], bool], Optional[str]], name: str = None):
         super().__init__(name)
@@ -132,27 +135,40 @@ class CloudNotifier(Notifier):
                      "description": job.description}
         self._post(mutation, {"in": job_input})
 
+    @staticmethod
+    def _input_vars_for_failed(job: Job):
+
+        input_vars = {
+            "job_id": str(job.id),
+            "message": "Job failed",
+        }
+
+        def parse_stderr():
+            stderr_path = job.stderr
+            if stderr_path:
+                with open(stderr_path, "r") as file:
+                    # TODO Use tail instead for efficiency?
+                    # return subprocess.check_output(['tail', '-10', filename])
+                    lines = file.read().splitlines()
+                    return "\n".join(lines[-CloudNotifier.N_LINES_FROM_STDERR:])
+            else:
+                stderr = None
+            return stderr
+
+        input_vars["stderr"] = parse_stderr()
+        return input_vars
+
     def _notify_job_end(self, job: Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
         LOGGER.debug("Notifying server of job with status {}".format(job.status))
 
         if job.status == JobStatus.FAILED:
-            stderr_path = job.stderr
-            if stderr_path:
-                with open(stderr_path, "r") as f:
-                    stderr = f.read()
-            else:
-                stderr = None
-            mutation = "mutation NotifyJobFailed($in: JobFailedInput!) { notifyJobFailed(input: $in) }"
-            job_input = {
-                "job_id": str(job.id),
-                "message": "Job failed",
-                "stderr": stderr
-            }
+            operation = "mutation NotifyJobFailed($in: JobFailedInput!) { notifyJobFailed(input: $in) }"
+            operation_input_vars = CloudNotifier._input_vars_for_failed(job)
         else:
-            mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
-            job_input = {"id": str(job.id), "name": job.name, "number": job.number}
-        self._post(mutation, {"in": job_input})
+            operation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
+            operation_input_vars = {"id": str(job.id), "name": job.name, "number": job.number}
+        self._post(operation, {"in": operation_input_vars})
 
     def _notify(self, job: Job, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
         """Notifies job status update. Raises exception for failure.
