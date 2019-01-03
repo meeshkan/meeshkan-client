@@ -14,16 +14,13 @@ Client code consists of two parts: Meeshkan agent controlled with
 
 ### Meeshkan agent
 Meeshkan agent is a daemonized process running in the background. Agent is responsible
-for scheduling _jobs_ (Python scripts) and interacting with them. Agent connects to the Meeshkan
-servers so that it can
-1. send job notifications so that you know how your jobs are doing, and
-2. listen to instructions from the server. If you want to, for example, stop a job
-remotely, agent gets the instruction to stop the job from the server and executes it.
+for scheduling _jobs_ (Python scripts) and interacting with them. Agent is responsible for, e.g.,
+1. sending job notifications so that you know how your jobs are doing, and
+2. listening to instructions from the server. If you executed the command to, for example, stop a job
+remotely, agent gets the instruction to stop the job from the server and stops the job.
 
 Meeshkan agent is managed using the
-[command-line-interface](#command-line-interface) (CLI). Executing `meeshkan start`
-starts the agent and `meeshkan stop` stops it.
-Jobs are submitted for execution using `meeshkan submit`.
+[command-line interface (CLI)](#command-line-interface).
 
 ### [Meeshkan Python library](#usage-as-python-library)
 Meeshkan Python library imported with `import meeshkan` in scripts is used to
