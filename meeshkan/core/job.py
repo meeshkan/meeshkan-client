@@ -157,6 +157,7 @@ class ProcessExecutable(Executable):
 
 class Job(object):
     DEF_POLLING_INTERVAL = 3600.0  # Default is notifications every hour.
+
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
                  desc: str = None, poll_interval: float = None):
         """

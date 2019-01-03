@@ -3,16 +3,13 @@ import logging
 from typing import Callable, Any, List, Union, Optional, Dict
 from pathlib import Path
 import uuid
-import time
 import shutil
 import os
 
 
 from .__types__ import NotificationType, NotificationStatus, NotificationWithStatusTime
-from ..core.config import JOBS_DIR
-from ..core.job import Job
+from ..core.job import Job, JobStatus
 from ..__types__ import Payload
-from ..exceptions import JobNotFoundException
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +58,8 @@ class Notifier(object):
             self._notify_job_end(job)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
-        except Exception:  # pylint: disable=broad-except
+        except Exception as ex:  # pylint: disable=broad-except
+            LOGGER.exception(ex)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
@@ -74,7 +72,7 @@ class Notifier(object):
             notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
-    # Functions inhereting classes must implement
+    # Functions inheriting classes must implement
 
     def _notify_job_start(self, job: Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
@@ -136,8 +134,24 @@ class CloudNotifier(Notifier):
 
     def _notify_job_end(self, job: Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
-        mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
-        job_input = {"id": str(job.id), "name": job.name, "number": job.number}
+        LOGGER.debug("Notifying server of job with status {}".format(job.status))
+
+        if job.status == JobStatus.FAILED:
+            stderr_path = job.stderr
+            if stderr_path:
+                with open(stderr_path, "r") as f:
+                    stderr = f.read()
+            else:
+                stderr = None
+            mutation = "mutation NotifyJobFailed($in: JobFailedInput!) { notifyJobFailed(input: $in) }"
+            job_input = {
+                "job_id": str(job.id),
+                "message": "Job failed",
+                "stderr": stderr
+            }
+        else:
+            mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
+            job_input = {"id": str(job.id), "name": job.name, "number": job.number}
         self._post(mutation, {"in": job_input})
 
     def _notify(self, job: Job, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
