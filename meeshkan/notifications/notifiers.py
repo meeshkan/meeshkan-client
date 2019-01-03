@@ -139,8 +139,7 @@ class CloudNotifier(Notifier):
     def _input_vars_for_failed(job: Job):
 
         input_vars = {
-            "job_id": str(job.id),
-            "message": "Job failed",
+            "job_id": str(job.id)
         }
 
         def parse_stderr():
