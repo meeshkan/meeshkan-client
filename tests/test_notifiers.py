@@ -172,14 +172,13 @@ class TestCloudNotifier:
         variables = posted_payload["variables"]
         assert "in" in variables, "'variables' dictionary is expected to contain a key called 'in'"
 
-    def test_cloud_notifier_notifies_failed_job(self):
-        # assert False
+    def test_cloud_notifier_notifies_failed_job_with_correct_payload(self):
         fake_post = MagicMock()
         fake_upload = MagicMock()
         cloud_notifier = CloudNotifier(fake_post, fake_upload)
 
-        def get_failed_job(job_id=None):
-            job_id = job_id or uuid.uuid4()
+        def get_failed_job():
+            job_id = uuid.uuid4()
             resource_dir = Path(os.path.dirname(__file__)).joinpath('resources', 'logs')
             job = Job(Executable(output_path=resource_dir), job_number=0, job_uuid=job_id)
             job.status = JobStatus.FAILED
@@ -188,9 +187,9 @@ class TestCloudNotifier:
         job = get_failed_job()
 
         cloud_notifier.notify_job_end(job)
-        notificationStatus = cloud_notifier.get_last_notification_status(job.id)
-        cloudNotificationStatus = notificationStatus["CloudNotifier"]
-        assert cloudNotificationStatus.status == NotificationStatus.SUCCESS, "Notification status should be success"
+        notification_status = cloud_notifier.get_last_notification_status(job.id)
+        cloud_notification_status = notification_status["CloudNotifier"]
+        assert cloud_notification_status.status == NotificationStatus.SUCCESS, "Notification status should be success"
 
         # Posted payload
         fake_post.assert_called_once()
