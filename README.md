@@ -16,24 +16,24 @@ Client code consists of two parts: Meeshkan agent controlled with
 Meeshkan agent is a daemonized process running in the background. Agent is responsible
 for scheduling _jobs_ (Python scripts) and interacting with them. Agent is responsible for, e.g.,
 1. sending job notifications so that you know how your jobs are doing, and
-2. listening to instructions from the server. If you remotely executed the command to, for example, stop a job, agent
+2. listening to instructions from the server. If you remotely execute the command to, for example, stop a job, agent
 gets the instruction to stop the job from the server and stops the job.
 
 Meeshkan agent is managed using the
 [command-line interface (CLI)](#command-line-interface).
 
 ### [Meeshkan Python library](#usage-as-python-library)
-Meeshkan Python library imported with `import meeshkan` in scripts is used to
+Meeshkan Python library imported with `import meeshkan` is used in scripts to
 control the notifications you get. For example, by including a command such as 
 ```python
 import meeshkan
 meeshkan.report_scalar("Train loss", loss)
 ```
-in your Python script you specify that notifications you get should contain the current value for `loss`.
-Similarly, `meeshkan.add_condition` can be used to send notifications for any events.
+in your Python script you specify that notifications you get should contain the value for `loss`.
+Similarly, `meeshkan.add_condition` can be used to send notifications for arbitrary events.
 
 Note that using `meeshkan` in your Python scripts is optional (though recommended). If you do
-not specify reported scalars, you will only get notifications for started and finished jobs.
+not specify reported scalars, you will only get notifications for when jobs start or finish.
 
 ## Quick start
 We recommend running all command-line commands below in a [Python virtual environment](https://virtualenv.pypa.io/en/latest/).
@@ -55,6 +55,8 @@ Setup your credentials:
 $ meeshkan setup
 ```
 You are prompted for your __client secret__ that you should have received when signing up, so fill that in.
+Command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, Meeshkan agent logs
+and outputs from your submitted jobs.
 
 Download example script called [report.py](https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py)
 from [meeshkan-client](https://github.com/Meeshkan/meeshkan-client/tree/dev/examples) repository to your current directory:
