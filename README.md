@@ -42,7 +42,7 @@ We recommend running all command-line commands below in a [Python virtual enviro
 Sign up at [meeshkan.com](https://www.meeshkan.com) and you will get your __client secret__ via email.
 
 #### Installation
-Install `meeshkan` with `pip`:
+Install `meeshkan` with [pip](https://pip.pypa.io/en/stable/installing/):
 ```bash
 $ pip install meeshkan
 ```
