@@ -1,6 +1,5 @@
 # Meeshkan client
-This repository contains Meeshkan client-side code. Client code consists of two parts: Meeshkan agent controlled with
-[command-line interface](#command-line-interface) and [Python library](#usage-as-python-library) `meeshkan`.
+This repository contains Meeshkan client-side code.
 
 ## Table of contents
 1. [Overview](#overview)
@@ -10,6 +9,9 @@ This repository contains Meeshkan client-side code. Client code consists of two 
 5. [Development](#development)
 
 ## Overview
+Client code consists of two parts: Meeshkan agent controlled with
+[command-line interface](#command-line-interface) and [Python library](#usage-as-python-library) `meeshkan`.
+
 ### Meeshkan agent
 Meeshkan agent is a daemonized process running in the background. Agent is responsible
 for scheduling _jobs_ (Python scripts) and interacting with them. Agent connects to the Meeshkan
@@ -23,7 +25,7 @@ Meeshkan agent is managed using the
 starts the agent and `meeshkan stop` stops it.
 Jobs are submitted for execution using `meeshkan submit`.
 
-### Meeshkan Python library
+### [Meeshkan Python library](#usage-as-python-library)
 Meeshkan Python library imported with `import meeshkan` in scripts is used to
 control the notifications you get. For example, by including a command such as 
 ```python
