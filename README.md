@@ -195,7 +195,7 @@ meeshkan stop
 
 ### General
 The purpose of the Python API is to be as intuitive, minimal and least invasive as possible.
-Once the agent has been started (using `meeshkan start`), you can communicate with it from your 
+Once the agent has been started using `meeshkan start`, you can communicate with it from your
 Python scripts through `meeshkan` library.
 
 To begin, `import meeshkan`.
@@ -204,8 +204,9 @@ To begin, `import meeshkan`.
 You can report scalars from within a given script using `meeshkan.report_scalar(name1, value1, name2, value2, ...)`.
 The command allows reporting multiple values at once, and giving them self-documenting names (you may use anything, as
 long as it's a string!).
+
 Some examples include (assume the mentioned variables exist, and are updated in some loop, e.g. a training/evaluation
-loop), you may:
+loop):
 ```python
 meeshkan.report_scalar("train loss", train_loss)  # Adds a single value for this process
 # Or add multiple scalars simulatenously
@@ -215,11 +216,12 @@ meeshkan.report_scalar("F1", 2*precision*recall/(precision+recall))
 ```
 
 ### Adding conditions
-The service daemon only notifies you on either a scheduled notification (using the `--report-interval/-r` flag, e.g.
+Meeshkan agent only notifies you on either a scheduled notification (using the `--report-interval/-r` flag, e.g.
 hourly notifications), or when a certain criteria has been met.
 You can define these criteria anywhere in your code (but outside of loops, these conditions only need to be set once!),
 even before your scalars have been registered. When a scalar is used before it is registered, a default value of 1 is
 used in its place.
+
 Consider the following examples:
 ```python
 # Notify when evaluation loss and train loss are significantly different.
