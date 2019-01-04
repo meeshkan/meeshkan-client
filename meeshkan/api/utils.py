@@ -1,2 +1,7 @@
 
-__all__ = []  # type: ignore
+
+__all__ = ["monitor_sagemaker"]
+
+
+def monitor_sagemaker(job_name: str) -> None:
+    pass
