@@ -1,2 +1,2 @@
 
-__all__ = []
+__all__ = []  # type: ignore
