@@ -7,6 +7,8 @@ from . import api
 from . import exceptions
 
 # Only make the following available by default
-__all__ = ["__version__", "exceptions", "report_scalar", "add_condition", "config"]
+__all__ = ["__version__", "exceptions", "config"]
+__all__ += api.__all__
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
+del api
