@@ -260,8 +260,8 @@ def cancel_job(job_identifier):
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
     api = __get_api()
-    job = api.get_job(job_id)
-    if job.is_running:
+    job = api.get_job(job_id)  # type: Job
+    if job.status.is_running:
         res = input("Job '{name}' is currently running! "
                     "Are you sure you want to cancel it? y/[N]: ".format(name=job.name))
         if not res or res.lower() != "y":  # Any response other than "Y"/"y"

@@ -105,7 +105,7 @@ class Scheduler(object):
 
     def _handle_job(self, job: Job) -> None:
         LOGGER.debug("Handling job: %s", job)
-        if job.stale:
+        if job.status.stale:
             return
         self._running_job = job
 

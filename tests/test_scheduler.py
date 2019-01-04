@@ -117,7 +117,7 @@ def test_terminating_job():
         job = get_job(executable=FutureWaitingExecutable(future=Future()))
         scheduler.submit_job(job)
         # Block until job launched
-        wait_for_true(lambda: job.is_launched)
+        wait_for_true(lambda: job.status.is_launched)
         scheduler.stop_job(job_id=job.id)
     # Job status can be checked only after clean-up is performed
     assert job.status == JobStatus.CANCELED, "The job was cancelled shortly after it was launched!"
@@ -139,10 +139,10 @@ def test_canceling_job():
         wait_for_true(scheduler._job_queue.empty)
 
     # Job status should be checked only after clean-up is performed
-    assert job1.is_launched, "The job was launched as soon as possible"
+    assert job1.status.is_launched, "The job was launched as soon as possible"
     assert job1.status == JobStatus.FINISHED, "And was done finished once called `set_result`"
 
-    assert not job2.is_launched, "The job was never supposed to launch"
+    assert not job2.status.is_launched, "The job was never supposed to launch"
     assert job2.status == JobStatus.CANCELLED_BY_USER, "The job was cancelled immediately after submission, while " \
                                                        "another job was running"
 
@@ -156,7 +156,7 @@ def test_stopping_scheduler():
         while job.pid is None:
             time.sleep(0.1)
         # Exit scheduler, should not block as `job.cancel()` is called
-    assert job.is_launched, "Job has started (as we wait for the PID to be available)"
+    assert job.status.is_launched, "Job has started (as we wait for the PID to be available)"
     assert job.status == JobStatus.CANCELED, "The job was cancelled as the scheduler __exit__'d"
 
 
