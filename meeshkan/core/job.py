@@ -155,7 +155,60 @@ class ProcessExecutable(Executable):
         return ' '.join(truncated_args)
 
 
-class Job(object):
+class Trackable:
+    def __init__(self, scalar_history=None):
+        self.status = None
+        self.scalar_history = scalar_history or TrackerBase()
+
+    @property
+    def is_launched(self):
+        """Returns whether or not the job has been running at all"""
+        return self.status == JobStatus.RUNNING or self.is_processed
+
+    @property
+    def is_running(self):
+        """Returns whether or not the job is currently running"""
+        return self.status == JobStatus.RUNNING
+
+    @property
+    def is_processed(self):
+        return self.status in [JobStatus.CANCELED, JobStatus.FAILED, JobStatus.FINISHED]
+
+    @property
+    def stale(self):
+        return self.status == JobStatus.CANCELLED_BY_USER
+
+    def terminate(self):
+        raise NotImplementedError
+
+    def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
+        return self.scalar_history.add_tracked(scalar_name, scalar_value)
+
+    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
+        self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
+
+    def get_updates(self, *names, plot, latest):
+        """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
+        If latest == True, returns only latest updates, otherwise returns entire history.
+        """
+        # Delegate to HistoryTracker
+        return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
+
+
+class SageMakerJob(Trackable):
+    def __init__(self, job_name):
+        super().__init__()
+        self.job_name = job_name
+
+    def terminate(self):
+        raise NotImplementedError
+
+    @staticmethod
+    def create(job_name: str):
+        return SageMakerJob(job_name)
+
+
+class Job(Trackable):
     DEF_POLLING_INTERVAL = 3600.0  # Default is notifications every hour.
 
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
@@ -168,8 +221,8 @@ class Job(object):
         :param desc
         :param poll_interval
         """
+        super().__init__()
         self.executable = executable
-        self.scalar_history = TrackerBase()
         # General descriptors
         # Absolutely unique identifier
         self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
@@ -179,6 +232,8 @@ class Job(object):
         self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
         self.poll_time = poll_interval
+
+    # Properties
 
     @property
     def pid(self):
@@ -223,18 +278,18 @@ class Job(object):
         return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
                                                                         id=self.id, status=self.status.name)
 
-    def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
-        return self.scalar_history.add_tracked(scalar_name, scalar_value)
+    #def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
+    #    return self.scalar_history.add_tracked(scalar_name, scalar_value)
 
-    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
-        self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
+    #def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
+    #    self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
 
-    def get_updates(self, *names, plot, latest):
-        """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
-        If latest == True, returns only latest updates, otherwise returns entire history.
-        """
-        # Delegate to HistoryTracker
-        return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
+    #def get_updates(self, *names, plot, latest):
+    #    """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
+    #    If latest == True, returns only latest updates, otherwise returns entire history.
+    #    """
+    #    # Delegate to HistoryTracker
+    #    return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
 
     def cancel(self):
         """
@@ -274,7 +329,6 @@ class Job(object):
         job_name = name or "Job #{job_number}".format(job_number=job_number)
         return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval,
                    desc=description)
-
 
     @staticmethod
     def __verify_python_executable(args: Tuple[str, ...]):

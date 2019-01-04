@@ -8,7 +8,7 @@ import dill
 import Pyro4
 import Pyro4.errors
 
-from .job import Job
+from .job import Job, SageMakerJob
 from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
@@ -139,6 +139,11 @@ class Api(object):
         job = Job.create_job(args, cwd=cwd, job_number=job_number, name=name, poll_interval=poll_interval)
         self.scheduler.submit_job(job)
         return job
+
+    @Pyro4.expose
+    def monitor_sagemaker(self, job_name: str):
+        job = SageMakerJob.create(job_name)
+        self.scheduler.monitor_sagemaker_job(job)
 
     @Pyro4.expose
     def list_jobs(self):
