@@ -1,7 +1,6 @@
 import asyncio
 from unittest.mock import create_autospec
 from pathlib import Path
-import os
 import uuid
 import pytest
 
@@ -9,12 +8,16 @@ from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus
+from meeshkan.core.job_monitor import SageMakerJobMonitor
 from meeshkan.core.tasks import TaskType, Task
+from meeshkan import exceptions
 
 from .utils import wait_for_true, MockNotifier
 
+
 def __get_job(sleep_duration=10):
     return Job.create_job(args=("sleep", str(sleep_duration)), job_number=0, output_path=Path.cwd())
+
 
 @pytest.fixture
 def cleanup():
@@ -230,3 +233,47 @@ def test_find_job_id_precedence(cleanup):  # pylint:disable=unused-argument,rede
            api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern="ohnnoes*") == \
            api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern=pat) == job.id, assert_msg1
     assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern="boom!") is None, assert_msg2
+
+
+@pytest.fixture
+def mock_api():
+    service = create_autospec(Service).return_value
+    scheduler = Scheduler(QueueProcessor())
+    sagemaker_job_monitor = SageMakerJobMonitor()
+    yield Api(scheduler=scheduler,
+              service=service,
+              sagemaker_job_monitor=sagemaker_job_monitor)
+    return None
+
+@pytest.fixture
+def mock_aws_access_key():
+    import os
+    AWS_ACCESS_KEY_ID_NAME = "AWS_ACCESS_KEY_ID"
+    AWS_SECRET_ACCESS_KEY = "AWS_SECRET_ACCESS_KEY"
+    access_key_id = os.environ.get(AWS_ACCESS_KEY_ID_NAME, "")
+    secret_access_key = os.environ.get(AWS_SECRET_ACCESS_KEY, "")
+    os.environ[AWS_ACCESS_KEY_ID_NAME] = "foo"
+    os.environ[AWS_SECRET_ACCESS_KEY] = "bar"
+    yield "foobar"
+    # Restore the original
+    os.environ[AWS_ACCESS_KEY_ID_NAME] = access_key_id
+    os.environ[AWS_SECRET_ACCESS_KEY] = secret_access_key
+    return
+
+
+class TestSagemakerApi:
+    def test_start_monitoring_for_existing_job(self, mock_api: Api):
+        job_name = "pytorch-rnn-2019-01-04-11-20-03"
+        mock_api.monitor_sagemaker(job_name=job_name)
+
+    def test_start_monitoring_for_non_existing_job(self, mock_api: Api):
+        job_name = "foobar"
+        with pytest.raises(exceptions.JobNotFoundException):
+            mock_api.monitor_sagemaker(job_name=job_name)
+
+    def test_sagemaker_not_available(self, mock_api: Api, mock_aws_access_key):
+        job_name = "foobar"
+        import os
+        with pytest.raises(exceptions.SageMakerNotAvailableException):
+            print("AWS ACCESS KEY ID", os.environ["AWS_ACCESS_KEY_ID"])
+            mock_api.monitor_sagemaker(job_name=job_name)

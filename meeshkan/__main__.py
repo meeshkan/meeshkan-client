@@ -30,6 +30,7 @@ from .core.cloud import CloudClient
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
+from .core.job_monitor import SageMakerJobMonitor
 
 LOGGER = None
 
@@ -112,7 +113,13 @@ def __build_api(config: meeshkan.config.Configuration,
 
         scheduler = Scheduler(queue_processor=queue_processor, notifier=notifier_collection)
 
-        api = Api_(scheduler=scheduler, service=service, task_poller=task_poller, notifier=notifier_collection)
+        sagemaker_job_monitor = SageMakerJobMonitor()
+
+        api = Api_(scheduler=scheduler,
+                   service=service,
+                   task_poller=task_poller,
+                   notifier=notifier_collection,
+                   sagemaker_job_monitor=sagemaker_job_monitor)
         api.add_stop_callback(cloud_client.close)
         return api
 

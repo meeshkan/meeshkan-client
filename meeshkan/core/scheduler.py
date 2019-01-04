@@ -102,11 +102,6 @@ class Scheduler(object):
         self.stop()
 
     # Job handling methods
-
-    def monitor_sagemaker_job(self, job: SageMakerJob) -> None:
-        pass
-        #task = self._event_loop.create_task(self._job_monitor.monitor(job))
-
     def _handle_job(self, job: Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.status.stale:

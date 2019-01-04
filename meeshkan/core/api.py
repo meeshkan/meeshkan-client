@@ -9,6 +9,7 @@ import Pyro4
 import Pyro4.errors
 
 from .job import Job, SageMakerJob
+from .job_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
@@ -25,10 +26,15 @@ class Api(object):
     """Partially exposed by the Pyro server for communications with the CLI."""
 
     # Private methods
-    def __init__(self, scheduler: Scheduler, service: Service = None, task_poller: TaskPoller = None,
+    def __init__(self,
+                 scheduler: Scheduler,
+                 service: Service = None,
+                 task_poller: TaskPoller = None,
+                 sagemaker_job_monitor = None,
                  notifier: Notifier = None):
         self.scheduler = scheduler
         self.service = service
+        self.sagemaker_job_monitor = sagemaker_job_monitor  # type: Optional[SageMakerJobMonitor]
         self.task_poller = task_poller
         self.notifier = notifier
         self.__stop_callbacks = []  # type: List[Callable[[], None]]
@@ -142,8 +148,12 @@ class Api(object):
 
     @Pyro4.expose
     def monitor_sagemaker(self, job_name: str):
-        job = SageMakerJob.create(job_name)
-        self.scheduler.monitor_sagemaker_job(job)
+        if not self.sagemaker_job_monitor:
+            raise RuntimeError("SageMaker job monitor not defined.")
+
+        job = self.sagemaker_job_monitor.create_job(job_name)
+        self.sagemaker_job_monitor.start(job)
+        # TODO self.scheduler.include_as_job(job)
 
     @Pyro4.expose
     def list_jobs(self):
