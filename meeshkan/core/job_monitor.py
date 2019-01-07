@@ -117,7 +117,7 @@ class SageMakerJobMonitor(BaseJobMonitor):
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
         self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
-        self.tasks = []
+        self.tasks = []  # type: List[asyncio.Task]
 
     def start(self, job: BaseJob) -> asyncio.Task:
         task = self._event_loop.create_task(self.monitor(job))
