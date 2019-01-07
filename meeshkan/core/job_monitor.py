@@ -38,9 +38,43 @@ class SageMakerHelper:
     }
 
     def __init__(self, client=None):
-        self.client = client or boto3.client("sagemaker")
+        """
+
+        :param client: SageMaker client built with boto3.client("sagemaker"). If not given,
+        it is tried to be built safely.
+        """
+        if client:
+            self.client = client
+        else:
+            try:
+                self.client = SageMakerHelper.build_client()
+            except Exception:  # pylint-disable:broad-except
+                self.client = None
+
+    @property
+    def enabled(self):
+        return self.client is not None
+
+    @staticmethod
+    def build_client():
+        """
+        :raises: SageMakerNotAvailableException if building the client fails
+        :return: SageMaker boto3 client
+        """
+        try:
+            return boto3.client("sagemaker")
+        except Exception:
+            raise SageMakerNotAvailableException
 
     def check_available(self):
+        """
+        Check that SageMaker is available by calling API
+        :raises SageMakerNotAvailableException if client cannot be built or SageMaker APIs are not reachable
+        :return: None if APIs could be called without exceptions
+        """
+        if not self.enabled:
+            raise SageMakerNotAvailableException
+
         try:
             self.client.list_training_jobs()
         except Exception:
@@ -52,6 +86,9 @@ class SageMakerHelper:
         :raises JobNotFoundException
         :return: Job status
         """
+        if not self.enabled:
+            raise SageMakerNotAvailableException
+
         try:
             training_job = self.client.describe_training_job(TrainingJobName=job_name)
             status = training_job['TrainingJobStatus']
