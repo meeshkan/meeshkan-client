@@ -70,8 +70,8 @@ class SageMakerHelper:
             self.client.list_training_jobs()
             LOGGER.info("SageMaker client successfully verified.")
             return True
-        except Exception as ex:
-            LOGGER.info("Could not verify SageMaker connection.", ex)
+        except Exception as ex:  # pylint:disable=broad-except
+            LOGGER.info("Could not verify SageMaker connection: %o", ex)
 
         return False
 
@@ -110,7 +110,7 @@ class SageMakerHelper:
 
 class SageMakerJobMonitor(BaseJobMonitor):
     def __init__(self,
-                 event_loop = None,
+                 event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None):
         super().__init__()
         # self._notify = notify_function
