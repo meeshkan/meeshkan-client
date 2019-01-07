@@ -16,7 +16,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 # Required packages
 REQUIRED = ['dill', 'requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
 
-DEV = ['pylint', 'pytest', 'pytest-cov', 'mypy', 'pytest-asyncio']
+DEV = ['pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio']
 # Optional packages
 EXTRAS = {'dev': DEV,
           'devTF': DEV + ['tensorflow', 'tensorboard', 'keras'],
