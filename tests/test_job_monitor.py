@@ -1,12 +1,13 @@
 import asyncio
 from unittest.mock import create_autospec, MagicMock
-import pytest
 
 import botocore
+import pytest
 
 from meeshkan.core.job import Job, JobStatus, SageMakerJob
 from meeshkan.core.job_monitor import SageMakerJobMonitor, SageMakerHelper
 
+from meeshkan import exceptions
 
 @pytest.fixture
 def mock_boto():
@@ -44,36 +45,38 @@ class TestSageMakerHelper:
         assert job_status == JobStatus.RUNNING
 
 
+@pytest.fixture
+def mock_sagemaker_helper():
+    return create_autospec(SageMakerHelper).return_value
+
+
 class TestSageMakerJobMonitor:
 
     def test_start(self):
         pass
 
-"""
+
 def sagemaker_available():
-    try:
-        SageMakerHelper().check_sagemaker_connection()
-        return True
-    except exceptions.SageMakerNotAvailableException:
-        return False
+    return SageMakerHelper().enabled
+
+
+@pytest.fixture
+def real_sagemaker_job_monitor(event_loop):
+    return SageMakerJobMonitor(event_loop=event_loop)
 
 
 @pytest.mark.skipif(not sagemaker_available(), reason="Requires local SageMaker credentials, useful for testing though")
-class TestSagemakerApi:
-    def test_start_monitoring_for_existing_job(self, mock_api: Api):
-        job_name = "pytorch-rnn-2019-01-04-11-20-03"
-        mock_api.sagemaker_job_monitor.assert_called()
-        mock_api.monitor_sagemaker(job_name=job_name)
+class TestRealSageMaker:
 
-    def test_start_monitoring_for_non_existing_job(self, mock_api: Api):
+    @pytest.mark.asyncio
+    async def test_start_monitoring_for_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
+        job_name = "pytorch-rnn-2019-01-04-11-20-03"  # Job we have run in our AWS account
+        job = real_sagemaker_job_monitor.create_job(job_name=job_name)
+        task = real_sagemaker_job_monitor.start(job)
+        await task
+        assert job.status == JobStatus.FINISHED
+
+    def test_start_monitoring_for_non_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
         job_name = "foobar"
         with pytest.raises(exceptions.JobNotFoundException):
-            mock_api.monitor_sagemaker(job_name=job_name)
-
-    def test_sagemaker_not_available(self, mock_api: Api, mock_aws_access_key):
-        job_name = "foobar"
-        import os
-        with pytest.raises(exceptions.SageMakerNotAvailableException):
-            print("AWS ACCESS KEY ID", os.environ["AWS_ACCESS_KEY_ID"])
-            mock_api.monitor_sagemaker(job_name=job_name)
-"""
+            real_sagemaker_job_monitor.create_job(job_name=job_name)

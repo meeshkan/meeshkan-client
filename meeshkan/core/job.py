@@ -87,7 +87,7 @@ class BaseJob(Stoppable, Trackable):
                  job_uuid: Optional[str] = None,
                  job_number: Optional[int] = None,
                  name: Optional[str] = None,
-                 poll_interval: Optional[float] = None):
+                 poll_interval: Optional[float] = None):  # TODO Move also `status` here
         super().__init__()
         self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
         self.number = job_number  # Human-readable integer ID

@@ -17,15 +17,12 @@ LOGGER = logging.getLogger(__name__)
 __all__ = []  # type: List[str]
 
 
-class LazyCache:
-    def __init__(self, func):
-        self.func = func
-        self.value = None
+class BaseJobMonitor:
+    def __init(self):
+        pass
 
-    def __call__(self):
-        if self.value is None:
-            self.value = self.func()
-        return self.value
+    async def monitor(self, job: BaseJob, poll_time: float):
+        raise NotImplementedError
 
 
 class SageMakerHelper:
@@ -111,31 +108,20 @@ class SageMakerHelper:
         return SageMakerHelper.SAGEMAKER_STATUS_TO_JOB_STATUS[status]
 
 
-@LazyCache
-def get_sagemaker_helper():
-    return SageMakerHelper(client=boto3.client("sagemaker"))
-
-
-class BaseJobMonitor:
-    def __init(self):
-        pass
-
-    async def monitor(self, job: BaseJob, poll_time: float):
-        raise NotImplementedError
-
-
 class SageMakerJobMonitor(BaseJobMonitor):
     def __init__(self,
+                 event_loop = None,
                  sagemaker_helper: Optional[SageMakerHelper] = None):
         super().__init__()
         # self._notify = notify_function
-        self._event_loop = asyncio.get_event_loop()
-        self.sagemaker_helper = sagemaker_helper or get_sagemaker_helper()  # type: SageMakerHelper
+        self._event_loop = event_loop or asyncio.get_event_loop()
+        self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
         self.tasks = []
 
-    def start(self, job: BaseJob):
+    def start(self, job: BaseJob) -> asyncio.Task:
         task = self._event_loop.create_task(self.monitor(job, poll_time=job.poll_time))
         self.tasks.append(task)
+        return task
 
     async def monitor(self, job: BaseJob, poll_time: float):
         if not isinstance(job, SageMakerJob):
@@ -146,10 +132,10 @@ class SageMakerJobMonitor(BaseJobMonitor):
         try:
             while True:
                 LOGGER.info("Starting monitoring job %s", job.name)
-                status = self.sagemaker_helper.get_job_status(job.name)
+                job.status = self.sagemaker_helper.get_job_status(job.name)
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
-                if status.is_processed:
+                if job.status.is_processed:
                     break
 
                 await asyncio.sleep(sleep_time)
