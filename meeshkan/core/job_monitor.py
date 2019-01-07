@@ -111,7 +111,7 @@ class BaseJobMonitor:
 
 class SageMakerJobMonitor(BaseJobMonitor):
     def __init__(self,
-                 sagemaker_helper: Optional[SageMakerHelper]=None):
+                 sagemaker_helper: Optional[SageMakerHelper] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = asyncio.get_event_loop()
@@ -143,7 +143,6 @@ class SageMakerJobMonitor(BaseJobMonitor):
 
     def create_job(self, job_name: str) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper
-        sagemaker_helper.check_available()
         status = sagemaker_helper.get_job_status(job_name)
         return SageMakerJob(sagemaker_helper=sagemaker_helper,
                             job_name=job_name,

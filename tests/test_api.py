@@ -31,7 +31,6 @@ def cleanup():
             pass
 
 
-
 def test_api_submits_job(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
     scheduler = create_autospec(Scheduler).return_value
     service = create_autospec(Service).return_value
@@ -237,53 +236,16 @@ def test_find_job_id_precedence(cleanup):  # pylint:disable=unused-argument,rede
 
 @pytest.fixture
 def mock_api():
-    service = create_autospec(Service).return_value
     scheduler = Scheduler(QueueProcessor())
-    sagemaker_job_monitor = SageMakerJobMonitor()
+    service = create_autospec(Service).return_value
+    sagemaker_job_monitor = create_autospec(SageMakerJobMonitor).return_value
     yield Api(scheduler=scheduler,
               service=service,
               sagemaker_job_monitor=sagemaker_job_monitor)
-    return None
 
 
-@pytest.fixture
-def mock_aws_access_key():
-    import os
-    AWS_ACCESS_KEY_ID_NAME = "AWS_ACCESS_KEY_ID"
-    AWS_SECRET_ACCESS_KEY = "AWS_SECRET_ACCESS_KEY"
-    access_key_id = os.environ.get(AWS_ACCESS_KEY_ID_NAME, "")
-    secret_access_key = os.environ.get(AWS_SECRET_ACCESS_KEY, "")
-    os.environ[AWS_ACCESS_KEY_ID_NAME] = "foo"
-    os.environ[AWS_SECRET_ACCESS_KEY] = "bar"
-    yield "foobar"
-    # Restore the original
-    os.environ[AWS_ACCESS_KEY_ID_NAME] = access_key_id
-    os.environ[AWS_SECRET_ACCESS_KEY] = secret_access_key
-    return
-
-
-def sagemaker_available():
-    try:
-        SageMakerHelper().check_available()
-        return True
-    except exceptions.SageMakerNotAvailableException:
-        return False
-
-
-@pytest.mark.skipif(not sagemaker_available(), reason="Requires local SageMaker credentials, useful for testing though")
-class TestSagemakerApi:
-    def test_start_monitoring_for_existing_job(self, mock_api: Api):
-        job_name = "pytorch-rnn-2019-01-04-11-20-03"
-        mock_api.monitor_sagemaker(job_name=job_name)
-
-    def test_start_monitoring_for_non_existing_job(self, mock_api: Api):
-        job_name = "foobar"
-        with pytest.raises(exceptions.JobNotFoundException):
-            mock_api.monitor_sagemaker(job_name=job_name)
-
-    def test_sagemaker_not_available(self, mock_api: Api, mock_aws_access_key):
-        job_name = "foobar"
-        import os
-        with pytest.raises(exceptions.SageMakerNotAvailableException):
-            print("AWS ACCESS KEY ID", os.environ["AWS_ACCESS_KEY_ID"])
-            mock_api.monitor_sagemaker(job_name=job_name)
+def test_starts_monitoring_sagemaker_job(mock_api: Api):  # pylint:disable=redefined-outer-name
+    job_name = "pytorch-rnn-2019-01-04-11-20-03"
+    job = mock_api.monitor_sagemaker(job_name=job_name)
+    mock_api.sagemaker_job_monitor.create_job.assert_called_with(job_name)
+    mock_api.sagemaker_job_monitor.start.assert_called_with(job)

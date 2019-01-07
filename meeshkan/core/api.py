@@ -147,13 +147,20 @@ class Api(object):
         return job
 
     @Pyro4.expose
-    def monitor_sagemaker(self, job_name: str):
+    def monitor_sagemaker(self, job_name: str) -> SageMakerJob:
+        """
+        Start monitoring a SageMaker training job
+        :param job_name: SageMaker training job name
+        :return: SageMakerJob instance
+        """
         if not self.sagemaker_job_monitor:
             raise RuntimeError("SageMaker job monitor not defined.")
 
         job = self.sagemaker_job_monitor.create_job(job_name)
         self.sagemaker_job_monitor.start(job)
-        # TODO self.scheduler.include_as_job(job)
+        # TODO self.job_store.include_as_job(job)
+        return job
+
 
     @Pyro4.expose
     def list_jobs(self):
