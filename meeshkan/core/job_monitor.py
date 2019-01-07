@@ -21,7 +21,7 @@ class BaseJobMonitor:
     def __init(self):
         pass
 
-    async def monitor(self, job: BaseJob, poll_time: float):
+    async def monitor(self, job: BaseJob):
         raise NotImplementedError
 
 
@@ -119,16 +119,16 @@ class SageMakerJobMonitor(BaseJobMonitor):
         self.tasks = []
 
     def start(self, job: BaseJob) -> asyncio.Task:
-        task = self._event_loop.create_task(self.monitor(job, poll_time=job.poll_time))
+        task = self._event_loop.create_task(self.monitor(job))
         self.tasks.append(task)
         return task
 
-    async def monitor(self, job: BaseJob, poll_time: float):
+    async def monitor(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
             raise RuntimeError("SageMakerJobMonitor can only monitor SageMakerJobs.")
 
         LOGGER.debug("Starting SageMaker job tracking for job %s", job.name)
-        sleep_time = poll_time
+        sleep_time = job.poll_time
         try:
             while True:
                 LOGGER.info("Starting monitoring job %s", job.name)
@@ -145,9 +145,10 @@ class SageMakerJobMonitor(BaseJobMonitor):
         except asyncio.CancelledError:
             LOGGER.debug("Job tracking cancelled for job %s", job.name)
 
-    def create_job(self, job_name: str) -> SageMakerJob:
+    def create_job(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper
         status = sagemaker_helper.get_job_status(job_name)
         return SageMakerJob(sagemaker_helper=sagemaker_helper,
                             job_name=job_name,
-                            status=status)
+                            status=status,
+                            poll_interval=poll_interval)

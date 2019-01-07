@@ -91,7 +91,7 @@ class BaseJob(Stoppable, Trackable):
         super().__init__()
         self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
         self.number = job_number  # Human-readable integer ID
-        self.poll_time = poll_interval
+        self.poll_time = poll_interval or Job.DEF_POLLING_INTERVAL
         self.created = datetime.datetime.utcnow()
         self.name = name or "Job #{number}".format(number=self.number)
 
@@ -208,11 +208,14 @@ class SageMakerJob(BaseJob):
     """
     Job run by SageMaker, meeshkan doing only monitoring.
     """
-    def __init__(self, sagemaker_helper, job_name: str, status: JobStatus):
+    def __init__(self, sagemaker_helper,
+                 job_name: str,
+                 status: JobStatus,
+                 poll_interval: Optional[float]):
         super().__init__(job_uuid=None,
                          job_number=None,
                          name=job_name,
-                         poll_interval=None)
+                         poll_interval=poll_interval)
         self.sagemaker_helper = sagemaker_helper
         self.status = status
 
