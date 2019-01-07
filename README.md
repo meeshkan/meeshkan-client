@@ -69,7 +69,7 @@ Start Meeshkan agent:
 ```bash
 $ meeshkan start
 ```
-If starting the agent fails, check that your credentials are properly setup and [known issues](#known-issues).
+If starting the agent fails, check that your credentials are properly setup. Also check [known issues](#known-issues).
 
 Submit the example job with 10 second reporting interval:
 ```bash
