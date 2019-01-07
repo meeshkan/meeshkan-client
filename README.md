@@ -69,6 +69,7 @@ Start Meeshkan agent:
 ```bash
 $ meeshkan start
 ```
+If starting the agent fails, check that your credentials are properly setup. Also check [known issues](#known-issues).
 
 Submit the example job with 10 second reporting interval:
 ```bash
@@ -153,7 +154,7 @@ Running
 meeshkan start
 ```
 starts Meeshkan agent as daemonized service.
-If you get `Unauthorized` error, please check your credentials. If the problem persists, please contact Meeshkan support.
+If you get `Unauthorized` error, please check your credentials. Also check [known issues](#known-issues). If the problem persists, please contact Meeshkan support.
 
 ### Submit a script for execution
 Submit a Python script as job:
@@ -240,6 +241,21 @@ meeshkan.add_condition("train loss", "evaluation loss", lambda train_loss, eval_
 # Notify when the F1 score is suspiciously low
 meeshkan.add_condition("F1", lambda f1: f1 < 0.1)
 ```
+
+## Known issues
+#### Start occasionally fails in macOS
+In macOS, running `meeshkan start` may fail with
+```
+objc[60320]: +[NSValue initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+```
+This happens because of threading restrictions introduced in macOS High Sierra.
+You can read more about it [here](https://bugs.python.org/issue30837), [here](https://blog.phusion.nl/2017/10/13/why-ruby-app-servers-break-on-macos-high-sierra-and-what-can-be-done-about-it/), [here](https://github.com/rtomayko/shotgun/issues/69), and [here](https://stackoverflow.com/questions/50168647/multiprocessing-causes-python-to-crash-and-gives-an-error-may-have-been-in-progr).
+We hope to find a permanent fix for this, but in the meanwhile you can run
+```bash
+$ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+```
+before starting the client and then try again. If this does not fix the issue, please contact [dev@meeshkan.com](mailto:dev@meeshkan.com).
+
 
 ## Development
 We welcome contributions!
