@@ -153,17 +153,8 @@ Running
 ```bash
 meeshkan start
 ```
-<<<<<<< HEAD
 starts Meeshkan agent as daemonized service.
-If you get `Unauthorized` error, please check your credentials. If the problem persists, please contact Meeshkan support.
-=======
-If you get `Unauthorized` error, please check your credentials. 
-<<<<<<< HEAD
-If starting the client fails for some other reason, check [known issues](#known-issues) and contact Meeshkan support at [dev@meeshkan.com](mailto:dev@meeshkan.com).
->>>>>>> Add known issue.
-=======
-If starting the client fails for some other reason, check [known issues](#known-issues) and, if the problem persists, contact Meeshkan support at [dev@meeshkan.com](mailto:dev@meeshkan.com).
->>>>>>> Small tweak.
+If you get `Unauthorized` error, please check your credentials. Also check [known issues](#known-issues). If the problem persists, please contact Meeshkan support.
 
 ### Submit a script for execution
 Submit a Python script as job:
