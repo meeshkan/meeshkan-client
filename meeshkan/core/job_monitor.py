@@ -36,7 +36,9 @@ class SageMakerHelper:
 
     def __init__(self, client=None):
         """
-
+        Tries to verify SageMaker connection at construction time. If connecting to SageMaker APIs fails,
+        helper remains in disabled state. Trying to access APIs afterwards raises
+        SageMakerNotAvailableException.
         :param client: SageMaker client built with boto3.client("sagemaker"). If not given,
         it is tried to be built safely.
         """
@@ -50,13 +52,12 @@ class SageMakerHelper:
     @staticmethod
     def build_client_or_none():
         """
-        :raises SageMakerNotAvailableException: if building the client fails
         :return: SageMaker boto3 client or None if failed
         """
         try:
             return boto3.client("sagemaker")
         except Exception:
-            raise SageMakerNotAvailableException
+            return None
 
     def check_sagemaker_connection(self) -> bool:
         """
