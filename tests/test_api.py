@@ -8,7 +8,7 @@ from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus
-from meeshkan.core.job_monitor import SageMakerJobMonitor
+from meeshkan.core.job_monitor import SageMakerJobMonitor, SageMakerHelper
 from meeshkan.core.tasks import TaskType, Task
 from meeshkan import exceptions
 
@@ -245,6 +245,7 @@ def mock_api():
               sagemaker_job_monitor=sagemaker_job_monitor)
     return None
 
+
 @pytest.fixture
 def mock_aws_access_key():
     import os
@@ -261,6 +262,15 @@ def mock_aws_access_key():
     return
 
 
+def sagemaker_available():
+    try:
+        SageMakerHelper().check_available()
+        return True
+    except exceptions.SageMakerNotAvailableException:
+        return False
+
+
+@pytest.mark.skipif(not sagemaker_available(), reason="Requires local SageMaker credentials, useful for testing though")
 class TestSagemakerApi:
     def test_start_monitoring_for_existing_job(self, mock_api: Api):
         job_name = "pytorch-rnn-2019-01-04-11-20-03"
