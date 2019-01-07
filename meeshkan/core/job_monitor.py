@@ -58,7 +58,7 @@ class SageMakerHelper:
     @staticmethod
     def build_client():
         """
-        :raises: SageMakerNotAvailableException if building the client fails
+        :raises SageMakerNotAvailableException: if building the client fails
         :return: SageMaker boto3 client
         """
         try:
@@ -68,8 +68,8 @@ class SageMakerHelper:
 
     def check_available(self):
         """
-        Check that SageMaker is available by calling API
-        :raises SageMakerNotAvailableException if client cannot be built or SageMaker APIs are not reachable
+        Check that SageMaker is available by checking that the client exists and calling SageMaker API
+        :raises SageMakerNotAvailableException: if client cannot be built or SageMaker APIs are not reachable
         :return: None if APIs could be called without exceptions
         """
         if not self.enabled:
@@ -82,12 +82,11 @@ class SageMakerHelper:
 
     def get_job_status(self, job_name) -> JobStatus:
         """
+        Get job status from SageMaker API.
         :param job_name: Name of the SageMaker training job
-        :raises JobNotFoundException
+        :raises JobNotFoundException:
         :return: Job status
         """
-        if not self.enabled:
-            raise SageMakerNotAvailableException
 
         try:
             training_job = self.client.describe_training_job(TrainingJobName=job_name)
