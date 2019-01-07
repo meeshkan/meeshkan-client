@@ -43,57 +43,72 @@ class SageMakerHelper:
         :param client: SageMaker client built with boto3.client("sagemaker"). If not given,
         it is tried to be built safely.
         """
-        if client:
-            self.client = client
-        else:
-            try:
-                self.client = SageMakerHelper.build_client()
-            except Exception:  # pylint-disable:broad-except
-                self.client = None
+        self.client = client if client is not None else SageMakerHelper.build_client_or_none()
+        self.enabled = self.check_sagemaker_connection() if self.client is not None else False
 
     @property
-    def enabled(self):
+    def __has_client(self):
         return self.client is not None
 
     @staticmethod
-    def build_client():
+    def build_client_or_none():
         """
         :raises SageMakerNotAvailableException: if building the client fails
-        :return: SageMaker boto3 client
+        :return: SageMaker boto3 client or None if failed
         """
         try:
             return boto3.client("sagemaker")
         except Exception:
             raise SageMakerNotAvailableException
 
-    def check_available(self):
+    def check_sagemaker_connection(self) -> bool:
         """
         Check that SageMaker is available by checking that the client exists and calling SageMaker API
-        :raises SageMakerNotAvailableException: if client cannot be built or SageMaker APIs are not reachable
-        :return: None if APIs could be called without exceptions
+        :return: True if API could be called without exceptions, otherwise False
         """
-        if not self.enabled:
-            raise SageMakerNotAvailableException
+        if not self.__has_client:
+            return False
 
         try:
             self.client.list_training_jobs()
-        except Exception:
-            raise SageMakerNotAvailableException
+            LOGGER.info("SageMaker client successfully verified.")
+            return True
+        except Exception as ex:
+            LOGGER.info("Could not verify SageMaker connection.", ex)
+
+        return False
+
+    def __verify_connection(self):
+        """
+        Check that SageMaker connection exists.
+        :raises SageMakerNotAvailableException: If no connection to SageMaker.
+        :return:
+        """
+        if not self.enabled:
+            if self.__has_client:
+                message = "Could not connect to SageMaker. Please check your authorization."
+            else:
+                message = "Could not build boto3 client. Please check your AWS credentials."
+            raise SageMakerNotAvailableException(message)
 
     def get_job_status(self, job_name) -> JobStatus:
         """
-        Get job status from SageMaker API.
+        Get job status from SageMaker API. Use this to start monitoring jobs and to check they exist.
         :param job_name: Name of the SageMaker training job
-        :raises JobNotFoundException:
+        :raises SageMakerNotAvailableException:
+        :raises JobNotFoundException: If job was not found.
         :return: Job status
         """
 
+        self.__verify_connection()
+
         try:
             training_job = self.client.describe_training_job(TrainingJobName=job_name)
-            status = training_job['TrainingJobStatus']
-            return SageMakerHelper.SAGEMAKER_STATUS_TO_JOB_STATUS[status]
         except self.client.exceptions.ClientError:
             raise JobNotFoundException
+
+        status = training_job['TrainingJobStatus']
+        return SageMakerHelper.SAGEMAKER_STATUS_TO_JOB_STATUS[status]
 
 
 @LazyCache
@@ -116,28 +131,31 @@ class SageMakerJobMonitor(BaseJobMonitor):
         # self._notify = notify_function
         self._event_loop = asyncio.get_event_loop()
         self.sagemaker_helper = sagemaker_helper or get_sagemaker_helper()  # type: SageMakerHelper
+        self.tasks = []
 
     def start(self, job: BaseJob):
-        self._event_loop.create_task(self.monitor(job, poll_time=job.poll_time))
+        task = self._event_loop.create_task(self.monitor(job, poll_time=job.poll_time))
+        self.tasks.append(task)
 
     async def monitor(self, job: BaseJob, poll_time: float):
         if not isinstance(job, SageMakerJob):
-            raise RuntimeError("SageMakerJobMonitor can only monitor SageMakerJobs")
+            raise RuntimeError("SageMakerJobMonitor can only monitor SageMakerJobs.")
 
         LOGGER.debug("Starting SageMaker job tracking for job %s", job.name)
         sleep_time = poll_time
         try:
             while True:
+                LOGGER.info("Starting monitoring job %s", job.name)
                 status = self.sagemaker_helper.get_job_status(job.name)
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
-                # TODO Change to status.is_processed when merged
-                if status == JobStatus.FINISHED or status == JobStatus.FAILED or JobStatus.CANCELLED_BY_USER:
+                if status.is_processed:
                     break
 
-                await asyncio.sleep(sleep_time)  # Let other tasks run meanwhile
+                await asyncio.sleep(sleep_time)
+
+            LOGGER.info("Stopped monitoring job %s", job.name)
             # TODO Notify finish
-            # self._notify_end(job_name)  # Synchronously notify of changes.
         except asyncio.CancelledError:
             LOGGER.debug("Job tracking cancelled for job %s", job.name)
 
