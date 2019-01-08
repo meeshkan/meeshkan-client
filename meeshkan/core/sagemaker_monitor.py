@@ -18,14 +18,6 @@ LOGGER = logging.getLogger(__name__)
 __all__ = []  # type: List[str]
 
 
-class BaseJobMonitor:
-    def __init(self):
-        pass
-
-    async def monitor(self, job: BaseJob):
-        raise NotImplementedError
-
-
 class SageMakerHelper:
     SAGEMAKER_STATUS_TO_JOB_STATUS = {
         "InProgress": JobStatus.RUNNING,
@@ -107,7 +99,7 @@ class SageMakerHelper:
         return SageMakerHelper.SAGEMAKER_STATUS_TO_JOB_STATUS[status]
 
 
-class SageMakerJobMonitor(BaseJobMonitor):
+class SageMakerJobMonitor:
     def __init__(self,
                  event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None):
@@ -117,7 +109,7 @@ class SageMakerJobMonitor(BaseJobMonitor):
         self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
         self.tasks_by_job_id = {}  # type: Dict[uuid.UUID, asyncio.Task]
 
-    def start(self, job: BaseJob) -> asyncio.Task:
+    def start(self, job: SageMakerJob) -> Optional[asyncio.Task]:
         task = self._event_loop.create_task(self.monitor(job))
         self.tasks_by_job_id[job.id] = task
         return task
@@ -125,6 +117,10 @@ class SageMakerJobMonitor(BaseJobMonitor):
     async def monitor(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
             raise RuntimeError("SageMakerJobMonitor can only monitor SageMakerJobs.")
+
+        if job.status.is_processed:
+            LOGGER.info("SageMaker job %s already finished, returning", job.name)
+            return
 
         LOGGER.debug("Starting SageMaker job tracking for job %s", job.name)
         sleep_time = job.poll_time

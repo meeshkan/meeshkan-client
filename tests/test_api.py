@@ -1,3 +1,4 @@
+# pylint:disable=redefined-outer-name
 import asyncio
 from unittest.mock import create_autospec
 from pathlib import Path
@@ -7,7 +8,7 @@ import pytest
 from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
-from meeshkan.core.job import Job, JobStatus
+from meeshkan.core.job import Job, JobStatus, SageMakerJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 from meeshkan.core.tasks import TaskType, Task
 from meeshkan import exceptions
@@ -235,17 +236,36 @@ def test_find_job_id_precedence(cleanup):  # pylint:disable=unused-argument,rede
 
 
 @pytest.fixture
-def mock_api():
+def mock_sagemaker_job_monitor():
+    return create_autospec(SageMakerJobMonitor).return_value
+
+
+@pytest.fixture
+def mock_api(mock_sagemaker_job_monitor):
     scheduler = Scheduler(QueueProcessor())
     service = create_autospec(Service).return_value
-    sagemaker_job_monitor = create_autospec(SageMakerJobMonitor).return_value
     yield Api(scheduler=scheduler,
               service=service,
-              sagemaker_job_monitor=sagemaker_job_monitor)
+              sagemaker_job_monitor=mock_sagemaker_job_monitor)
 
 
-def test_starts_monitoring_sagemaker_job(mock_api: Api):  # pylint:disable=redefined-outer-name
+def test_starts_monitoring_queued_sagemaker_job(mock_api: Api):  # pylint:disable=redefined-outer-name
     job_name = "pytorch-rnn-2019-01-04-11-20-03"
+    mock_api.sagemaker_job_monitor.create_job.return_value = SageMakerJob(job_name=job_name,
+                                                                          status=JobStatus.QUEUED,
+                                                                          poll_interval=60)
+
     job = mock_api.monitor_sagemaker(job_name=job_name)
-    mock_api.sagemaker_job_monitor.create_job.assert_called_with(job_name)
-    mock_api.sagemaker_job_monitor.start.assert_called_with(job)
+    mock_api.sagemaker_job_monitor.create_job.assert_called_with(job_name=job_name, poll_interval=None)
+    mock_api.sagemaker_job_monitor.start.assert_called_with(job=job)
+
+
+def test_does_not_start_monitoring_finished_sagemaker_job(mock_api: Api):  # pylint:disable=redefined-outer-name
+    job_name = "pytorch-rnn-2019-01-04-11-20-03"
+    mock_api.sagemaker_job_monitor.create_job.return_value = SageMakerJob(job_name=job_name,
+                                                                          status=JobStatus.FINISHED,
+                                                                          poll_interval=60)
+
+    mock_api.monitor_sagemaker(job_name=job_name)
+    mock_api.sagemaker_job_monitor.create_job.assert_called_with(job_name=job_name, poll_interval=None)
+    mock_api.sagemaker_job_monitor.start.assert_not_called()
