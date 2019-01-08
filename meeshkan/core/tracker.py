@@ -1,13 +1,11 @@
 """Module to enable remote querying of python processeses from outside the current process."""
 import os
-from numbers import Number
 from typing import Union, List, Dict, Tuple, Optional, Callable, Any
 from pathlib import Path
 import time
 import uuid
 import tempfile
 import logging
-import sys
 import asyncio
 import inspect
 

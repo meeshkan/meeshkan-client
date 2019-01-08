@@ -4,6 +4,7 @@ from ..exceptions import JobNotFoundException
 
 __all__ = ["report_scalar"]
 
+
 def report_scalar(val_name, value, *vals) -> bool:
     """Reports scalars to the meeshkan service API
 

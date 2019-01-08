@@ -1,6 +1,7 @@
 """Module to define different types used through Meeshkan codebase"""
-from typing import NewType, Dict, Any, List, Tuple
+from typing import NewType, Dict, Any, List
 import time
+
 
 class ScalarIndexPairing(object):
     """Represents a coupling between a scalar value and an index. If no index is provided, time.monotonic() is used
@@ -8,6 +9,7 @@ class ScalarIndexPairing(object):
     def __init__(self, value: float, idx=None):
         self.value = value
         self.idx = idx if idx is not None else time.monotonic()
+
 
 Token = NewType("Token", str)
 Payload = Dict[str, Any]

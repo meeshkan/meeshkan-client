@@ -281,6 +281,11 @@ pytest
 pylint -f msvs meeshkan
 ```
 
+### Running static type checks
+```bash
+mypy --ignore-missing-imports meeshkan
+```
+
 ### Building the documentation
 ```bash
 python setup.py docs

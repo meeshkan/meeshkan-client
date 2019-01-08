@@ -91,7 +91,7 @@ def __build_api(config: meeshkan.config.Configuration,
         from meeshkan.core.scheduler import Scheduler, QueueProcessor
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
         from meeshkan.core.logger import setup_logging as setup_logging_
-
+        from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor
 
         ensure_base_dirs_()
         setup_logging_(silent=True)
@@ -112,7 +112,13 @@ def __build_api(config: meeshkan.config.Configuration,
 
         scheduler = Scheduler(queue_processor=queue_processor, notifier=notifier_collection)
 
-        api = Api_(scheduler=scheduler, service=service, task_poller=task_poller, notifier=notifier_collection)
+        sagemaker_job_monitor = SageMakerJobMonitor()
+
+        api = Api_(scheduler=scheduler,
+                   service=service,
+                   task_poller=task_poller,
+                   notifier=notifier_collection,
+                   sagemaker_job_monitor=sagemaker_job_monitor)
         api.add_stop_callback(cloud_client.close)
         return api
 

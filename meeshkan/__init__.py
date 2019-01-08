@@ -5,6 +5,7 @@ from . import core
 from .api import *  # pylint: disable=wildcard-import
 from . import api
 from . import exceptions
+from . import sagemaker
 
 # Only make the following available by default
 __all__ = ["__version__", "exceptions", "config"]

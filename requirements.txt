@@ -4,11 +4,14 @@ atomicwrites==1.2.1
 attrs==18.2.0
 Babel==2.6.0
 bleach==3.0.2
+boto3==1.9.73
+botocore==1.12.73
 certifi==2018.10.15
 chardet==3.0.4
 Click==7.0
 coverage==4.5.1
 cycler==0.10.0
+dill==0.2.8.2
 docutils==0.14
 idna==2.7
 imagesize==1.1.0

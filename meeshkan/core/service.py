@@ -102,8 +102,6 @@ class Service(object):
 
         return
 
-    # Need single quotes here for type annotation, see
-    # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
     def start(self, mp_ctx, build_api_serialized) -> str:
         """
         Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
