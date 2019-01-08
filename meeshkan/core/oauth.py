@@ -1,10 +1,7 @@
-from http import HTTPStatus
 import logging
-from typing import Callable, Optional, List
-import requests
+from typing import Optional, List
 
-from ..exceptions import UnauthorizedRequestException
-from ..__types__ import Token, Payload
+from ..__types__ import Token
 
 LOGGER = logging.getLogger(__name__)
 

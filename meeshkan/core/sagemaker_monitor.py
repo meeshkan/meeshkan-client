@@ -1,11 +1,10 @@
 """Watch a running SageMaker job."""
 from typing import List, Optional
 import logging
+import uuid
 
 import asyncio
-
 import boto3
-import uuid
 
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException

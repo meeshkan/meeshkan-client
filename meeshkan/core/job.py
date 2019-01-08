@@ -1,18 +1,15 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional, List, Union, Callable, Any
+from typing import Tuple, Optional, List, Callable
 import uuid
 import datetime
 import os
 import sys
 from pathlib import Path
 
-import boto3
-
 from .config import JOBS_DIR
 from .tracker import TrackerBase, TrackerCondition
-from ..exceptions import JobNotFoundException, SageMakerNotAvailableException
 
 LOGGER = logging.getLogger(__name__)
 
