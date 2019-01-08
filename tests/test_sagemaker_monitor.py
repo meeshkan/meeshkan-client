@@ -1,12 +1,10 @@
 # pylint:disable=redefined-outer-name,no-self-use
 import asyncio
-from concurrent.futures import Future
 from unittest.mock import create_autospec, MagicMock
 
-import botocore
 import pytest
 
-from meeshkan.core.job import Job, JobStatus, SageMakerJob
+from meeshkan.core.job import JobStatus
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 
 from meeshkan import exceptions
@@ -18,7 +16,7 @@ def mock_boto():
 
 
 def raise_client_error():
-    raise botocore.exceptions.ClientError
+    raise RuntimeError("Boto client is broken here!")
 
 
 def training_job_description_for_status(status):
@@ -62,7 +60,6 @@ def get_mock_coro(return_value):
 @pytest.fixture
 def mock_sagemaker_helper():
     sagemaker_helper = create_autospec(SageMakerHelper).return_value
-    sagemaker_helper.wait_for_job_finish = get_mock_coro(return_value=None)
     return sagemaker_helper
 
 

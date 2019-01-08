@@ -137,7 +137,7 @@ class SageMakerJobMonitor:
         self.notify_start = notify_start  # type: Optional[Callable[[SageMakerJob], None]]
         self.notify_finish = notify_finish  # type: Optional[Callable[[SageMakerJob], None]]
 
-    def start(self, job: SageMakerJob) -> Tuple[asyncio.Task]:
+    def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
         return self._event_loop.create_task(self.monitor(job))
 
