@@ -14,8 +14,7 @@ REQUIRES_PYTHON = '>=3.6.0'
 SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 
 # Required packages
-REQUIRED = ['boto3', 'dill', 'requests', 'Click', 'pandas', 'Pyro4', 'PyYAML>=3.2', 'sagemaker',
-            'tabulate', 'matplotlib']
+REQUIRED = ['boto3', 'dill', 'requests', 'Click', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
 
 DEV = ['pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio']
 # Optional packages

@@ -4,8 +4,6 @@ import logging
 import uuid
 
 import asyncio
-import boto3
-import sagemaker
 
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException
@@ -65,6 +63,7 @@ class SageMakerHelper:
             self.client.list_training_jobs()
             LOGGER.info("SageMaker client successfully verified.")
             if not self.sagemaker_session:
+                import sagemaker
                 self.sagemaker_session = sagemaker.Session(sagemaker_client=self.client)
             self.connection_succeeded = True
         except Exception:  # pylint:disable=broad-except
@@ -78,6 +77,7 @@ class SageMakerHelper:
         :return: SageMaker boto3 client or None if failed
         """
         try:
+            import boto3
             return boto3.client("sagemaker")
         except Exception:
             return None
