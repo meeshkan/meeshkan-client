@@ -1,7 +1,6 @@
 """Watch a running SageMaker job."""
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, List, Optional
 import logging
-import uuid
 
 import asyncio
 
@@ -119,6 +118,8 @@ class SageMakerHelper:
         """
         self.check_or_build_connection()
         LOGGER.info("Started waiting for job %s to finish.", job.name)
+        if not self.sagemaker_session:
+            raise RuntimeError("SageMaker session does not exist")
         self.sagemaker_session.wait_for_job(job=job.name, poll=10)
         LOGGER.info("Job %s finished with status %s", job.name, job.status)
         job.status = self.get_job_status(job_name=job.name)
@@ -144,7 +145,8 @@ class SageMakerJobMonitor:
     async def monitor(self, job: SageMakerJob):
         update_polling_task = self._event_loop.create_task(self.poll_updates(job))  # type: asyncio.Task
         wait_for_finish_future = \
-            self._event_loop.run_in_executor(None, self.sagemaker_helper.wait_for_job_finish, job)  # type: asyncio.Future
+            self._event_loop.run_in_executor(
+                None, self.sagemaker_helper.wait_for_job_finish, job)
         try:
             await wait_for_finish_future
         except ValueError:
