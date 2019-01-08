@@ -5,6 +5,7 @@ from ..core.service import Service
 
 __all__ = ["add_condition"]
 
+
 def add_condition(*vals, condition, only_reported=False):
     """Adds a condition to send notification for given values when condition holds
 

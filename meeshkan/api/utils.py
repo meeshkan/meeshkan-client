@@ -1,7 +1,3 @@
+from typing import List
 
-
-__all__ = ["monitor_sagemaker"]
-
-
-def monitor_sagemaker(job_name: str) -> None:
-    pass
+__all__ = []  # type: List[str]

@@ -38,6 +38,8 @@ loggers:
         level: WARNING
     matplotlib:
         level: WARNING
+    botocore:
+        level: INFO
 
 root:
     level: DEBUG
