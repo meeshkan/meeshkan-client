@@ -58,6 +58,7 @@ class Trackable:
     Base class for all trackable jobs, run by Meeshkan, SageMaker or some other means
     """
     def __init__(self, scalar_history=None):
+        super().__init__()
         self.scalar_history = scalar_history or TrackerBase()
 
     def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
@@ -73,6 +74,7 @@ class Trackable:
 
 class Stoppable:
     def __init__(self):
+        super().__init__()
         pass
 
     def terminate(self):
@@ -208,7 +210,7 @@ class SageMakerJob(BaseJob):
     """
     Job run by SageMaker, meeshkan doing only monitoring.
     """
-    def __init__(self, sagemaker_helper,
+    def __init__(self,
                  job_name: str,
                  status: JobStatus,
                  poll_interval: Optional[float]):
@@ -216,7 +218,6 @@ class SageMakerJob(BaseJob):
                          job_number=None,
                          name=job_name,
                          poll_interval=poll_interval)
-        self.sagemaker_helper = sagemaker_helper
         self.status = status
 
     def terminate(self):

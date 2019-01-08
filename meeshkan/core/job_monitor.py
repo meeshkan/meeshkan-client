@@ -149,7 +149,6 @@ class SageMakerJobMonitor(BaseJobMonitor):
     def create_job(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper
         status = sagemaker_helper.get_job_status(job_name)
-        return SageMakerJob(sagemaker_helper=sagemaker_helper,
-                            job_name=job_name,
+        return SageMakerJob(job_name=job_name,
                             status=status,
                             poll_interval=poll_interval)

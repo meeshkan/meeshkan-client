@@ -30,7 +30,6 @@ from .core.cloud import CloudClient
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
-from .core.job_monitor import SageMakerJobMonitor
 
 LOGGER = None
 
@@ -92,7 +91,7 @@ def __build_api(config: meeshkan.config.Configuration,
         from meeshkan.core.scheduler import Scheduler, QueueProcessor
         from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
         from meeshkan.core.logger import setup_logging as setup_logging_
-
+        from meeshkan.core.job_monitor import SageMakerJobMonitor
 
         ensure_base_dirs_()
         setup_logging_(silent=True)
