@@ -5,6 +5,7 @@ import logging
 import asyncio
 
 import boto3
+import uuid
 
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException
@@ -114,11 +115,11 @@ class SageMakerJobMonitor(BaseJobMonitor):
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
         self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
-        self.tasks = []  # type: List[asyncio.Task]
+        self.tasks_by_job_id = {}  # type: Dict[uuid.UUID, asyncio.Task]
 
     def start(self, job: BaseJob) -> asyncio.Task:
         task = self._event_loop.create_task(self.monitor(job))
-        self.tasks.append(task)
+        self.tasks_by_job_id[job.id] = task
         return task
 
     async def monitor(self, job: BaseJob):
@@ -138,10 +139,10 @@ class SageMakerJobMonitor(BaseJobMonitor):
 
                 await asyncio.sleep(sleep_time)
 
-            LOGGER.info("Stopped monitoring job %s", job.name)
+            LOGGER.info("Stopped monitoring SageMakerJob %s", job.name)
             # TODO Notify finish
         except asyncio.CancelledError:
-            LOGGER.debug("Job tracking cancelled for job %s", job.name)
+            LOGGER.debug("SageMakerJob tracking cancelled for job %s", job.name)
 
     def create_job(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper

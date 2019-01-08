@@ -14,7 +14,7 @@ import Pyro4  # For daemon management
 from .logger import remove_non_file_handlers
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 1.0  # In seconds
+DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
 
 
 # Do not expose anything by default (internal module)
