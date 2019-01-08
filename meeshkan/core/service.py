@@ -14,7 +14,7 @@ import Pyro4  # For daemon management
 from .logger import remove_non_file_handlers
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
+DAEMON_BOOT_WAIT_TIME = 1.0  # In seconds
 
 
 # Do not expose anything by default (internal module)
@@ -102,8 +102,6 @@ class Service(object):
 
         return
 
-    # Need single quotes here for type annotation, see
-    # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
     def start(self, mp_ctx, build_api_serialized) -> str:
         """
         Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
