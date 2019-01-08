@@ -120,8 +120,9 @@ class TestRealSageMaker:
     async def test_start_monitoring_for_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
         job_name = "pytorch-rnn-2019-01-04-11-20-03"  # Job we have run in our AWS account
         job = real_sagemaker_job_monitor.create_job(job_name=job_name)
-        task = real_sagemaker_job_monitor.start(job)
+        task, finished_task = real_sagemaker_job_monitor.start(job)
         await task
+        await finished_task
         assert job.status == JobStatus.FINISHED
 
     def test_start_monitoring_for_non_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):

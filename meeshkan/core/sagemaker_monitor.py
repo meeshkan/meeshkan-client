@@ -145,7 +145,11 @@ class SageMakerJobMonitor:
         try:
             while True:
                 LOGGER.info("Starting monitoring job %s", job.name)
-                job.status = self.sagemaker_helper.get_job_status(job.name)
+                new_status = self.sagemaker_helper.get_job_status(job.name)
+                # TODO
+                # if not job.status.is_launched and new_status.is_launched:
+                #    self.notify_start(job)
+                job.status = new_status
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
                 if job.status.is_processed:
