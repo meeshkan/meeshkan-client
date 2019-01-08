@@ -287,24 +287,6 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
         return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
                                                                         id=self.id, status=self.status.name)
 
-    @property
-    def is_launched(self):
-        """Returns whether or not the job has been running at all"""
-        return self.status == JobStatus.RUNNING or self.is_processed
-
-    @property
-    def is_running(self):
-        """Returns whether or not the job is currently running"""
-        return self.status == JobStatus.RUNNING
-
-    @property
-    def is_processed(self):
-        return self.status in [JobStatus.CANCELED, JobStatus.FAILED, JobStatus.FINISHED]
-
-    @property
-    def stale(self):
-        return self.status == JobStatus.CANCELLED_BY_USER
-
     def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
         self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
 
