@@ -6,7 +6,7 @@ import botocore
 import pytest
 
 from meeshkan.core.job import Job, JobStatus, SageMakerJob
-from meeshkan.core.job_monitor import SageMakerJobMonitor, SageMakerHelper
+from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 
 from meeshkan import exceptions
 

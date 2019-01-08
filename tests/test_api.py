@@ -8,7 +8,7 @@ from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus
-from meeshkan.core.job_monitor import SageMakerJobMonitor, SageMakerHelper
+from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 from meeshkan.core.tasks import TaskType, Task
 from meeshkan import exceptions
 

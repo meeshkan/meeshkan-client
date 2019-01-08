@@ -9,7 +9,7 @@ import Pyro4
 import Pyro4.errors
 
 from .job import Job, SageMakerJob
-from .job_monitor import SageMakerJobMonitor
+from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
