@@ -212,7 +212,7 @@ class SageMakerJob(BaseJob):
                  status: JobStatus,
                  poll_interval: Optional[float]):
         super().__init__(job_uuid=None,
-                         job_number=None,
+                         job_number=0,  # TODO
                          name=job_name,
                          poll_interval=poll_interval)
         self.status = status

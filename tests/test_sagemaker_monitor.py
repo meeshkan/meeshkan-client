@@ -95,13 +95,14 @@ class TestSageMakerJobMonitor:
         sagemaker_job_monitor.sagemaker_helper.get_job_status.return_value = JobStatus.FINISHED
         job = sagemaker_job_monitor.create_job(job_name=job_name, poll_interval=0.5)
         update_polling_task, wait_for_finish_task = sagemaker_job_monitor.start(job)
-        await asyncio.wait_for(wait_for_finish_task, timeout=5)  # Should finish
-        await asyncio.wait_for(update_polling_task, timeout=5)  # Should finish
+        await asyncio.wait_for(wait_for_finish_task, timeout=1)  # Should finish
+        await asyncio.wait_for(update_polling_task, timeout=1)  # Should finish
+        sagemaker_job_monitor.notify_finish.assert_called_with(job)
 
 
 def sagemaker_available():
     try:
-        SageMakerHelper()._check_connection()
+        SageMakerHelper().check_or_build_connection()
         return True
     except Exception as ex:
         print(ex)

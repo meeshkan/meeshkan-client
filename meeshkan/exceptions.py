@@ -31,6 +31,6 @@ class TrackedScalarNotFoundException(Exception):
 
 class SageMakerNotAvailableException(Exception):
     def __init__(self, message=None):
-        super().__init__()
-        self.message = message or "Unable to access SageMaker training jobs. " \
-                                  "Please check your AWS credential chain and try again."
+        error_message = message or "Unable to access SageMaker training jobs. " \
+                                   "Please check your AWS credential chain and try again."
+        super().__init__(error_message)

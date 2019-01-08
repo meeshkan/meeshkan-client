@@ -8,7 +8,7 @@ import os
 
 
 from .__types__ import NotificationType, NotificationStatus, NotificationWithStatusTime
-from ..core.job import Job, JobStatus
+from ..core.job import BaseJob, Job, JobStatus
 from ..__types__ import Payload
 
 LOGGER = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class Notifier(object):
             notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
-    def notify_job_end(self, job: Job) -> None:
+    def notify_job_end(self, job: BaseJob) -> None:
         try:
             self._notify_job_end(job)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
