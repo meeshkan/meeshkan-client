@@ -1,10 +1,11 @@
 """Watch a running SageMaker job."""
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 import logging
 import uuid
 
 import asyncio
 import boto3
+import sagemaker
 
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException
@@ -26,12 +27,13 @@ class SageMakerHelper:
         "Stopped": JobStatus.CANCELLED_BY_USER
     }
 
-    def __init__(self, client=None):
+    def __init__(self, client=None, sagemaker_session=None):
         """
         Init SageMaker helper in the disabled state.
         :param client: SageMaker client built with boto3.client("sagemaker") used for connecting to SageMaker
         """
         self.client = client
+        self.sagemaker_session = sagemaker_session  # type: Optional[sagemaker.session.Session]
         self.connection_tried = False
         self.connection_succeeded = False
 
@@ -62,6 +64,8 @@ class SageMakerHelper:
         try:
             self.client.list_training_jobs()
             LOGGER.info("SageMaker client successfully verified.")
+            if not self.sagemaker_session:
+                self.sagemaker_session = sagemaker.Session(sagemaker_client=self.client)
             self.connection_succeeded = True
         except Exception:  # pylint:disable=broad-except
             LOGGER.info("Could not verify SageMaker connection")
@@ -97,21 +101,36 @@ class SageMakerHelper:
         status = training_job['TrainingJobStatus']
         return SageMakerHelper.SAGEMAKER_STATUS_TO_JOB_STATUS[status]
 
+    async def wait_for_job_finish(self, job: SageMakerJob):
+        LOGGER.info("Started waiting for job %s to finish.", job.name)
+        self.sagemaker_session.wait_for_job(job=job.name)
+        LOGGER.info("Job %s finished with status %s", job.name, job.status)
+
 
 class SageMakerJobMonitor:
     def __init__(self,
                  event_loop=None,
-                 sagemaker_helper: Optional[SageMakerHelper] = None):
+                 sagemaker_helper: Optional[SageMakerHelper] = None,
+                 notify_finish: Optional[Callable[[SageMakerJob], None]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
         self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
         self.tasks_by_job_id = {}  # type: Dict[uuid.UUID, asyncio.Task]
+        self.notify_finish = notify_finish
 
     def start(self, job: SageMakerJob) -> Optional[asyncio.Task]:
-        task = self._event_loop.create_task(self.monitor(job))
-        self.tasks_by_job_id[job.id] = task
-        return task
+        update_polling_task = self._event_loop.create_task(self.monitor(job))
+        self.tasks_by_job_id[job.id] = update_polling_task
+        wait_for_finish_task = self._event_loop.create_task(self.wait_for_finish(job))
+        return update_polling_task, wait_for_finish_task
+
+    async def wait_for_finish(self, job: SageMakerJob):
+        await self.sagemaker_helper.wait_for_job_finish(job)
+        if self.notify_finish:
+            self.notify_finish(job)
+        # Cancel polling for updates
+        self.tasks_by_job_id[job.id].cancel()
 
     async def monitor(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
@@ -135,6 +154,7 @@ class SageMakerJobMonitor:
                 await asyncio.sleep(sleep_time)
 
             LOGGER.info("Stopped monitoring SageMakerJob %s", job.name)
+            self.notify_finish(job)
             # TODO Notify finish
         except asyncio.CancelledError:
             LOGGER.debug("SageMakerJob tracking cancelled for job %s", job.name)

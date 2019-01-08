@@ -1,5 +1,6 @@
 # pylint:disable=redefined-outer-name,no-self-use
 import asyncio
+from concurrent.futures import Future
 from unittest.mock import create_autospec, MagicMock
 
 import botocore
@@ -52,14 +53,24 @@ class TestSageMakerHelper:
             sagemaker_helper.get_job_status(job_name=job_name)
 
 
+def get_mock_coro(return_value):
+    async def mock_coro(*args, **kwargs):
+        return return_value
+    return MagicMock(wraps=mock_coro)
+
+
 @pytest.fixture
 def mock_sagemaker_helper():
-    return create_autospec(SageMakerHelper).return_value
+    sagemaker_helper = create_autospec(SageMakerHelper).return_value
+    sagemaker_helper.wait_for_job_finish = get_mock_coro(return_value=None)
+    return sagemaker_helper
 
 
 @pytest.fixture
 def sagemaker_job_monitor(event_loop, mock_sagemaker_helper):
-    return SageMakerJobMonitor(event_loop=event_loop, sagemaker_helper=mock_sagemaker_helper)
+    return SageMakerJobMonitor(event_loop=event_loop,
+                               sagemaker_helper=mock_sagemaker_helper,
+                               notify_finish=MagicMock())
 
 
 class TestSageMakerJobMonitor:
@@ -83,8 +94,9 @@ class TestSageMakerJobMonitor:
         job_name = "foobar"
         sagemaker_job_monitor.sagemaker_helper.get_job_status.return_value = JobStatus.FINISHED
         job = sagemaker_job_monitor.create_job(job_name=job_name, poll_interval=0.5)
-        task = sagemaker_job_monitor.start(job)
-        await asyncio.wait_for(task, timeout=5)  # Should finish
+        update_polling_task, wait_for_finish_task = sagemaker_job_monitor.start(job)
+        await asyncio.wait_for(wait_for_finish_task, timeout=5)  # Should finish
+        await asyncio.wait_for(update_polling_task, timeout=5)  # Should finish
 
 
 def sagemaker_available():

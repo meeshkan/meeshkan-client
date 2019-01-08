@@ -41,11 +41,12 @@ pytest-asyncio==0.9.0
 pytest-cov==2.6.0
 python-dateutil==2.7.5
 pytz==2018.7
-pyyaml>=4.2b1
+pyyaml<4
 readme-renderer==24.0
 requests==2.20.0
 requests-toolbelt==0.8.0
 Rx==1.6.1
+sagemaker==1.16.3
 serpent==1.27
 six==1.11.0
 snowballstemmer==1.2.1
