@@ -94,9 +94,8 @@ class TestSageMakerJobMonitor:
         job_name = "foobar"
         sagemaker_job_monitor.sagemaker_helper.get_job_status.return_value = JobStatus.FINISHED
         job = sagemaker_job_monitor.create_job(job_name=job_name, poll_interval=0.5)
-        update_polling_task, wait_for_finish_task = sagemaker_job_monitor.start(job)
-        await asyncio.wait_for(wait_for_finish_task, timeout=1)  # Should finish
-        await asyncio.wait_for(update_polling_task, timeout=1)  # Should finish
+        monitoring_task = sagemaker_job_monitor.start(job)
+        await asyncio.wait_for(monitoring_task, timeout=1)  # Should finish
         sagemaker_job_monitor.notify_finish.assert_called_with(job)
 
 
@@ -121,9 +120,8 @@ class TestRealSageMaker:
     async def test_start_monitoring_for_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
         job_name = "pytorch-rnn-2019-01-04-11-20-03"  # Job we have run in our AWS account
         job = real_sagemaker_job_monitor.create_job(job_name=job_name)
-        task, finished_task = real_sagemaker_job_monitor.start(job)
-        await task
-        await finished_task
+        monitoring_task = real_sagemaker_job_monitor.start(job)
+        await monitoring_task
         assert job.status == JobStatus.FINISHED
 
     def test_start_monitoring_for_non_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
