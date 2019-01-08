@@ -30,7 +30,7 @@ class Api(object):
                  scheduler: Scheduler,
                  service: Service = None,
                  task_poller: TaskPoller = None,
-                 sagemaker_job_monitor: SageMakerJobMonitor = None,
+                 sagemaker_job_monitor: Optional[SageMakerJobMonitor] = None,
                  notifier: Notifier = None):
         self.scheduler = scheduler
         self.service = service

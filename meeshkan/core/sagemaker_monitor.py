@@ -1,5 +1,5 @@
 """Watch a running SageMaker job."""
-from typing import List, Optional
+from typing import Dict, List, Optional
 import logging
 import uuid
 
