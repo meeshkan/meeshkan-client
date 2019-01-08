@@ -72,7 +72,7 @@ class SageMakerHelper:
             LOGGER.info("SageMaker client successfully verified.")
             return True
         except Exception as ex:  # pylint:disable=broad-except
-            LOGGER.info("Could not verify SageMaker connection: %o", ex)
+            LOGGER.info("Could not verify SageMaker connection")
 
         return False
 
