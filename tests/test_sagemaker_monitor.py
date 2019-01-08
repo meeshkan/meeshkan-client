@@ -28,15 +28,6 @@ def training_job_description_for_status(status):
 
 class TestSageMakerHelper:
 
-    def test_build_with_failing_job_list(self, mock_boto):  # pylint:disable=redefined-outer-name
-        mock_boto.list_training_jobs.side_effect = raise_client_error
-        sagemaker_helper = SageMakerHelper(client=mock_boto)
-        assert not sagemaker_helper.enabled, "Expected SageMakerHelper to not be enabled if client call raises Error"
-
-    def test_build_with_succeeding_job_list(self, mock_boto):
-        sagemaker_helper = SageMakerHelper(client=mock_boto)
-        assert sagemaker_helper.enabled, "Expected SageMakerHelper to be enabled if client works without errors"
-
     def test_get_job_status(self, mock_boto):
         mock_boto.describe_training_job.return_value = training_job_description_for_status("InProgress")
         sagemaker_helper = SageMakerHelper(client=mock_boto)
@@ -44,6 +35,21 @@ class TestSageMakerHelper:
         job_status = sagemaker_helper.get_job_status(job_name=job_name)
         mock_boto.describe_training_job.assert_called_with(TrainingJobName=job_name)
         assert job_status == JobStatus.RUNNING
+
+    def test_get_job_status_only_checks_connection_once(self, mock_boto):
+        mock_boto.describe_training_job.return_value = training_job_description_for_status("InProgress")
+        sagemaker_helper = SageMakerHelper(client=mock_boto)
+        job_name = "spameggs"
+        sagemaker_helper.get_job_status(job_name=job_name)
+        sagemaker_helper.get_job_status(job_name=job_name)
+        mock_boto.list_training_jobs.assert_called_once()
+
+    def test_get_job_status_with_broken_boto_raises_exception(self, mock_boto):
+        mock_boto.list_training_jobs.side_effect = raise_client_error
+        sagemaker_helper = SageMakerHelper(client=mock_boto)
+        job_name = "spameggs"
+        with pytest.raises(exceptions.SageMakerNotAvailableException):
+            sagemaker_helper.get_job_status(job_name=job_name)
 
 
 @pytest.fixture
@@ -82,7 +88,12 @@ class TestSageMakerJobMonitor:
 
 
 def sagemaker_available():
-    return SageMakerHelper().enabled
+    try:
+        SageMakerHelper()._check_connection()
+        return True
+    except Exception as ex:
+        print(ex)
+        return False
 
 
 @pytest.fixture

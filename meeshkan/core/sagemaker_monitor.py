@@ -36,18 +36,45 @@ class SageMakerHelper:
 
     def __init__(self, client=None):
         """
-        Tries to verify SageMaker connection at construction time. If connecting to SageMaker APIs fails,
-        helper remains in disabled state. Trying to access APIs afterwards raises
-        SageMakerNotAvailableException.
-        :param client: SageMaker client built with boto3.client("sagemaker"). If not given,
-        it is tried to be built safely.
+        Init SageMaker helper in the disabled state.
+        :param client: SageMaker client built with boto3.client("sagemaker") used for connecting to SageMaker
         """
-        self.client = client if client is not None else SageMakerHelper.build_client_or_none()
-        self.enabled = self.check_sagemaker_connection() if self.client is not None else False
+        self.client = client
+        self.connection_tried = False
+        self.connection_succeeded = False
 
     @property
     def __has_client(self):
         return self.client is not None
+
+    def _check_connection(self):
+        """
+        Check that SageMaker connection exists. Tries to create if not yet attempted.
+        ALWAYS call this before attempting to access SageMaker.
+        :raises SageMakerNotAvailableException: If connection to SageMaker cannot be established.
+        :return:
+        """
+        if self.connection_tried:
+            if self.connection_succeeded:
+                return
+            if not self.connection_succeeded:
+                raise SageMakerNotAvailableException
+
+        self.connection_tried = True
+
+        self.client = self.client or SageMakerHelper.build_client_or_none()
+
+        if not self.client:
+            raise SageMakerNotAvailableException("Could not create boto client. Check your credentials")
+
+        try:
+            self.client.list_training_jobs()
+            LOGGER.info("SageMaker client successfully verified.")
+            self.connection_succeeded = True
+        except Exception:  # pylint:disable=broad-except
+            LOGGER.info("Could not verify SageMaker connection")
+            self.connection_succeeded = False
+            raise SageMakerNotAvailableException("Could not connect to SageMaker. Check your authorization.")
 
     @staticmethod
     def build_client_or_none():
@@ -59,36 +86,6 @@ class SageMakerHelper:
         except Exception:
             return None
 
-    def check_sagemaker_connection(self) -> bool:
-        """
-        Check that SageMaker is available by checking that the client exists and calling SageMaker API
-        :return: True if API could be called without exceptions, otherwise False
-        """
-        if not self.__has_client:
-            return False
-
-        try:
-            self.client.list_training_jobs()
-            LOGGER.info("SageMaker client successfully verified.")
-            return True
-        except Exception as ex:  # pylint:disable=broad-except
-            LOGGER.info("Could not verify SageMaker connection")
-
-        return False
-
-    def __verify_connection(self):
-        """
-        Check that SageMaker connection exists.
-        :raises SageMakerNotAvailableException: If no connection to SageMaker.
-        :return:
-        """
-        if not self.enabled:
-            if self.__has_client:
-                message = "Could not connect to SageMaker. Please check your authorization."
-            else:
-                message = "Could not build boto3 client. Please check your AWS credentials."
-            raise SageMakerNotAvailableException(message)
-
     def get_job_status(self, job_name) -> JobStatus:
         """
         Get job status from SageMaker API. Use this to start monitoring jobs and to check they exist.
@@ -98,7 +95,7 @@ class SageMakerHelper:
         :return: Job status
         """
 
-        self.__verify_connection()
+        self._check_connection()
 
         try:
             training_job = self.client.describe_training_job(TrainingJobName=job_name)
