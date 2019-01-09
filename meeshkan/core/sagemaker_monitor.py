@@ -1,5 +1,5 @@
 """Watch a running SageMaker job."""
-from typing import Any, Callable, List, Optional
+from typing import Callable, List, Optional
 import logging
 
 import asyncio
@@ -7,15 +7,13 @@ import asyncio
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException, DeferredImportException
 
+try:
+    # Just in case we make boto3 dependency optional
+    import boto3
+except ImportError as ex:
+    boto3 = DeferredImportException(ex)
 
 LOGGER = logging.getLogger(__name__)
-
-try:
-    import sagemaker
-except ImportError as ex:
-    # Any attempt to use sagemaker will raise the exception
-    sagemaker = DeferredImportException(ex)
-
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
@@ -30,13 +28,12 @@ class SageMakerHelper:
         "Stopped": JobStatus.CANCELLED_BY_USER
     }
 
-    def __init__(self, client=None, sagemaker_session=None):
+    def __init__(self, client=None):
         """
         Init SageMaker helper in the disabled state.
         :param client: SageMaker client built with boto3.client("sagemaker") used for connecting to SageMaker
         """
         self.client = client
-        self.sagemaker_session = sagemaker_session  # type: Optional[sagemaker.session.Session]
         self.connection_tried = False
         self.connection_succeeded = False
         self._error_message = None  # type: Optional[str]
@@ -74,15 +71,6 @@ class SageMakerHelper:
             self._error_message = "Could not connect to SageMaker. Check your authorization."
             raise SageMakerNotAvailableException(self._error_message)
 
-        if not self.sagemaker_session:
-            try:
-                import sagemaker
-            except Exception:
-                LOGGER.exception("Could not import sagemaker library.")
-                self._error_message = "Could not import sagemaker library. Please do 'pip install sagemaker' manually."
-                raise SageMakerNotAvailableException(self._error_message)
-            self.sagemaker_session = sagemaker.Session(sagemaker_client=self.client)
-
         self.connection_succeeded = True
 
     @staticmethod
@@ -91,7 +79,6 @@ class SageMakerHelper:
         :return: SageMaker boto3 client or None if failed
         """
         try:
-            import boto3
             return boto3.client("sagemaker")
         except Exception:
             return None
@@ -115,20 +102,33 @@ class SageMakerHelper:
         status = training_job['TrainingJobStatus']
         return SageMakerHelper.SAGEMAKER_STATUS_TO_JOB_STATUS[status]
 
-    def wait_for_job_finish(self, job: SageMakerJob):
+    def wait_for_job_finish(self, job_name: str) -> JobStatus:
         """
         Wait for SageMaker job to finish (blocking).
-        :param job:
-        :raises ValueError: If job does not finish cleanly (is stopped, for example)
-        :return:
+        :param job_name: SageMaker training job name
+        :raises Exception: If job does not finish cleanly (is stopped, for example) or waiting took too long
+        :return JobStatus: Job status after waiting
         """
         self.check_or_build_connection()
-        LOGGER.info("Started waiting for job %s to finish.", job.name)
-        if not self.sagemaker_session:
-            raise RuntimeError("SageMaker session does not exist")
-        self.sagemaker_session.wait_for_job(job=job.name, poll=10)
-        LOGGER.info("Job %s finished with status %s", job.name, job.status)
-        job.status = self.get_job_status(job_name=job.name)
+        LOGGER.info("Started waiting for job %s to finish.", job_name)
+        waiter = self.client.get_waiter('training_job_completed_or_stopped')
+        attempt_delay_secs = 60
+        max_attempts = 60 * 24 * 3  # Three days
+        waiter.wait(
+            TrainingJobName=job_name,
+            WaiterConfig={
+                'Delay': attempt_delay_secs,
+                'MaxAttempts': max_attempts  # TODO Wait longer?
+            }
+        )
+        job_status = self.get_job_status(job_name=job_name)
+        LOGGER.info("Job %s finished with status %s", job_name, job_status)
+
+        if not job_status.is_processed and not job_status.stale:
+            waited_hours = max_attempts * attempt_delay_secs / 3600
+            LOGGER.exception("Exited waiter after waiting %f hours", waited_hours)
+            raise RuntimeError("Did not expect to wait for more than {hours} hours".format(hours=waited_hours))
+        return job_status
 
 
 class SageMakerJobMonitor:
@@ -146,24 +146,23 @@ class SageMakerJobMonitor:
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
+        # TODO Check that job exists
         return self._event_loop.create_task(self.monitor(job))
 
     async def monitor(self, job: SageMakerJob):
         update_polling_task = self._event_loop.create_task(self.poll_updates(job))  # type: asyncio.Task
         wait_for_finish_future = \
             self._event_loop.run_in_executor(
-                None, self.sagemaker_helper.wait_for_job_finish, job)
+                None, self.sagemaker_helper.wait_for_job_finish, job.name)
         try:
-            await wait_for_finish_future
-        except ValueError:
-            # Job stopped or did not finish cleanly
-            LOGGER.info("Waiting for job %s ended with value error", job.name)
+            job_status = await wait_for_finish_future
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Failed waiting for job to finish")
+            job.status = self.sagemaker_helper.get_job_status(job_name=job)
         finally:
             update_polling_task.cancel()
 
-        job.status = self.sagemaker_helper.get_job_status(job_name=job.name)
+        job.status = job_status
         if self.notify_finish:
             self.notify_finish(job)
 
