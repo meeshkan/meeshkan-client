@@ -110,7 +110,7 @@ def start_agent():
     service = Service()
     if service.is_running():
         print("Service is already running.")
-        return service.uri
+        return
 
     config, credentials = get_auth()
 
