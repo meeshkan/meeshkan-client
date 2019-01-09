@@ -12,6 +12,7 @@ import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
+from ..build import build_api
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
@@ -67,7 +68,7 @@ class Service(object):
             return
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        build_api = dill.loads(build_api_bytes)
+
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
