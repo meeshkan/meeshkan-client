@@ -17,7 +17,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 # Older version of requests because >= 2.21 conflicts with sagemaker.
 REQUIRED = ['boto3', 'dill', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
 
-DEV = ['pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker']
+DEV = ['pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio']
 # Optional packages
 EXTRAS = {'dev': DEV,
           'devTF': DEV + ['tensorflow', 'tensorboard', 'keras'],
