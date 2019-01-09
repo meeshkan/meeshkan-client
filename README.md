@@ -9,21 +9,26 @@ This repository contains Meeshkan client-side code.
 5. [Development](#development)
 
 ## Overview
-Client code consists of two parts: Meeshkan agent controlled with
-[command-line interface](#command-line-interface) and [Python library](#usage-as-python-library) `meeshkan`.
+Client code consists of two parts: the Meeshkan agent controlled with
+[command-line interface](#command-line-interface) and the [Python library](#usage-as-python-library) `meeshkan`.
 
-### Meeshkan agent
-Meeshkan agent is a daemonized process running in the background. Agent is responsible
+Using the client requires signing up at [meeshkan.com](https://meeshkan.com). If you want to control your jobs
+via [Slack](https://slack.com/), you also need to set up the Slack integration as explained in the
+[documentation](https://www.meeshkan.com/docs/slack).
+
+### How it works
+#### The Meeshkan agent
+The agent is a daemonized process running in the background. Agent is responsible
 for scheduling _jobs_ (Python scripts) and interacting with them. Agent is responsible for, e.g.,
-1. sending job notifications so that you know how your jobs are doing, and
-2. listening to instructions from the server. If you remotely execute the command to, for example, stop a job, agent
+1. sending job notifications so that you know how your jobs are doing and
+2. listening to instructions from the server. If you remotely execute the command to, for example, stop a job, the agent
 gets the instruction to stop the job from the server and stops the job.
 
-Meeshkan agent is managed using the
+The agent is managed using the
 [command-line interface (CLI)](#command-line-interface).
 
-### [Meeshkan Python library](#usage-as-python-library)
-Meeshkan Python library imported with `import meeshkan` is used in scripts to
+#### The Meeshkan Python library
+The Python library imported with `import meeshkan` is used in scripts to
 control the notifications you get. For example, by including a command such as 
 ```python
 import meeshkan
@@ -31,6 +36,7 @@ meeshkan.report_scalar("Train loss", loss)
 ```
 in your Python script you specify that notifications you get should contain the value for `loss`.
 Similarly, `meeshkan.add_condition` can be used to send notifications for arbitrary events.
+For detailed documentation of the library usage, see [below](#usage-as-python-library).
 
 Note that using `meeshkan` in your Python scripts is optional (though recommended). If you do
 not specify reported scalars, you will only get notifications for when jobs start or finish.
@@ -55,7 +61,7 @@ Setup your credentials:
 $ meeshkan setup
 ```
 You are prompted for your __client secret__ that you should have received when signing up, so fill that in.
-Command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, Meeshkan agent logs
+The command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, agent logs
 and outputs from your submitted jobs.
 
 Download example script called [report.py](https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py)
@@ -65,7 +71,7 @@ $ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/r
 ```
 
 #### Submitting jobs
-Start Meeshkan agent:
+Start the agent:
 ```bash
 $ meeshkan start
 ```
@@ -109,7 +115,7 @@ Then download our [PyTorch example](https://github.com/Meeshkan/meeshkan-client/
 $ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/pytorch_mnist.py
 ```
 
-Ensure that Meeshkan agent is running:
+Ensure that the agent is running:
 ```bash
 $ meeshkan start
 ```
@@ -148,12 +154,12 @@ Commands:
 In all instances used, a *JOB_IDENTIFIER* can be either the job's UUID, the job number, or a pattern to match against 
 the job's name. In the latter case, the first match is returned.
 
-### Start Meeshkan agent
+### Start the agent
 Running
 ```bash
 meeshkan start
 ```
-starts Meeshkan agent as daemonized service.
+starts the agent as daemonized service.
 If you get `Unauthorized` error, please check your credentials. Also check [known issues](#known-issues). If the problem persists, please contact Meeshkan support.
 
 ### Submit a script for execution
@@ -161,7 +167,7 @@ Submit a Python script as job:
 ```bash
 meeshkan submit [--name job_name] [--report-interval 60] examples/hello_world.py
 ```
-Agent runs submitted jobs sequentially in first-in-first-out order. By default, the `submit` command will run your code
+The agent runs submitted jobs sequentially in first-in-first-out order. By default, the `submit` command will run your code
 without time-based notifications (see [below](#reporting-scalars)). When presented with the
 `-r/--report-interval` flag, the service will notify you with recent updates every time
 the *report interval* has elapsed. The report interval is measured in **seconds**.
@@ -228,7 +234,7 @@ meeshkan.report_scalar("F1", 2*precision*recall/(precision+recall))
 ```
 
 ### Adding conditions
-Meeshkan agent only notifies you on either a scheduled notification (using the `--report-interval/-r` flag, e.g.
+The agent only notifies you on either a scheduled notification (using the `--report-interval/-r` flag, e.g.
 hourly notifications), or when a certain criteria has been met.
 You can define these criteria anywhere in your code (but outside of loops, these conditions only need to be set once!),
 even before your scalars have been registered. When a scalar is used before it is registered, a default value of 1 is
