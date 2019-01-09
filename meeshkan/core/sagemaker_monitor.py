@@ -5,10 +5,16 @@ import logging
 import asyncio
 
 from .job import JobStatus, SageMakerJob, BaseJob
-from ..exceptions import SageMakerNotAvailableException, JobNotFoundException
+from ..exceptions import SageMakerNotAvailableException, JobNotFoundException, DeferredImportException
 
 
 LOGGER = logging.getLogger(__name__)
+
+try:
+    import sagemaker
+except ImportError as ex:
+    # Any attempt to use sagemaker will raise the exception
+    sagemaker = DeferredImportException(ex)
 
 
 # Do not expose anything by default (internal module)

@@ -34,3 +34,12 @@ class SageMakerNotAvailableException(Exception):
         error_message = message or "Unable to access SageMaker training jobs. " \
                                    "Please check your AWS credential chain and try again."
         super().__init__(error_message)
+
+
+class DeferredImportException:
+
+    def __init__(self, exception):
+        self.exception = exception
+
+    def __getattr__(self, name):
+        raise self.exception
