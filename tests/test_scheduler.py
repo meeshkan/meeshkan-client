@@ -33,6 +33,7 @@ class FutureWaitingExecutable(Executable):
         self._future = future
 
     def launch_and_wait(self):
+        self.pid = True
         results = wait([self._future])
         for result in results.done:
             return result.result()
@@ -79,11 +80,11 @@ def test_job_submit():
         job = get_job(executable=get_executable(target=lambda: 0))
         scheduler.submit_job(job)
         submitted_jobs = scheduler.jobs
-        assert len(submitted_jobs) == 1
-        assert submitted_jobs[0] is job
-        assert len(scheduler.submitted_jobs) == 1
-        assert scheduler.submitted_jobs[job.id] is job
-    assert not scheduler.is_running
+        assert len(submitted_jobs) == 1, "Only one job was submitted!"
+        assert submitted_jobs[0] is job, "The submitted job must match the original job"
+        assert len(scheduler.submitted_jobs) == 1, "Only one job was submitted!"
+        assert scheduler.submitted_jobs[job.id] is job, "The key must match the job id and value must match job!"
+    assert not scheduler.is_running, "Scheduler should stop running when __exit__'ing"
 
 
 def test_scheduling():
@@ -94,8 +95,8 @@ def test_scheduling():
         job = get_job(executable=get_executable(target=resolve), job_number=0)
         scheduler.submit_job(job)
         result = future.result(timeout=5)
-        assert result is resolve_value
-        assert job.status == JobStatus.FINISHED
+        assert result is resolve_value, "A `resolve` function should run immediately and set to resolve_value. "
+        assert job.status == JobStatus.FINISHED, "The job should be finished after calling the target `resolve` method."
 
 
 def test_notifiers():
@@ -105,10 +106,10 @@ def test_notifiers():
     with get_scheduler(with_notifier=True) as scheduler:
         scheduler.submit_job(job_to_submit)
         future.result(timeout=FUTURE_TIMEOUT)
-        assert len(scheduler._notifier.started_jobs) == 1
-        assert len(scheduler._notifier.notified_jobs) == 0  # Will not be notified in such a short interval
-        assert len(scheduler._notifier.finished_jobs) == 1
-        assert scheduler._notifier.finished_jobs[0]['job'] is job_to_submit
+        assert len(scheduler._notifier.started_jobs) == 1, "A job was submitted and must have started and ended by now"
+        assert len(scheduler._notifier.notified_jobs) == 0, "The job was too short to capture any update-notifications"
+        assert len(scheduler._notifier.finished_jobs) == 1, "The job must've ended as well!"
+        assert scheduler._notifier.finished_jobs[0]['job'] is job_to_submit, "Finished job must match the submitted job"
 
 
 def test_terminating_job():
@@ -116,10 +117,10 @@ def test_terminating_job():
         job = get_job(executable=FutureWaitingExecutable(future=Future()))
         scheduler.submit_job(job)
         # Block until job launched
-        wait_for_true(lambda: job.is_launched)
+        wait_for_true(lambda: job.status.is_launched)
         scheduler.stop_job(job_id=job.id)
     # Job status can be checked only after clean-up is performed
-    assert job.status == JobStatus.CANCELED
+    assert job.status == JobStatus.CANCELED, "The job was cancelled shortly after it was launched!"
 
 
 def test_canceling_job():
@@ -138,11 +139,12 @@ def test_canceling_job():
         wait_for_true(scheduler._job_queue.empty)
 
     # Job status should be checked only after clean-up is performed
-    assert job1.is_launched
-    assert job1.status == JobStatus.FINISHED
+    assert job1.status.is_launched, "The job was launched as soon as possible"
+    assert job1.status == JobStatus.FINISHED, "And was done finished once called `set_result`"
 
-    assert not job2.is_launched
-    assert job2.status == JobStatus.CANCELLED_BY_USER
+    assert not job2.status.is_launched, "The job was never supposed to launch"
+    assert job2.status == JobStatus.CANCELLED_BY_USER, "The job was cancelled immediately after submission, while " \
+                                                       "another job was running"
 
 
 def test_stopping_scheduler():
@@ -151,10 +153,11 @@ def test_stopping_scheduler():
         job = get_job(executable=FutureWaitingExecutable(future=future))
         scheduler.submit_job(job)
         # Wait until processing has started. No easy way to check this at the moment.
-        time.sleep(1)
+        while job.pid is None:
+            time.sleep(0.1)
         # Exit scheduler, should not block as `job.cancel()` is called
-    assert job.is_launched
-    assert job.status == JobStatus.CANCELED
+    assert job.status.is_launched, "Job has started (as we wait for the PID to be available)"
+    assert job.status == JobStatus.CANCELED, "The job was cancelled as the scheduler __exit__'d"
 
 
 def test_queue_processor_shutsdown_cleanly():
@@ -165,10 +168,10 @@ def test_queue_processor_shutsdown_cleanly():
         return None
 
     queue_processor.start(queue_=task_queue, process_item=process_item)
-    assert queue_processor.is_running()
+    assert queue_processor.is_running(), "The QueueProcessor is expected to run while waiting for a task"
     queue_processor.schedule_stop()
     queue_processor.wait_stop()
-    assert not queue_processor.is_running()
+    assert not queue_processor.is_running(), "The QueueProcessor was stopped - why is it still running?"
 
 
 def test_queue_processor_processes_jobs():
@@ -190,10 +193,10 @@ def test_queue_processor_processes_jobs():
     try:
         queue_processor.start(queue_=task_queue, process_item=process_item)
         item = handled_queue.get(block=True)
-        assert item == test_string_1
+        assert item == test_string_1, "The first item to handle was '{}'!".format(test_string_1)
         item2 = handled_queue.get(block=True)
-        assert item2 == test_string_2
-        assert task_queue.empty()
+        assert item2 == test_string_2, "The second item to handle was '{}'!".format(test_string_2)
+        assert task_queue.empty(), "There were only two items to handle, why is the queue not empty?"
     finally:
         queue_processor.schedule_stop()
         queue_processor.wait_stop()

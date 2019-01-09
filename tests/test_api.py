@@ -55,7 +55,7 @@ def test_api_stop_callbacks(cleanup):  # pylint:disable=unused-argument,redefine
 
     api.stop()
 
-    assert callback_called
+    assert callback_called, "Callback is expected to be called after calling `stop`"
     service.stop.assert_called()
     scheduler.stop.assert_called()
 
@@ -97,7 +97,7 @@ def test_get_notification_status_empty(cleanup):  # pylint:disable=unused-argume
 
     api = Api(scheduler, service)
     job = __get_job(sleep_duration=1)
-    assert api.get_notification_status(job.id) == ""
+    assert api.get_notification_status(job.id) == "", "Without notifiers, notification status is expected to be \"\""
 
 
 def test_notification_history_no_notifier(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -107,7 +107,7 @@ def test_notification_history_no_notifier(cleanup):  # pylint:disable=unused-arg
     api = Api(scheduler, service)
     job = __get_job(sleep_duration=1)
     notification_history = api.get_notification_history(job.id)
-    assert dict() == notification_history  # Verify for empty history (no notifier)
+    assert dict() == notification_history, "Without notifiers, notification history is expected to be empty"
 
 
 def test_notification_history_with_notifier(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -122,9 +122,9 @@ def test_notification_history_with_notifier(cleanup):  # pylint:disable=unused-a
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
 
     notification_history = api.get_notification_history(job.id)
-    assert len(notification_history) == 1  # Only one notifier
-    assert len(notification_history[notifier.name]) == 2  # Job start, job end
-    assert type(notification_history[notifier.name][0]) == str  # transformed
+    assert len(notification_history) == 1, "There is only one notifier (e.g. single key in `history`)"
+    assert len(notification_history[notifier.name]) == 2, "There should be two events registered! (job start, job end)"
+    assert type(notification_history[notifier.name][0]) == str, "Notification history items are expected to be strings"
 
 
 def test_get_job_output(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -137,9 +137,9 @@ def test_get_job_output(cleanup):  # pylint:disable=unused-argument,redefined-ou
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
 
     output_path, stderr, stdout = api.get_job_output(job.id)
-    assert output_path == job.output_path
-    assert stderr == job.stderr
-    assert stdout == job.stdout
+    assert output_path == job.output_path, "Expected to return internal job output path"
+    assert stderr == job.stderr, "Expected to return internal job stderr path"
+    assert stdout == job.stdout, "Expected to return internal job stdout path"
 
 
 def test_get_job(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -148,10 +148,10 @@ def test_get_job(cleanup):  # pylint:disable=unused-argument,redefined-outer-nam
     api = Api(scheduler, service)
     job = __get_job(sleep_duration=1)
 
-    assert api.get_job(job.id) is None  # Not submitted to scheduler yet
+    assert api.get_job(job.id) is None, "Job has not been submitted to scheduler yet, return value should be `None`"
 
     scheduler.submit_job(job)
-    assert api.get_job(job.id) == job  # Submitted to scheduler
+    assert api.get_job(job.id) == job, "Job has been submitted to scheduler, returned value should match submitted job"
 
 
 def test_find_job_id_by_id(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -163,8 +163,8 @@ def test_find_job_id_by_id(cleanup):  # pylint:disable=unused-argument,redefined
         scheduler.submit_job(job)
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
 
-    assert api.find_job_id(job_id=job.id) == job.id
-    assert api.find_job_id(job_id=uuid.uuid4()) is None
+    assert api.find_job_id(job_id=job.id) == job.id, "Job ID should match real job id"
+    assert api.find_job_id(job_id=uuid.uuid4()) is None, "Random UUID should return None as no matching job exists"
 
 
 def test_find_job_id_by_number(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -176,8 +176,9 @@ def test_find_job_id_by_number(cleanup):  # pylint:disable=unused-argument,redef
         scheduler.submit_job(job)
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
 
-    assert api.find_job_id(job_number=job.number) == job.id
-    assert api.find_job_id(job_number=job.number + 1) is None
+    assert api.find_job_id(job_number=job.number) == job.id, "Job ID should match real job ID"
+    assert api.find_job_id(job_number=job.number + 1) is None, "Invalid job number should return None as no matching " \
+                                                               "job exists"
 
 
 def test_find_job_id_by_pattern(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -190,8 +191,9 @@ def test_find_job_id_by_pattern(cleanup):  # pylint:disable=unused-argument,rede
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
 
     pat = "{pat}*".format(pat=job.name[:2])
-    assert api.find_job_id(pattern=pat) == job.id
-    assert api.find_job_id(pattern="ohnoes*") is None
+    assert api.find_job_id(pattern=pat) == job.id, "Job ID should match real job ID"
+    assert api.find_job_id(pattern="ohnoes*") is None, "Pattern should not match submitted job name and should return " \
+                                                       "`None`"
 
 
 def test_find_job_no_input(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
@@ -202,10 +204,13 @@ def test_find_job_no_input(cleanup):  # pylint:disable=unused-argument,redefined
     with scheduler:
         scheduler.submit_job(job)
         wait_for_true(lambda: job.status == JobStatus.FINISHED)
-    assert api.find_job_id() is None
+    assert api.find_job_id() is None, "Call without arguments should fail silently by returning `None`"
 
 
 def test_find_job_id_precedence(cleanup):  # pylint:disable=unused-argument,redefined-outer-name
+    assert_msg1 = "`find_job_id` should look for job ID by giving precedence to looking by UUID, then by number, then " \
+                  "by pattern; One of the possible 7 combinations failed this precedence test."
+    assert_msg2 = "`find_job_id` should return `None` as none of the possible arguments matched against submitted job"
     service = create_autospec(Service).return_value
     scheduler = Scheduler(QueueProcessor())
     api = Api(scheduler, service)
@@ -223,5 +228,5 @@ def test_find_job_id_precedence(cleanup):  # pylint:disable=unused-argument,rede
            api.find_job_id(job_id=job.id, job_number=job.number + 1, pattern="boom?") ==\
            api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern=pat) == \
            api.find_job_id(job_id=uuid.uuid4(), job_number=job.number, pattern="ohnnoes*") == \
-           api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern=pat) == job.id
-    assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern="boom!") is None
+           api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern=pat) == job.id, assert_msg1
+    assert api.find_job_id(job_id=uuid.uuid4(), job_number=job.number + 1, pattern="boom!") is None, assert_msg2

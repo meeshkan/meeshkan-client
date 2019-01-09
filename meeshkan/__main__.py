@@ -27,7 +27,6 @@ import tabulate
 import meeshkan
 from .core.api import Api
 from .core.cloud import CloudClient
-from .core.cloud import TokenStore
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
@@ -56,8 +55,8 @@ def __get_api() -> Api:
 def __build_cloud_client(config: meeshkan.config.Configuration,
                          credentials: meeshkan.config.Credentials) -> CloudClient:
 
-    token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-    cloud_client = CloudClient(cloud_url=config.cloud_url, token_store=token_store)
+    # token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+    cloud_client = CloudClient(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     return cloud_client
 
 
@@ -85,7 +84,6 @@ def __build_api(config: meeshkan.config.Configuration,
         if cmd_folder not in sys_.path:
             sys_.path.insert(0, cmd_folder)
 
-        from meeshkan.core.oauth import TokenStore as TokenStore_
         from meeshkan.core.cloud import CloudClient as CloudClient_
         from meeshkan.core.api import Api as Api_
         from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
@@ -98,8 +96,10 @@ def __build_api(config: meeshkan.config.Configuration,
         ensure_base_dirs_()
         setup_logging_(silent=True)
 
-        token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-        cloud_client = CloudClient_(cloud_url=config.cloud_url, token_store=token_store)
+        # token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
+        # cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token,
+        #                             token_store=token_store)
+        cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
 
         cloud_notifier = CloudNotifier(name="Cloud Service", post_payload=cloud_client.post_payload,
                                        upload_file=cloud_client.post_payload_with_file)
@@ -124,7 +124,7 @@ def __verify_version():
     urllib_logger.setLevel(logging.WARNING)
     pypi_url = "https://pypi.org/pypi/meeshkan/json"
     try:
-        res = requests.get(pypi_url)
+        res = requests.get(pypi_url, timeout=2)
     except Exception:  # pylint: disable=broad-except
         return  # If we can't access the server, assume all is good
     urllib_logger.setLevel(logging.DEBUG)
@@ -149,7 +149,6 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 def cli(debug, silent):
     if not debug:
         sys.tracebacklimit = 0
-    __verify_version()
 
     global LOGGER  # pylint: disable=global-statement
     meeshkan.config.ensure_base_dirs()
@@ -182,6 +181,7 @@ def setup():
 @cli.command()
 def start():
     """Starts Meeshkan service daemon."""
+    __verify_version()
     service = Service()
     if service.is_running():
         print("Service is already running.")
@@ -216,7 +216,7 @@ def daemon_status():
 @cli.command()
 @click.argument("job_identifier")
 def report(job_identifier):
-    """Returns latest scalar from given job identifier"""
+    """Returns latest scalar from given job identifier."""
     api = __get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
@@ -254,13 +254,14 @@ def submit(args, name, report_interval):
 @cli.command(name='cancel')
 @click.argument("job_identifier")
 def cancel_job(job_identifier):
+    """Cancels a queued/running job."""
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
     api = __get_api()
-    job = api.get_job(job_id)
-    if job.is_running:
+    job = api.get_job(job_id)  # type: Job
+    if job.status.is_running:
         res = input("Job '{name}' is currently running! "
                     "Are you sure you want to cancel it? y/[N]: ".format(name=job.name))
         if not res or res.lower() != "y":  # Any response other than "Y"/"y"
@@ -376,12 +377,13 @@ def clear():
 @cli.command()
 @click.pass_context
 def clean(ctx):
-    """Alias for `meeshkan clear`"""
+    """Alias for `meeshkan clear`."""
     ctx.invoke(clear)
 
 
 @cli.command()
 def im_bored():
+    "???"
     sources = [r'http://smacie.com/randomizer/family_guy/stewie.txt',
                r'http://smacie.com/randomizer/simpsons/bart.txt',
                r'http://smacie.com/randomizer/simpsons/homer.txt',

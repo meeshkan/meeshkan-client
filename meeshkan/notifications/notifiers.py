@@ -3,16 +3,13 @@ import logging
 from typing import Callable, Any, List, Union, Optional, Dict
 from pathlib import Path
 import uuid
-import time
 import shutil
 import os
 
 
 from .__types__ import NotificationType, NotificationStatus, NotificationWithStatusTime
-from ..core.config import JOBS_DIR
-from ..core.job import Job
+from ..core.job import Job, JobStatus
 from ..__types__ import Payload
-from ..exceptions import JobNotFoundException
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +58,8 @@ class Notifier(object):
             self._notify_job_end(job)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
-        except Exception:  # pylint: disable=broad-except
+        except Exception as ex:  # pylint: disable=broad-except
+            LOGGER.exception(ex)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
@@ -74,7 +72,7 @@ class Notifier(object):
             notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
-    # Functions inhereting classes must implement
+    # Functions inheriting classes must implement
 
     def _notify_job_start(self, job: Job) -> None:
         """Notifies of a job start. Raises exception for failure."""
@@ -118,6 +116,9 @@ class LoggingNotifier(Notifier):
 
 
 class CloudNotifier(Notifier):
+    # How many lines from stderr to include in output
+    N_LINES_FROM_STDERR = 50
+
     def __init__(self, post_payload: Callable[[Payload], Any],
                  upload_file: Callable[[Union[str, Path], bool], Optional[str]], name: str = None):
         super().__init__(name)
@@ -134,11 +135,39 @@ class CloudNotifier(Notifier):
                      "description": job.description}
         self._post(mutation, {"in": job_input})
 
+    @staticmethod
+    def _input_vars_for_failed(job: Job):
+
+        input_vars = {
+            "job_id": str(job.id)
+        }
+
+        def parse_stderr():
+            stderr_path = job.stderr
+            if stderr_path:
+                with open(stderr_path, "r") as file:
+                    # TODO Use tail instead for efficiency?
+                    # return subprocess.check_output(['tail', '-10', filename])
+                    lines = file.read().splitlines()
+                    return "\n".join(lines[-CloudNotifier.N_LINES_FROM_STDERR:])
+            else:
+                stderr = None
+            return stderr
+
+        input_vars["stderr"] = parse_stderr()
+        return input_vars
+
     def _notify_job_end(self, job: Job) -> None:
         """Notifies of a job end. Raises exception for failure."""
-        mutation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
-        job_input = {"id": str(job.id), "name": job.name, "number": job.number}
-        self._post(mutation, {"in": job_input})
+        LOGGER.debug("Notifying server of job with status {}".format(job.status))
+
+        if job.status == JobStatus.FAILED:
+            operation = "mutation NotifyJobFailed($in: JobFailedInput!) { notifyJobFailed(input: $in) }"
+            operation_input_vars = CloudNotifier._input_vars_for_failed(job)
+        else:
+            operation = "mutation NotifyJobEnd($in: JobDoneInput!) { notifyJobDone(input: $in) }"
+            operation_input_vars = {"id": str(job.id), "name": job.name, "number": job.number}
+        self._post(operation, {"in": operation_input_vars})
 
     def _notify(self, job: Job, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
         """Notifies job status update. Raises exception for failure.

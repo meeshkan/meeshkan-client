@@ -36,16 +36,18 @@ async def test_task_poller_handles_tasks():
 
     try:
         await polling_task  # Run until cancelled
-        assert False  # Should not get here
+        assert False, "Asynchronous polling should continuously await for tasks!"  # Should not get here
     except concurrent.futures.CancelledError:
         pass  # Should get here as polling was canceled
 
     # First handled item
-    assert not handled_tasks.empty()
+    assert not handled_tasks.empty(), "Queue should contain two elements at this point"
     handled_item = handled_tasks.get()
-    assert handled_item.job_id == fake_task.job_id
+    assert handled_item.job_id == fake_task.job_id, "Handled item should be identical to the fake task"
 
     # Second handled item
-    assert not handled_tasks.empty()
+    assert not handled_tasks.empty(), "Queue should contain one element at this point"
     handled_item = handled_tasks.get()
-    assert handled_item.job_id == fake_task.job_id
+    assert handled_item.job_id == fake_task.job_id, "Handled item should be identical to the fake task"
+
+    assert handled_tasks.empty(), "Queue should be empty now"

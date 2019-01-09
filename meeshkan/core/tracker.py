@@ -11,7 +11,7 @@ import sys
 import asyncio
 import inspect
 
-from ..__types__ import HistoryByScalar, ScalarTimePairing
+from ..__types__ import HistoryByScalar, ScalarIndexPairing
 from ..exceptions import TrackedScalarNotFoundException
 
 TF_EXISTS = True
@@ -103,10 +103,10 @@ class TrackerBase(object):
 
     def add_tracked(self, val_name: str, value: float) -> Optional[TrackerCondition]:
         # Add/create to dictionaries
-        if val_name in self._history_by_scalar and self._history_by_scalar[val_name][-1].time == self._shared_index:
+        if val_name in self._history_by_scalar and self._history_by_scalar[val_name][-1].idx == self._shared_index:
             self._shared_index += 1
-        value_with_time = ScalarTimePairing(value, self._shared_index)
-        self._history_by_scalar.setdefault(val_name, list()).append(value_with_time)
+        value_with_index = ScalarIndexPairing(value, self._shared_index)
+        self._history_by_scalar.setdefault(val_name, list()).append(value_with_index)
         self._last_index.setdefault(val_name, -1)  # Initial index
         # Verify with conditions
         for condition in self._conditions:
@@ -140,29 +140,20 @@ class TrackerBase(object):
         matplotlib.use('svg')
         import matplotlib.pyplot as plt
 
-        has_plotted = False
         plt.clf()  # Clear figure
-        longest_iteration = 0  # Used for relabeling the x-axis by "iterations" or "reports"
         for tag, vals in history.items():  # All all scalar values to plot
             if vals:  # Some values exist
-                has_plotted = True
-                time_axis = list()
+                index_axis = list()
                 value_axis = list()
-                for value_with_time in vals:  # Separate axes
-                    time_axis.append(value_with_time.time)
-                    value_axis.append(value_with_time.value)
-                longest_iteration = max(longest_iteration, len(value_axis))
+                for value_with_index in vals:  # Separate axes
+                    index_axis.append(value_with_index.idx)
+                    value_axis.append(value_with_index.value)
                 if len(vals) > 1:
-                    plt.plot(time_axis, value_axis, label=tag, linewidth=1)
+                    plt.plot(index_axis, value_axis, label=tag, linewidth=1)
                 else:  # scatter=plot the single point on x=0 :shrug:
-                    plt.scatter(time_axis, value_axis, label=tag)
+                    plt.scatter(index_axis, value_axis, label=tag)
 
-        if has_plotted:
-            # Relabel the x-axis for longest number of reports
-            # TODO - this can probably be improved with self._shared_index
-            locs, _ = plt.xticks()
-            stepsize = longest_iteration // len(locs) or 1  # Minimal step size of 1
-            plt.xticks(locs, range(0, longest_iteration, stepsize))
+        if plt.gcf().axes:  # Would be empty if nothing was plotted
             plt.legend(loc='upper right')
             if title is not None:  # Title if given
                 plt.title(title)
@@ -174,13 +165,19 @@ class TrackerBase(object):
         return None
 
 
-    def _update_access(self, name: str = ""):
-        if name:
-            if name in self._history_by_scalar:
+    def _update_access(self, *names: str):
+        if names:
+            for name in names:
                 self._last_index[name] = len(self._history_by_scalar[name]) - 1
         else:
             for val_name, vals, in self._history_by_scalar.items():
                 self._last_index[val_name] = len(vals) - 1
+
+
+    def _verify_scalar_names_exist(self, *names: str):
+        for name in names:  # Verify all names are valid
+            if name not in self._history_by_scalar:
+                raise TrackedScalarNotFoundException(name=name)
 
 
     def get_updates(self, *names: str, plot: bool = True,
@@ -193,10 +190,7 @@ class TrackerBase(object):
         :return tuple of data (HistoryByScalar) and location to image (if created, otherwise None)
         """
         if names:
-            for name in names:  # Verify all names are valid
-                if name not in self._history_by_scalar:
-                    raise TrackedScalarNotFoundException(name=name)
-
+            self._verify_scalar_names_exist(*names)
             data = dict()  # type: HistoryByScalar
             for value_name, values in self._history_by_scalar.items():
                 for name in names:
@@ -214,11 +208,8 @@ class TrackerBase(object):
         if latest:  # Trim data as needed
             for val_name, vals, in data.items():
                 data[val_name] = vals[self._last_index[val_name] + 1:]
-        if names:
-            for name in names:
-                self._update_access(name)
-        else:
-            self._update_access()
+
+        self._update_access(*names)
         return data, imgname
 
 
