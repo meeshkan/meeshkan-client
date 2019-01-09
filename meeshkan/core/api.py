@@ -9,7 +9,6 @@ import Pyro4
 import Pyro4.errors
 
 from .job import Job, SageMakerJob
-from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
@@ -30,11 +29,11 @@ class Api(object):
                  scheduler: Scheduler,
                  service: Service = None,
                  task_poller: TaskPoller = None,
-                 sagemaker_job_monitor: Optional[SageMakerJobMonitor] = None,
+                 sagemaker_job_monitor = None,
                  notifier: Notifier = None):
         self.scheduler = scheduler
         self.service = service
-        self.sagemaker_job_monitor = sagemaker_job_monitor  # type: Optional[SageMakerJobMonitor]
+        self.sagemaker_job_monitor = sagemaker_job_monitor
         self.task_poller = task_poller
         self.notifier = notifier
         self.__stop_callbacks = []  # type: List[Callable[[], None]]

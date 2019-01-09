@@ -112,7 +112,7 @@ def __build_api(config: meeshkan.config.Configuration,
 
         scheduler = Scheduler(queue_processor=queue_processor, notifier=notifier_collection)
 
-        sagemaker_job_monitor = SageMakerJobMonitor()
+        sagemaker_job_monitor = SageMakerJobMonitor(notify_finish=notifier_collection.notify_job_end)
 
         api = Api_(scheduler=scheduler,
                    service=service,

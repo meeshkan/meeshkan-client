@@ -2,10 +2,9 @@
 import asyncio
 from unittest.mock import create_autospec, MagicMock
 
-import botocore
 import pytest
 
-from meeshkan.core.job import Job, JobStatus, SageMakerJob
+from meeshkan.core.job import JobStatus
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 
 from meeshkan import exceptions
@@ -17,7 +16,7 @@ def mock_boto():
 
 
 def raise_client_error():
-    raise botocore.exceptions.ClientError
+    raise RuntimeError("Boto client is broken here!")
 
 
 def training_job_description_for_status(status):
@@ -51,15 +50,37 @@ class TestSageMakerHelper:
         with pytest.raises(exceptions.SageMakerNotAvailableException):
             sagemaker_helper.get_job_status(job_name=job_name)
 
+    def test_wait_for_job_finish_calls_waiter_and_returns_status(self, mock_boto):
+        sagemaker_helper = SageMakerHelper(client=mock_boto)
+        job_name = "spameggs"
+
+        mock_boto.describe_training_job.return_value = training_job_description_for_status("Completed")
+
+        status = sagemaker_helper.wait_for_job_finish(job_name=job_name)
+        mock_boto.get_waiter.assert_called_once()
+        mock_waiter = mock_boto.get_waiter.return_value
+        _, wait_call_kw_args = mock_waiter.wait.call_args
+        assert wait_call_kw_args['TrainingJobName'] == job_name
+        assert status == JobStatus.FINISHED
+
+
+def get_mock_coro(return_value):
+    async def mock_coro(*args, **kwargs):
+        return return_value
+    return MagicMock(wraps=mock_coro)
+
 
 @pytest.fixture
 def mock_sagemaker_helper():
-    return create_autospec(SageMakerHelper).return_value
+    sagemaker_helper = create_autospec(SageMakerHelper).return_value
+    return sagemaker_helper
 
 
 @pytest.fixture
 def sagemaker_job_monitor(event_loop, mock_sagemaker_helper):
-    return SageMakerJobMonitor(event_loop=event_loop, sagemaker_helper=mock_sagemaker_helper)
+    return SageMakerJobMonitor(event_loop=event_loop,
+                               sagemaker_helper=mock_sagemaker_helper,
+                               notify_finish=MagicMock())
 
 
 class TestSageMakerJobMonitor:
@@ -83,13 +104,15 @@ class TestSageMakerJobMonitor:
         job_name = "foobar"
         sagemaker_job_monitor.sagemaker_helper.get_job_status.return_value = JobStatus.FINISHED
         job = sagemaker_job_monitor.create_job(job_name=job_name, poll_interval=0.5)
-        task = sagemaker_job_monitor.start(job)
-        await asyncio.wait_for(task, timeout=5)  # Should finish
+        monitoring_task = sagemaker_job_monitor.start(job)
+        await asyncio.wait_for(monitoring_task, timeout=1)  # Should finish
+        sagemaker_job_monitor.sagemaker_helper.wait_for_job_finish.assert_called_once()
+        sagemaker_job_monitor.notify_finish.assert_called_with(job)
 
 
 def sagemaker_available():
     try:
-        SageMakerHelper()._check_connection()
+        SageMakerHelper().check_or_build_connection()
         return True
     except Exception as ex:
         print(ex)
@@ -101,15 +124,16 @@ def real_sagemaker_job_monitor(event_loop):
     return SageMakerJobMonitor(event_loop=event_loop)
 
 
-@pytest.mark.skipif(not sagemaker_available(), reason="Requires local SageMaker credentials, useful for testing though")
+# @pytest.mark.skipif(not sagemaker_available(), reason="Requires local SageMaker credentials, useful for testing though")
+@pytest.mark.skip
 class TestRealSageMaker:
 
     @pytest.mark.asyncio
     async def test_start_monitoring_for_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
         job_name = "pytorch-rnn-2019-01-04-11-20-03"  # Job we have run in our AWS account
         job = real_sagemaker_job_monitor.create_job(job_name=job_name)
-        task = real_sagemaker_job_monitor.start(job)
-        await task
+        monitoring_task = real_sagemaker_job_monitor.start(job)
+        await monitoring_task
         assert job.status == JobStatus.FINISHED
 
     def test_start_monitoring_for_non_existing_job(self, real_sagemaker_job_monitor: SageMakerJobMonitor):
