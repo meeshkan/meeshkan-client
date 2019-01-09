@@ -6,12 +6,18 @@ import dill
 from distutils.version import StrictVersion
 
 import requests
+import Pyro4
+
 import meeshkan
 from .utils import get_auth, _build_cloud_client
 from .core.api import Api
 from .core.service import Service
 
 LOGGER = logging.getLogger(__name__)
+
+Pyro4.config.SERIALIZER = 'dill'
+Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 __all__ = ["start_agent"]
 
@@ -101,7 +107,7 @@ def __verify_version():
             print()
 
 
-def start_agent():
+def start_agent() -> str:
     """
     Starts the agent.
     :raises UnauthorizedException: If credentials have not been setup.
@@ -110,7 +116,7 @@ def start_agent():
     service = Service()
     if service.is_running():
         print("Service is already running.")
-        return
+        return service.uri
 
     config, credentials = get_auth()
 

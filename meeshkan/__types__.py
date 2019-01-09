@@ -12,6 +12,6 @@ class ScalarIndexPairing(object):
 
 
 Token = NewType("Token", str)
-Payload = Dict[str, Any]
+Payload = Dict
 # Keys are scalar names, value is a list of tuples, indicating wall time and value for that scalar
-HistoryByScalar = Dict[str, List[ScalarIndexPairing]]
+HistoryByScalar = Dict

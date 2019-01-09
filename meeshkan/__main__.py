@@ -31,11 +31,6 @@ from .start import start_agent
 
 LOGGER = None
 
-Pyro4.config.SERIALIZER = 'dill'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
-Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-
-
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
