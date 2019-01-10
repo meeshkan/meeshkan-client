@@ -12,6 +12,7 @@ import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
+from ..build import build_api
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
@@ -60,18 +61,18 @@ class Service(object):
     def uri(self):
         return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
 
-    def daemonize(self, build_api_bytes):
+    def daemonize(self, serialized):
         """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
         pid = os.fork()
         if pid > 0:  # Close parent process
             return
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        build_api = dill.loads(build_api_bytes)
+        cloud_client = dill.loads(serialized.encode('cp437'))
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-        with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
+        with build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():
@@ -102,18 +103,18 @@ class Service(object):
 
         return
 
-    def start(self, mp_ctx, build_api_serialized) -> str:
+    def start(self, mp_ctx, cloud_client_serialized: str) -> str:
         """
         Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
         :param mp_ctx: Multiprocessing context, e.g. `multiprocessing.get_context("spawn")`
-        :param build_api_serialized: Dill-serialized function for creating API object
+        :param cloud_client_serialized: Dill-serialized CloudClient instance
         :return: Pyro URI
         """
 
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = mp_ctx.Process(target=self.daemonize, args=[build_api_serialized])
+        proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
         self.terminate_daemon = mp_ctx.Event()
         proc.daemon = True
         proc.start()

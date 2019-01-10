@@ -1,5 +1,5 @@
 """Watch a running SageMaker job."""
-from typing import Callable, List, Optional
+from typing import Any, Callable, List, Optional
 import logging
 
 import asyncio
@@ -135,8 +135,8 @@ class SageMakerJobMonitor:
     def __init__(self,
                  event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None,
-                 notify_start: Optional[Callable[[SageMakerJob], None]] = None,
-                 notify_finish: Optional[Callable[[SageMakerJob], None]] = None):
+                 notify_start: Optional[Callable[[BaseJob], Any]] = None,
+                 notify_finish: Optional[Callable[[BaseJob], Any]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
