@@ -1,3 +1,9 @@
+# type: ignore
+# Ignore mypy tests for this file; Attributes for the `meeshkan` package are defined dynamically in
+#     __init__.py, so mypy complains about attributes not existing (even though they're well defined).
+#     examples for such errors: "error: Name 'meeshkan.Service' is not defined",
+#                               "error: Module has no attribute "Service"
+
 import sys
 import logging
 
