@@ -1,8 +1,7 @@
-# type: ignore
 # Ignore mypy tests for this file; Attributes for the `meeshkan` package are defined dynamically in
 #     __init__.py, so mypy complains about attributes not existing (even though they're well defined).
-#     examples for such errors: "error: Name 'meeshkan.Service' is not defined",
-#                               "error: Module has no attribute "Service"
+#     examples for such errors: "error: Name 'meeshkan.config.Configuration' is not defined",
+#                               "error: Module has no attribute "config"
 
 import sys
 import logging
@@ -19,14 +18,14 @@ __all__ = ["save_token"]
 LOGGER = logging.getLogger(__name__)
 
 
-def get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
-    config, credentials = meeshkan.config.init_config()
+def get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:  # type: ignore
+    config, credentials = meeshkan.config.init_config()  # type: ignore
     return config, credentials
 
 
 def save_token(token: str):
-    meeshkan.config.ensure_base_dirs(verbose=False)
-    meeshkan.config.Credentials.to_isi(refresh_token=token)
+    meeshkan.config.ensure_base_dirs(verbose=False)  # type: ignore
+    meeshkan.config.Credentials.to_isi(refresh_token=token)  # type: ignore
 
 
 def _get_api() -> Api:
@@ -38,7 +37,7 @@ def _get_api() -> Api:
     return api
 
 
-def _build_cloud_client(config: meeshkan.config.Configuration,
-                        credentials: meeshkan.config.Credentials) -> CloudClient:
+def _build_cloud_client(config: meeshkan.config.Configuration,  # type: ignore
+                        credentials: meeshkan.config.Credentials) -> CloudClient:  # type: ignore
     cloud_client = CloudClient(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     return cloud_client
