@@ -294,9 +294,9 @@ mypy --ignore-missing-imports meeshkan
 
 ### Building the documentation
 ```bash
-python setup.py docs
+python setup.py doc
 # OR (the long way...)
 cd docs
 sphinx-apidoc -f -e -o source/ ../meeshkan/
-make html
+sphinx-build -M html -D version={VERSION} source build
 ```

@@ -69,6 +69,13 @@ class BuildDistCommand(SetupCommand):
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
         sys.exit()
 
+
+def build_docs():
+    os.chdir("docs")
+    os.system("sphinx-apidoc -f -e -o source/ ../meeshkan/")
+    os.system("sphinx-build -M html -D version={version} source build".format(version=about['__version__']))
+
+
 class BuildDocumentationCommand(SetupCommand):
     """Builds the sphinx documentation"""
     description = "Builds the sphinx documentation."
@@ -80,11 +87,12 @@ class BuildDocumentationCommand(SetupCommand):
         except OSError:
             pass
 
-        self.status("Building documentation")
-        os.chdir("docs")
-        os.system("sphinx-apidoc -f -e -o source/ ../meeshkan/")
-        os.system("sphinx-build -M html -D version={version} source build".format(version=about['__version__']))
+        self.status("Building documentation...")
+        build_docs()
+        self.status("Docs were built. Now change to fresh branch, `git add docs/build`, `git commit -a` and do "
+                    "`git subtree push --prefix docs/build origin gh-pages` to push the build to `gh-pages` branch.")
         sys.exit()
+
 
 class UploadCommand(SetupCommand):
     """Support setup.py upload."""
@@ -118,6 +126,7 @@ class TestCommand(SetupCommand):
         os.system("pytest")
         sys.exit()
 
+
 setup(
     name=NAME,
     version=about['__version__'],
@@ -145,5 +154,6 @@ setup(
         'Operating System :: Unix'
     ],
     entry_points={'console_scripts': ENTRY_POINTS},
-    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand, 'doc': BuildDocumentationCommand}
+    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand,
+              'doc': BuildDocumentationCommand}
 )
