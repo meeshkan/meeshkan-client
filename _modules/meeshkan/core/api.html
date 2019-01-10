@@ -1,0 +1,403 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>meeshkan.core.api &mdash; Meeshkan  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> Meeshkan
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.3/html
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Meeshkan</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>meeshkan.core.api</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for meeshkan.core.api</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">uuid</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">fnmatch</span> <span class="k">import</span> <span class="n">fnmatch</span>
+
+<span class="kn">import</span> <span class="nn">dill</span>
+<span class="kn">import</span> <span class="nn">Pyro4</span>
+<span class="kn">import</span> <span class="nn">Pyro4.errors</span>
+
+<span class="kn">from</span> <span class="nn">.job</span> <span class="k">import</span> <span class="n">Job</span><span class="p">,</span> <span class="n">SageMakerJob</span>
+<span class="kn">from</span> <span class="nn">.scheduler</span> <span class="k">import</span> <span class="n">Scheduler</span>
+<span class="kn">from</span> <span class="nn">.service</span> <span class="k">import</span> <span class="n">Service</span>
+<span class="kn">from</span> <span class="nn">.tasks</span> <span class="k">import</span> <span class="n">TaskPoller</span><span class="p">,</span> <span class="n">Task</span><span class="p">,</span> <span class="n">TaskType</span>
+<span class="kn">from</span> <span class="nn">..notifications.notifiers</span> <span class="k">import</span> <span class="n">Notifier</span>
+<span class="kn">from</span> <span class="nn">..__types__</span> <span class="k">import</span> <span class="n">HistoryByScalar</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Api&quot;</span><span class="p">]</span>
+
+<span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Api"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api">[docs]</a><span class="nd">@Pyro4</span><span class="o">.</span><span class="n">behavior</span><span class="p">(</span><span class="n">instance_mode</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">)</span>  <span class="c1"># Singleton</span>
+<span class="k">class</span> <span class="nc">Api</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Partially exposed by the Pyro server for communications with the CLI.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Private methods</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">scheduler</span><span class="p">:</span> <span class="n">Scheduler</span><span class="p">,</span>
+                 <span class="n">service</span><span class="p">:</span> <span class="n">Service</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">task_poller</span><span class="p">:</span> <span class="n">TaskPoller</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">sagemaker_job_monitor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">notifier</span><span class="p">:</span> <span class="n">Notifier</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span> <span class="o">=</span> <span class="n">scheduler</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sagemaker_job_monitor</span> <span class="o">=</span> <span class="n">sagemaker_job_monitor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">task_poller</span> <span class="o">=</span> <span class="n">task_poller</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">notifier</span> <span class="o">=</span> <span class="n">notifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__stop_callbacks</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># type: List[Callable[[], None]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__was_shutdown</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Api.get_notification_status"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.get_notification_status">[docs]</a>    <span class="k">def</span> <span class="nf">get_notification_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns last notification status for job_id</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">notifier</span><span class="p">:</span>
+            <span class="c1"># results hold a Dict[str, Optional[NotificationWithStatus]] where str is name of notifier</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notifier</span><span class="o">.</span><span class="n">get_last_notification_status</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span>
+            <span class="c1"># Reformat for a string (dictionary has only one key in this instance)</span>
+            <span class="n">res_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">notifier</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">res_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{notifier}</span><span class="s2">: </span><span class="si">{notification}</span><span class="s2"> (</span><span class="si">{result}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">notification</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                                                                   <span class="n">notifier</span><span class="o">=</span><span class="n">notifier</span><span class="p">,</span>
+                                                                                   <span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+            <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">res_list</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="Api.handle_task"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.handle_task">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">handle_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">):</span>
+        <span class="n">LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got task for job ID </span><span class="si">%s</span><span class="s2">, task type </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">job_id</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">TaskType</span><span class="o">.</span><span class="n">StopJobTask</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">stop_job</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">job_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Api.poll"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.poll">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_poller</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_poller</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="n">handle_task</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">handle_task</span><span class="p">)</span></div>
+
+    <span class="c1"># Exposed methods</span>
+
+<div class="viewcode-block" id="Api.cancel_job"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.cancel_job">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">cancel_job</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">stop_job</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Api.get_job"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.get_job">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">get_job</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Job</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">submitted_jobs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Api.get_notification_history"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.get_notification_history">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">get_notification_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Returns the entire notification history for a given job ID. Returns an empty dictionary if no notifier</span>
+<span class="sd">        is available.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">notifier</span><span class="p">:</span>
+            <span class="n">notification_history</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notifier</span><span class="o">.</span><span class="n">get_notification_history</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span>
+            <span class="c1"># Normalize the data to human-readable format</span>
+            <span class="n">new_table_history</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>  <span class="c1"># type: Dict[str, List[str]]</span>
+            <span class="k">for</span> <span class="n">notifier_name</span><span class="p">,</span> <span class="n">notifier_history</span> <span class="ow">in</span> <span class="n">notification_history</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">formatted_history</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">notifier_history</span><span class="p">:</span>
+                    <span class="n">formatted_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">{time}</span><span class="s2">] </span><span class="si">{type}</span><span class="s2">: </span><span class="si">{status}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                                                                <span class="n">status</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+                <span class="n">new_table_history</span><span class="p">[</span><span class="n">notifier_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">formatted_history</span>
+            <span class="k">return</span> <span class="n">new_table_history</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Api.find_job_id"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.find_job_id">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">find_job_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">job_number</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Finds a job from the scheduler given one of the arguments.</span>
+<span class="sd">        Operator precedence if given multiple arguments is: UUID, job_number, pattern.</span>
+
+<span class="sd">        :return Job UUID if a mathing job is found. Otherwise returns None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">filter_jobs</span><span class="p">(</span><span class="n">condition</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Job</span><span class="p">],</span> <span class="nb">bool</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]:</span>
+            <span class="n">matching_jobs</span> <span class="o">=</span> <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">jobs</span> <span class="k">if</span> <span class="n">condition</span><span class="p">(</span><span class="n">job</span><span class="p">)]</span>  <span class="c1"># type: List[uuid.UUID]</span>
+            <span class="k">if</span> <span class="n">matching_jobs</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">matching_jobs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">job_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">job_number</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># No arguments given?</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">job_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># Match by UUID</span>
+            <span class="n">job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_job</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">job</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">job</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="k">if</span> <span class="n">job_number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># Match by job number</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">filter_jobs</span><span class="p">(</span><span class="k">lambda</span> <span class="n">job</span><span class="p">:</span> <span class="n">job</span><span class="o">.</span><span class="n">number</span> <span class="o">==</span> <span class="n">job_number</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">res</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">res</span>
+
+        <span class="k">if</span> <span class="n">pattern</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pattern</span><span class="p">:</span>
+            <span class="c1"># MyPy complains about `pattern` being Optional[str], but we check for validity so we ignore the error</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">filter_jobs</span><span class="p">(</span><span class="k">lambda</span> <span class="n">job</span><span class="p">:</span> <span class="n">fnmatch</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">pattern</span><span class="p">))</span>  <span class="c1"># type: ignore</span>
+            <span class="k">if</span> <span class="n">res</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">res</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Api.get_job_output"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.get_job_output">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">get_job_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;For a given job, return the job&#39;s output path, stderr and stdout.&quot;&quot;&quot;</span>
+        <span class="n">job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">submitted_jobs</span><span class="p">[</span><span class="n">job_id</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">job</span><span class="o">.</span><span class="n">output_path</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">stdout</span></div>
+
+<div class="viewcode-block" id="Api.submit"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.submit">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">submit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">cwd</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">job_number</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">jobs</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">job</span> <span class="o">=</span> <span class="n">Job</span><span class="o">.</span><span class="n">create_job</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span> <span class="n">job_number</span><span class="o">=</span><span class="n">job_number</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">submit_job</span><span class="p">(</span><span class="n">job</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">job</span></div>
+
+<div class="viewcode-block" id="Api.monitor_sagemaker"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.monitor_sagemaker">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">monitor_sagemaker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">poll_interval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SageMakerJob</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Start monitoring a SageMaker training job</span>
+<span class="sd">        :param job_name: SageMaker training job name</span>
+<span class="sd">        :param poll_interval: Polling interval in seconds</span>
+<span class="sd">        :return: SageMakerJob instance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">sagemaker_job_monitor</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;SageMaker job monitor not defined.&quot;</span><span class="p">)</span>
+
+        <span class="n">job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sagemaker_job_monitor</span><span class="o">.</span><span class="n">create_job</span><span class="p">(</span><span class="n">job_name</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">job</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_processed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">job</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sagemaker_job_monitor</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">job</span><span class="p">)</span>
+        <span class="c1"># TODO self.job_store.include_as_job(job)</span>
+        <span class="k">return</span> <span class="n">job</span></div>
+
+<div class="viewcode-block" id="Api.list_jobs"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.list_jobs">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">list_jobs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">jobs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">jobs</span><span class="p">:</span>
+            <span class="n">temp_job_dict</span> <span class="o">=</span> <span class="n">job</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="n">temp_job_dict</span><span class="p">[</span><span class="s1">&#39;last notification status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_notification_status</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp_job_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jobs</span></div>
+
+<div class="viewcode-block" id="Api.add_stop_callback"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.add_stop_callback">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">add_stop_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__stop_callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">func</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Api.report_scalar"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.report_scalar">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">report_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempts to report a scalar update for process PID&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">report_scalar</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Api.add_condition"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.add_condition">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">add_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">only_relevant</span><span class="p">,</span> <span class="o">*</span><span class="n">vals</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets a condition for notifications&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">add_condition</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="o">*</span><span class="n">vals</span><span class="p">,</span> <span class="n">condition</span><span class="o">=</span><span class="n">dill</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;cp437&#39;</span><span class="p">)),</span>
+                                     <span class="n">only_relevant</span><span class="o">=</span><span class="n">only_relevant</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Api.get_updates"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.get_updates">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">get_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HistoryByScalar</span><span class="p">:</span>
+        <span class="n">vals</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">query_scalars</span><span class="p">(</span><span class="n">job_id</span><span class="o">=</span><span class="n">job_id</span><span class="p">,</span> <span class="n">latest_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># We leave the recent_vals in a list for easy use in tabulate</span>
+        <span class="n">recent_vals</span> <span class="o">=</span> <span class="p">{</span><span class="n">val_name</span><span class="p">:</span> <span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span> <span class="k">for</span> <span class="n">val_name</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">vals</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="n">recent_vals</span></div>
+
+<div class="viewcode-block" id="Api.stop"><a class="viewcode-back" href="../../../meeshkan.core.api.html#meeshkan.core.Api.stop">[docs]</a>    <span class="nd">@Pyro4</span><span class="o">.</span><span class="n">expose</span>
+    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__was_shutdown</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__was_shutdown</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__stop_callbacks</span><span class="p">:</span>
+            <span class="n">callback</span><span class="p">()</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, The Great and Mighty Meeshkan Developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

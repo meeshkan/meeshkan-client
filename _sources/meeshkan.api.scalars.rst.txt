@@ -1,0 +1,7 @@
+meeshkan.api.scalars module
+===========================
+
+.. automodule:: meeshkan.api.scalars
+    :members:
+    :undoc-members:
+    :show-inheritance:

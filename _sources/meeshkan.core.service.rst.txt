@@ -1,0 +1,7 @@
+meeshkan.core.service module
+============================
+
+.. automodule:: meeshkan.core.service
+    :members:
+    :undoc-members:
+    :show-inheritance:

@@ -1,0 +1,17 @@
+meeshkan.sagemaker package
+==========================
+
+Submodules
+----------
+
+.. toctree::
+
+   meeshkan.sagemaker.lib
+
+Module contents
+---------------
+
+.. automodule:: meeshkan.sagemaker
+    :members:
+    :undoc-members:
+    :show-inheritance:

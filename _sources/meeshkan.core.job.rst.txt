@@ -1,0 +1,7 @@
+meeshkan.core.job module
+========================
+
+.. automodule:: meeshkan.core.job
+    :members:
+    :undoc-members:
+    :show-inheritance:

@@ -1,0 +1,7 @@
+meeshkan.exceptions module
+==========================
+
+.. automodule:: meeshkan.exceptions
+    :members:
+    :undoc-members:
+    :show-inheritance:

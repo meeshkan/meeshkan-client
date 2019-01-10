@@ -1,0 +1,30 @@
+meeshkan package
+================
+
+Subpackages
+-----------
+
+.. toctree::
+
+    meeshkan.api
+    meeshkan.core
+    meeshkan.notifications
+    meeshkan.sagemaker
+
+Submodules
+----------
+
+.. toctree::
+
+   meeshkan.build
+   meeshkan.exceptions
+   meeshkan.start
+   meeshkan.utils
+
+Module contents
+---------------
+
+.. automodule:: meeshkan
+    :members:
+    :undoc-members:
+    :show-inheritance:

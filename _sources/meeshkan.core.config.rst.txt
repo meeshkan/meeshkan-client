@@ -1,0 +1,7 @@
+meeshkan.core.config module
+===========================
+
+.. automodule:: meeshkan.core.config
+    :members:
+    :undoc-members:
+    :show-inheritance:

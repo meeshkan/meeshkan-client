@@ -1,0 +1,7 @@
+meeshkan.core.logger module
+===========================
+
+.. automodule:: meeshkan.core.logger
+    :members:
+    :undoc-members:
+    :show-inheritance:

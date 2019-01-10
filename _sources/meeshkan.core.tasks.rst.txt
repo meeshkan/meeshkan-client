@@ -1,0 +1,7 @@
+meeshkan.core.tasks module
+==========================
+
+.. automodule:: meeshkan.core.tasks
+    :members:
+    :undoc-members:
+    :show-inheritance:

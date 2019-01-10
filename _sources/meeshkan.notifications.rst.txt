@@ -1,0 +1,17 @@
+meeshkan.notifications package
+==============================
+
+Submodules
+----------
+
+.. toctree::
+
+   meeshkan.notifications.notifiers
+
+Module contents
+---------------
+
+.. automodule:: meeshkan.notifications
+    :members:
+    :undoc-members:
+    :show-inheritance:
