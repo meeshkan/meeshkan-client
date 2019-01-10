@@ -1,8 +1,6 @@
-from http import HTTPStatus
 import logging
 import time
-import os
-from typing import Any, Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union
 from uuid import UUID
 
 from pathlib import Path
@@ -84,6 +82,7 @@ class CloudClient:
             LOGGER.error('Could not post to server: unauthenticated')
             raise UnauthorizedRequestException()
 
+        LOGGER.error("Unknown error from server: %s", res.text)
         raise RuntimeError("Error posting to server")
 
     def _post_gql_payload(self, payload: Payload, retries: int = 1, delay: float = 0.2) -> dict:

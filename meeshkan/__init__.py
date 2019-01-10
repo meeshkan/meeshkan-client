@@ -6,13 +6,13 @@ from .api import *  # pylint: disable=wildcard-import
 from . import api
 from . import exceptions
 from . import sagemaker
-from .start import start_agent as start
+from .start import start_agent as start, restart_agent as restart, init, stop_agent as stop
 from .utils import save_token
 
 # Only make the following available by default
 __all__ = ["__version__", "exceptions", "config"]
 __all__ += api.__all__
-__all__ += ["save_token", "start"]
+__all__ += ["save_token", "start", "restart_agent", "init"]
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 del api

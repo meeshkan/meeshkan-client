@@ -1,13 +1,15 @@
 from distutils.version import StrictVersion
 import multiprocessing as mp
 import logging
+from typing import Optional
 
 import dill
 import requests
 import Pyro4
 
 from . import utils
-from .utils import get_auth
+from .utils import get_auth, _get_api
+from .core.config import init_config
 from .core.service import Service
 from .__version__ import __version__
 
@@ -17,7 +19,7 @@ Pyro4.config.SERIALIZER = 'dill'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-__all__ = ["start_agent"]
+__all__ = ["start_agent", "init", "stop_agent", "restart_agent"]
 
 
 def __verify_version():
@@ -38,6 +40,45 @@ def __verify_version():
             if latest_release.version[0] > current_version.version[0]:  # More messages on major version change...
                 print("\tPlease consider upgrading soon with 'pip install meeshkan --upgrade'")
             print()
+
+
+def init(token: Optional[str] = None):
+    try:
+        _, credentials = get_auth()
+    except FileNotFoundError:
+        # Credentials not found
+        credentials = None
+
+    # Only save supplied token if it's not the same as that included already
+    if token and (not credentials or credentials.refresh_token != token):
+        print("Stored credentials.")
+        utils.save_token(token)
+        init_config(force_refresh=True)
+
+    restart_agent()
+
+
+def _stop_if_running() -> bool:
+    if Service().is_running():
+        print("Stopping service...")
+        api = _get_api()
+        api.stop()
+        return True
+    return False
+
+
+def stop_agent():
+    was_running = _stop_if_running()
+    if was_running:
+        print("Service stopped.")
+    else:
+        print("Service already stopped.")
+
+
+def restart_agent():
+    _stop_if_running()
+    init_config(force_refresh=True)
+    start_agent()
 
 
 def start_agent() -> str:
