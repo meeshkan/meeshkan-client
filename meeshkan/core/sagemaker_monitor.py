@@ -13,6 +13,11 @@ try:
 except ImportError as ex:
     boto3 = DeferredImportException(ex)
 
+try:
+    import sagemaker
+except ImportError as ex:
+    sagemaker = DeferredImportException(ex)
+
 LOGGER = logging.getLogger(__name__)
 
 # Do not expose anything by default (internal module)
@@ -28,7 +33,7 @@ class SageMakerHelper:
         "Stopped": JobStatus.CANCELLED_BY_USER
     }
 
-    def __init__(self, client=None):
+    def __init__(self, client=None, sagemaker_session=None):
         """
         Init SageMaker helper in the disabled state.
         :param client: SageMaker client built with boto3.client("sagemaker") used for connecting to SageMaker
@@ -37,6 +42,7 @@ class SageMakerHelper:
         self.connection_tried = False
         self.connection_succeeded = False
         self._error_message = None  # type: Optional[str]
+        self.sagemaker_session = None
 
     @property
     def __has_client(self):
@@ -62,6 +68,8 @@ class SageMakerHelper:
         if not self.client:
             self._error_message = "Could not create boto client. Check your credentials"
             raise SageMakerNotAvailableException(self._error_message)
+
+        self.sagemaker_session = sagemaker.session.Session(sagemaker_client=self.client)
 
         try:
             self.client.list_training_jobs()
@@ -130,6 +138,14 @@ class SageMakerHelper:
             raise RuntimeError("Did not expect to wait for more than {hours} hours".format(hours=waited_hours))
         return job_status
 
+    def check_updates(self, job_name: str):
+        self.check_or_build_connection()
+
+        LOGGER.debug("Checking for updates for job %s", job_name)
+        analytics = sagemaker.analytics.TrainingJobAnalytics(training_job_name=job_name,
+                                                             sagemaker_session=self.sagemaker_session)
+        return analytics.dataframe(force_refresh=True)
+
 
 class SageMakerJobMonitor:
     def __init__(self,
@@ -187,6 +203,9 @@ class SageMakerJobMonitor:
 
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
+                metrics_df = await self._event_loop.run_in_executor(None,
+                                                                    self.sagemaker_helper.check_updates, job.name)
+                LOGGER.debug("Got metrics %s", metrics_df)
                 if job.status.is_processed:
                     break
 
