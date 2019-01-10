@@ -1,9 +1,11 @@
-
+"""
+Builder for the agent API, defining (almost) the whole dependency chain.
+"""
 __all__ = ["build_api"]
 
 
 def build_api(service, cloud_client):
-    from meeshkan.core.api import Api as Api_
+    from meeshkan.core.api import Api
     from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
     from meeshkan.core.tasks import TaskPoller
     from meeshkan.core.scheduler import Scheduler, QueueProcessor
@@ -27,10 +29,10 @@ def build_api(service, cloud_client):
 
     sagemaker_job_monitor = SageMakerJobMonitor(notify_finish=notifier_collection.notify_job_end)
 
-    api = Api_(scheduler=scheduler,
-               service=service,
-               task_poller=task_poller,
-               notifier=notifier_collection,
-               sagemaker_job_monitor=sagemaker_job_monitor)
+    api = Api(scheduler=scheduler,
+              service=service,
+              task_poller=task_poller,
+              notifier=notifier_collection,
+              sagemaker_job_monitor=sagemaker_job_monitor)
     api.add_stop_callback(cloud_client.close)
     return api

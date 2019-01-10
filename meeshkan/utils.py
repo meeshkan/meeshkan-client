@@ -3,8 +3,8 @@ import logging
 
 from typing import Tuple
 
+import meeshkan
 from .core.cloud import CloudClient
-from .core.config import ensure_base_dirs, init_config, Configuration, Credentials
 from .core.service import Service
 from .core.api import Api
 
@@ -13,14 +13,14 @@ __all__ = ["save_token"]
 LOGGER = logging.getLogger(__name__)
 
 
-def get_auth() -> Tuple[Configuration, Credentials]:
-    config, credentials = init_config()
+def get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
+    config, credentials = meeshkan.config.init_config()
     return config, credentials
 
 
 def save_token(token: str):
-    ensure_base_dirs(verbose=False)
-    Credentials.to_isi(refresh_token=token)
+    meeshkan.config.ensure_base_dirs(verbose=False)
+    meeshkan.config.Credentials.to_isi(refresh_token=token)
 
 
 def _get_api() -> Api:
@@ -32,7 +32,7 @@ def _get_api() -> Api:
     return api
 
 
-def _build_cloud_client(config: Configuration,
-                        credentials: Credentials) -> CloudClient:
+def _build_cloud_client(config: meeshkan.config.Configuration,
+                        credentials: meeshkan.config.Credentials) -> CloudClient:
     cloud_client = CloudClient(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
     return cloud_client

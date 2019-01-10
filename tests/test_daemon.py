@@ -7,6 +7,7 @@ from meeshkan.core.service import Service
 from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.tasks import TaskPoller
+from .utils import PicklableMock
 
 MP_CTX = mp.get_context("spawn")
 
@@ -18,13 +19,15 @@ def _build_api(service: Service):
 
 def test_start_stop():
     service = Service()
-    service.start(MP_CTX, dill.dumps(_build_api))
+    mock_cloud_client = PicklableMock()
+    service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
     assert service.stop(), "Service should be able to stop cleanly after the service is already running!"
 
 
 def test_double_start():
     service = Service()
-    service.start(MP_CTX, dill.dumps(_build_api))
+    mock_cloud_client = PicklableMock()
+    service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
     with pytest.raises(RuntimeError):
-        service.start(MP_CTX, _build_api)
+        service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
     service.stop()
