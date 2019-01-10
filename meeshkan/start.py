@@ -56,8 +56,7 @@ def start_agent() -> str:
     cloud_client = utils._build_cloud_client(config, credentials)
     cloud_client.notify_service_start()
     cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
-    assert dill.loads(cloud_client_serialized.encode('cp437'))
-    pyro_uri = service.start(mp.get_context("spawn"), serialized=cloud_client_serialized)
+    pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)
     print('Service started.')
     cloud_client.close()
     return pyro_uri

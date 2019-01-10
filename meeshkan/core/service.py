@@ -103,18 +103,18 @@ class Service(object):
 
         return
 
-    def start(self, mp_ctx, serialized) -> str:
+    def start(self, mp_ctx, cloud_client_serialized: str) -> str:
         """
         Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
         :param mp_ctx: Multiprocessing context, e.g. `multiprocessing.get_context("spawn")`
-        :param build_api_serialized: Dill-serialized function for creating API object
+        :param cloud_client_serialized: Dill-serialized CloudClient instance
         :return: Pyro URI
         """
 
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = mp_ctx.Process(target=self.daemonize, args=[serialized])
+        proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
         self.terminate_daemon = mp_ctx.Event()
         proc.daemon = True
         proc.start()
