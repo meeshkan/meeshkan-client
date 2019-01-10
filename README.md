@@ -125,6 +125,10 @@ Submit the PyTorch example with a one-minute report interval:
 $ meeshkan submit --name pytorch-example --report-interval 60 pytorch_mnist.py
 ```
 
+## Working with SageMaker
+For an example of how to use Meeshkan to monitor [AWS SageMaker](https://aws.amazon.com/sagemaker/) jobs,
+see the example [notebook](./examples/sagemaker/pytorch_rnn_meeshkan.ipynb).
+
 ## Command-line interface
 To list available commands, execute `meeshkan` or `meeshkan help`:
 ```bash
