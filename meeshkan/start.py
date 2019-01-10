@@ -19,7 +19,7 @@ Pyro4.config.SERIALIZER = 'dill'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-__all__ = ["start_agent", "init", "stop", "restart_agent"]
+__all__ = ["start_agent", "init", "stop_agent", "restart_agent"]
 
 
 def __verify_version():
@@ -58,17 +58,17 @@ def init(token: Optional[str] = None):
     restart_agent()
 
 
-def stop_if_running() -> bool:
+def _stop_if_running() -> bool:
     if Service().is_running():
         print("Stopping service...")
-        api = _get_api()  # type: Api
+        api = _get_api()
         api.stop()
         return True
     return False
 
 
-def stop():
-    was_running = stop_if_running()
+def stop_agent():
+    was_running = _stop_if_running()
     if was_running:
         print("Service stopped.")
     else:
@@ -76,7 +76,7 @@ def stop():
 
 
 def restart_agent():
-    stop_if_running()
+    _stop_if_running()
     init_config(force_refresh=True)
     start_agent()
 

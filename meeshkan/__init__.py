@@ -6,7 +6,7 @@ from .api import *  # pylint: disable=wildcard-import
 from . import api
 from . import exceptions
 from . import sagemaker
-from .start import start_agent as start, restart_agent as restart, init, stop as stop
+from .start import start_agent as start, restart_agent as restart, init, stop_agent as stop
 from .utils import save_token
 
 # Only make the following available by default
