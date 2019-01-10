@@ -35,6 +35,7 @@ class CloudClient:
                  refresh_token: str = None,
                  build_session: Callable[[], requests.Session] = requests.Session):
         self._cloud_url = cloud_url
+        LOGGER.debug("Building cloud client!")
         if token_store is not None:
             self._token_store = token_store
         elif refresh_token is not None:

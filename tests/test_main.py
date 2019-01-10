@@ -13,12 +13,13 @@ from meeshkan.core.cloud import CloudClient
 from meeshkan.core.service import Service
 from meeshkan.exceptions import UnauthorizedRequestException
 import meeshkan.__main__ as main
-from .utils import MockResponse, DummyStore
+from .utils import MockResponse, DummyStore, PicklableMock
 
 CLI_RUNNER = CliRunner()
 
 
 CLOUD_CLIENT_TO_PATCH = 'meeshkan.utils.CloudClient'
+BUILD_CLOUD_CLIENT_PATCH_PATH = 'meeshkan.utils._build_cloud_client'
 
 
 def run_cli(args, inputs=None, catch_exceptions=True):
@@ -149,12 +150,10 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
 
     # Patch CloudClient as it connects to cloud at start-up
     # Lots of reverse-engineering happening here...
-    with mock.patch(CLOUD_CLIENT_TO_PATCH, autospec=True) as mock_cloud_client:
-        # Mock notify service start, enough for start-up
-        def raise_error():
-            raise Exception()
-        # mock_cloud_client.return_value.notify_service_start.side_effect = raise_error
-        mock_cloud_client.return_value.notify_service_start.return_value = None
+    with mock.patch(BUILD_CLOUD_CLIENT_PATCH_PATH) as mock_build_cloud_client:
+        mock_cloud_client = PicklableMock()
+        mock_build_cloud_client.return_value = mock_cloud_client
+        mock_cloud_client.notify_service_start.return_value = None
         start_result = run_cli('start')
         assert start_result.exit_code == 0
         assert service.is_running(), "Service should be running after using `meeshkan start`"
@@ -164,7 +163,7 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
     assert start_result.exit_code == 0, "`meeshkan start` is expected to run without errors"
     assert stop_result.exit_code == 0, "`meeshkan stop` is expected to run without errors"
 
-    assert mock_cloud_client.return_value.notify_service_start.call_count == 1, "`notify_service_start` is expected " \
+    assert mock_cloud_client.notify_service_start.call_count == 1, "`notify_service_start` is expected " \
                                                                                 "to be called only once."
 
 

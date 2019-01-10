@@ -1,6 +1,8 @@
 import time
 from http import HTTPStatus
 from typing import Callable
+from unittest import mock
+
 import requests
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan.core.job import Job
@@ -8,6 +10,13 @@ from meeshkan.core.oauth import TokenStore
 from meeshkan.__types__ import Token
 
 FUTURE_TIMEOUT = 10  # In seconds
+
+
+# https://github.com/testing-cabal/mock/issues/139
+class PicklableMock(mock.MagicMock):
+    def __reduce__(self):
+        return (mock.MagicMock, ())
+
 
 class MockResponse(object):
     def __init__(self, json_data=None, status_code=None):

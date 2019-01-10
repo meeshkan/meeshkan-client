@@ -1,16 +1,15 @@
+from distutils.version import StrictVersion
+from unittest import mock
 import multiprocessing as mp
-from typing import Callable
 import logging
 
 import dill
-from distutils.version import StrictVersion
-
 import requests
 import Pyro4
 
 import meeshkan
+from . import utils
 from .utils import get_auth, _build_cloud_client
-from .core.api import Api
 from .core.service import Service
 
 LOGGER = logging.getLogger(__name__)
@@ -20,12 +19,6 @@ Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
 __all__ = ["start_agent"]
-
-
-def __notify_service_start(config: meeshkan.config.Configuration, credentials: meeshkan.config.Credentials):
-    cloud_client = _build_cloud_client(config, credentials)
-    cloud_client.notify_service_start()
-    cloud_client.close()  # Explicitly clean resources
 
 
 def __verify_version():
@@ -61,8 +54,11 @@ def start_agent() -> str:
 
     config, credentials = get_auth()
 
-    __notify_service_start(config, credentials)
-    # build_api_serialized = dill.dumps(__build_api(config, credentials))
-    pyro_uri = service.start(mp.get_context("spawn"), build_api_serialized=None)
+    cloud_client = utils._build_cloud_client(config, credentials)
+    cloud_client.notify_service_start()
+    cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
+    assert dill.loads(cloud_client_serialized.encode('cp437'))
+    pyro_uri = service.start(mp.get_context("spawn"), serialized=cloud_client_serialized)
     print('Service started.')
+    cloud_client.close()
     return pyro_uri

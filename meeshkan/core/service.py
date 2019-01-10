@@ -61,18 +61,19 @@ class Service(object):
     def uri(self):
         return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
 
-    def daemonize(self, build_api_bytes):
+    def daemonize(self, serialized):
         """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
         pid = os.fork()
         if pid > 0:  # Close parent process
             return
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-
+        cloud_client = dill.loads(serialized.encode('cp437'))
+        # config, credentials = dill.loads(config_credentials_serialized)
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-        with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
+        with build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():
@@ -103,7 +104,7 @@ class Service(object):
 
         return
 
-    def start(self, mp_ctx, build_api_serialized) -> str:
+    def start(self, mp_ctx, serialized) -> str:
         """
         Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
         :param mp_ctx: Multiprocessing context, e.g. `multiprocessing.get_context("spawn")`
@@ -114,7 +115,7 @@ class Service(object):
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = mp_ctx.Process(target=self.daemonize, args=[build_api_serialized])
+        proc = mp_ctx.Process(target=self.daemonize, args=[serialized])
         self.terminate_daemon = mp_ctx.Event()
         proc.daemon = True
         proc.start()

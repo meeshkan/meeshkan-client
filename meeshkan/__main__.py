@@ -80,7 +80,8 @@ def start():
     except Exception as ex:  # pylint: disable=broad-except
         print("Starting service failed.")
         LOGGER.exception("Starting service failed.")
-        sys.exit(1)
+        # sys.exit(1)
+        raise
 
 
 @cli.command(name='status')
