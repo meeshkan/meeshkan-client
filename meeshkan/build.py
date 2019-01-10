@@ -2,12 +2,7 @@
 __all__ = ["build_api"]
 
 
-def build_api(service, cloud_client=None):
-    from .utils import get_auth
-
-    config, credentials = get_auth()
-
-    from meeshkan.core.cloud import CloudClient as CloudClient_
+def build_api(service, cloud_client):
     from meeshkan.core.api import Api as Api_
     from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
     from meeshkan.core.tasks import TaskPoller
@@ -18,12 +13,6 @@ def build_api(service, cloud_client=None):
 
     ensure_base_dirs_()
     setup_logging_(silent=True)
-
-    # token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-    # cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token,
-    #                             token_store=token_store)
-    if not cloud_client:
-        cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
 
     cloud_notifier = CloudNotifier(name="Cloud Service", post_payload=cloud_client.post_payload,
                                    upload_file=cloud_client.post_payload_with_file)
@@ -45,4 +34,3 @@ def build_api(service, cloud_client=None):
                sagemaker_job_monitor=sagemaker_job_monitor)
     api.add_stop_callback(cloud_client.close)
     return api
-

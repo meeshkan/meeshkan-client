@@ -1,5 +1,4 @@
 from distutils.version import StrictVersion
-from unittest import mock
 import multiprocessing as mp
 import logging
 
@@ -7,10 +6,10 @@ import dill
 import requests
 import Pyro4
 
-import meeshkan
 from . import utils
-from .utils import get_auth, _build_cloud_client
+from .utils import get_auth
 from .core.service import Service
+from .__version__ import __version__
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def __verify_version():
     if res.ok:
         latest_release_string = max(res.json()['releases'].keys())  # Textual "max" (i.e. comparison by ascii values)
         latest_release = StrictVersion(latest_release_string)
-        current_version = StrictVersion(meeshkan.__version__)
+        current_version = StrictVersion(__version__)
         if latest_release > current_version:  # Compare versions
             print("A newer version of Meeshkan is available!")
             if latest_release.version[0] > current_version.version[0]:  # More messages on major version change...

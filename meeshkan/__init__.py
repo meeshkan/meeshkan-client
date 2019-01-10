@@ -16,3 +16,4 @@ __all__ += ["save_token", "start"]
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 del api
+del utils

@@ -69,7 +69,6 @@ class Service(object):
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         cloud_client = dill.loads(serialized.encode('cp437'))
-        # config, credentials = dill.loads(config_credentials_serialized)
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
