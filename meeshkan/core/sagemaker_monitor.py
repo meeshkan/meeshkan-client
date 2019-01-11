@@ -184,7 +184,9 @@ class SageMakerJobMonitor:
                 None, self.sagemaker_helper.wait_for_job_finish, job.name)
         try:
             job_status = await wait_for_finish_future
-        except Exception:  # pylint:disable=broad-except
+        except Exception as ex:  # pylint:disable=broad-except
+            if isinstance(ex, asyncio.CancelledError):
+                raise ex
             LOGGER.exception("Failed waiting for job to finish")
             job_status = self.sagemaker_helper.get_job_status(job_name=job)
         finally:
