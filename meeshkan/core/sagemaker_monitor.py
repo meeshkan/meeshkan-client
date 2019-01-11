@@ -151,6 +151,7 @@ class SageMakerHelper:
 
 class SageMakerJobMonitor:
     MINIMUM_POLLING_INTERVAL_SECS = 60
+
     def __init__(self,
                  event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None,
@@ -165,7 +166,6 @@ class SageMakerJobMonitor:
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
-        # TODO Check that job exists
         return self._event_loop.create_task(self.monitor(job))
 
     async def monitor(self, job: SageMakerJob):
@@ -192,7 +192,17 @@ class SageMakerJobMonitor:
             self.notify_finish(job)
 
     @staticmethod
-    def get_new_records(df_new: pd.DataFrame, df_old: pd.DataFrame):
+    def get_new_records(df_new: pd.DataFrame, df_old: Optional[pd.DataFrame] = None):
+        """
+        Return a list of new records
+        :param df_new: New dataframe, should have the same rows as `df_old` plus any new records
+        :param df_old: Old dataframe, can be left None to return all records of the new DataFrame
+        :return: List of dictionaries of the form {'column' -> 'value'}
+        """
+        if df_old is None:
+            return df_new.to_dict(orient='records')
+
+        assert len(df_new) >= len(df_old)
         return df_new.loc[len(df_old):len(df_new)].to_dict(orient='records')
 
     async def poll_updates(self, job: BaseJob):
@@ -227,18 +237,16 @@ class SageMakerJobMonitor:
                     metrics_df = await self._event_loop.run_in_executor(
                         None,
                         self.sagemaker_helper.get_training_job_analytics_df, job.name)
-                    if previous_metrics_df is not None:
-                        diff = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
-                        diff = metrics_df
-                    elif not metrics_df.empty:  # First round
-                        diff = metrics_df
-                    else:  # First round, no new metrics
-                        diff = None
+                    if not metrics_df.empty:
+                        new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
+                        previous_metrics_df = metrics_df
+                    else:
+                        new_records = []
 
-                    LOGGER.debug("Got dataframe difference %s", diff)
-
-                    previous_metrics_df = metrics_df
-                    LOGGER.debug("Got metrics %s", metrics_df)
+                    LOGGER.debug("Got new metric records: %s", new_records)
+                    for record in new_records:
+                        # TODO Handle metric_name.lower() == 'epoch'?
+                        job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
                 except Exception as ex:  # pylint:disable=broad-except
                     if isinstance(ex, asyncio.CancelledError):
                         raise ex
