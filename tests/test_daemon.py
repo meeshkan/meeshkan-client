@@ -18,7 +18,7 @@ def mock_cloud_client():
 def service():
     service_ = Service()
     if service_.is_running():
-        with service_.api() as api:
+        with service_.api as api:
             api.stop()
     yield service_
 
