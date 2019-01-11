@@ -193,7 +193,7 @@ def train():
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
             print('TrainingLoss={0:.3f}'.format(cur_loss))
-            print('LearningRate={:02.2f}'.format(lr))
+            # print('LearningRate={:02.2f}'.format(lr))
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                   'loss {:5.2f} | ppl {:8.2f}'.format(
