@@ -139,7 +139,7 @@ class SageMakerHelper:
             raise RuntimeError("Did not expect to wait for more than {hours} hours".format(hours=waited_hours))
         return job_status
 
-    def check_updates(self, job_name: str):
+    def get_training_job_analytics_df(self, job_name: str):
         self.check_or_build_connection()
 
         LOGGER.debug("Checking for updates for job %s", job_name)
@@ -175,9 +175,10 @@ class SageMakerJobMonitor:
             job_status = await wait_for_finish_future
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Failed waiting for job to finish")
-            job.status = self.sagemaker_helper.get_job_status(job_name=job)
+            job_status = self.sagemaker_helper.get_job_status(job_name=job)
         finally:
-            update_polling_task.cancel()
+            if not update_polling_task.done():
+                update_polling_task.cancel()
 
         job.status = job_status
         if self.notify_finish:
@@ -205,7 +206,7 @@ class SageMakerJobMonitor:
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
                 metrics_df = await self._event_loop.run_in_executor(None,
-                                                                    self.sagemaker_helper.check_updates, job.name)
+                                                                    self.sagemaker_helper.get_training_job_analytics_df, job.name)
                 LOGGER.debug("Got metrics %s", metrics_df)
                 if job.status.is_processed:
                     break
