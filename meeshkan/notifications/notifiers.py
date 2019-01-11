@@ -50,6 +50,7 @@ class Notifier(object):
             notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Notifying job start failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
@@ -59,7 +60,7 @@ class Notifier(object):
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
         except Exception as ex:  # pylint: disable=broad-except
-            LOGGER.exception(ex)
+            LOGGER.exception("Notifying job end failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
@@ -69,6 +70,7 @@ class Notifier(object):
             notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Notifying job update failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
