@@ -31,6 +31,7 @@ def training_job_description_for_status(status):
     }
 
 
+@pytest.mark.skip
 class TestSageMakerHelper:
 
     def test_get_job_status(self, mock_boto, mock_sagemaker_session):
@@ -89,6 +90,7 @@ def sagemaker_job_monitor(event_loop, mock_sagemaker_helper):
                                notify_finish=MagicMock())
 
 
+@pytest.mark.skip
 class TestSageMakerJobMonitor:
 
     def test_create_queued_job(self, sagemaker_job_monitor: SageMakerJobMonitor):
