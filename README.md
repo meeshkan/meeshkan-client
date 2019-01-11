@@ -6,7 +6,7 @@ This repository contains Meeshkan client-side code.
 1. [Quick start](#quick-start)
 1. [Command-line interface](#command-line-interface)
 1. [Usage as Python library](#usage-as-python-library)
-1. [Working with Amazon SageMaker](#working-with-sagemaker)
+1. [Working with Amazon SageMaker](#working-with-amazon-sagemaker)
 1. [Known issues](#known-issues)
 1. [Development](#development)
 
