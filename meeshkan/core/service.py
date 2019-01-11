@@ -114,8 +114,8 @@ class Service(object):
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
         self.terminate_daemon = mp_ctx.Event()
+        proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
         proc.daemon = True
         proc.start()
         proc.join()
