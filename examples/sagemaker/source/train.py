@@ -192,6 +192,8 @@ def train():
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval
+            print('TrainingLoss={0:.3f}'.format(cur_loss))
+            # print('LearningRate={:02.2f}'.format(lr))
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                   'loss {:5.2f} | ppl {:8.2f}'.format(
@@ -212,7 +214,7 @@ for epoch in range(1, args.epochs+1):
     val_loss = evaluate(val_data)
     print('-' * 89)
     print('Epoch={:d}'.format(epoch))
-    print('ValidationLoss={:f}'.format(val_loss))
+    print('ValidationLoss={0:.3f}'.format(val_loss))
     print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
           'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
                                      val_loss, math.exp(val_loss)))

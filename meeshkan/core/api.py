@@ -197,6 +197,7 @@ class Api(object):
     @Pyro4.expose
     def stop(self):
         if self.__was_shutdown:
+            LOGGER.warning("Agent API was shutdown twice.")
             return
         self.__was_shutdown = True
         self.scheduler.stop()

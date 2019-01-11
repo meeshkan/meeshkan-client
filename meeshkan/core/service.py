@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 from functools import partial
 import logging
+import multiprocessing
 import os
 from typing import List
 import socket  # To verify daemon
@@ -15,7 +16,7 @@ from .logger import remove_non_file_handlers
 from ..build import build_api
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
+DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 
 
 # Do not expose anything by default (internal module)
@@ -66,6 +67,8 @@ class Service(object):
         pid = os.fork()
         if pid > 0:  # Close parent process
             return
+        if not self.terminate_daemon:
+            self.terminate_daemon = multiprocessing.get_context("spawn").Event()
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         cloud_client = dill.loads(serialized.encode('cp437'))
@@ -99,7 +102,7 @@ class Service(object):
             finally:
                 loop.close()
             LOGGER.debug("Exiting service.")
-            time.sleep(1.0)  # Allows data scraping
+            time.sleep(2.0)  # Allows data scraping
 
         return
 
@@ -115,7 +118,6 @@ class Service(object):
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
         proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
-        self.terminate_daemon = mp_ctx.Event()
         proc.daemon = True
         proc.start()
         proc.join()
@@ -126,7 +128,8 @@ class Service(object):
     def stop(self) -> bool:
         if self.is_running():
             if not self.terminate_daemon:
-                raise RuntimeError("Terminate daemon event does not exist.")
+                raise RuntimeError("Terminate daemon event does not exist. "
+                                   "The stop() method may have called from the wrong process.")
             self.terminate_daemon.set()  # Flag for requestLoop to terminate
             with Pyro4.Proxy(self.uri) as pyro_proxy:
                 # triggers checking loopCondition

@@ -156,10 +156,13 @@ def cancel_job(job_identifier):
 @cli.command()
 def stop():
     """Stops the service daemon."""
-    api = _get_api()  # type: Api
-    api.stop()
-    LOGGER.info("Service stopped.")
-    print("Service stopped.")
+    try:
+        api = _get_api()  # type: Api
+        api.stop()
+        LOGGER.info("Service stopped.")
+        print("Service stopped.")
+    except meeshkan.exceptions.AgentNotAvailableException:
+        pass
 
 
 @cli.command(name='list')

@@ -1,8 +1,11 @@
 """Watch a running SageMaker job."""
-from typing import Any, Callable, List, Optional
-import logging
-
 import asyncio
+from typing import Any, Callable, List, Optional, Tuple
+import logging
+import os
+import threading
+
+import pandas as pd
 
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException, DeferredImportException
@@ -12,6 +15,13 @@ try:
     import boto3
 except ImportError as ex:
     boto3 = DeferredImportException(ex)
+
+try:
+    # Sagemaker Python SDK is optional
+    import sagemaker
+except ImportError as ex:
+    sagemaker = DeferredImportException(ex)
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,15 +38,18 @@ class SageMakerHelper:
         "Stopped": JobStatus.CANCELLED_BY_USER
     }
 
-    def __init__(self, client=None):
+    def __init__(self, client=None, sagemaker_session=None):
         """
         Init SageMaker helper in the disabled state.
-        :param client: SageMaker client built with boto3.client("sagemaker") used for connecting to SageMaker
+        :param client: SageMaker client built with boto3.client("sagemaker") used for low-level connections to SM API
+        :param sagemaker_session: SageMaker Python SDK session
         """
         self.client = client
         self.connection_tried = False
         self.connection_succeeded = False
         self._error_message = None  # type: Optional[str]
+        self.sagemaker_session = sagemaker_session
+        self.lock = threading.Lock()
 
     @property
     def __has_client(self):
@@ -62,6 +75,8 @@ class SageMakerHelper:
         if not self.client:
             self._error_message = "Could not create boto client. Check your credentials"
             raise SageMakerNotAvailableException(self._error_message)
+
+        self.sagemaker_session = self.sagemaker_session or sagemaker.session.Session(sagemaker_client=self.client)
 
         try:
             self.client.list_training_jobs()
@@ -91,8 +106,8 @@ class SageMakerHelper:
         :raises JobNotFoundException: If job was not found.
         :return: Job status
         """
-
-        self.check_or_build_connection()
+        with self.lock:
+            self.check_or_build_connection()
 
         try:
             training_job = self.client.describe_training_job(TrainingJobName=job_name)
@@ -109,7 +124,8 @@ class SageMakerHelper:
         :raises Exception: If job does not finish cleanly (is stopped, for example) or waiting took too long
         :return JobStatus: Job status after waiting
         """
-        self.check_or_build_connection()
+        with self.lock:
+            self.check_or_build_connection()
         LOGGER.info("Started waiting for job %s to finish.", job_name)
         waiter = self.client.get_waiter('training_job_completed_or_stopped')
         attempt_delay_secs = 60
@@ -130,23 +146,35 @@ class SageMakerHelper:
             raise RuntimeError("Did not expect to wait for more than {hours} hours".format(hours=waited_hours))
         return job_status
 
+    def get_training_job_analytics_df(self, job_name: str):
+        with self.lock:
+            self.check_or_build_connection()
+
+        LOGGER.debug("Checking for updates for job %s", job_name)
+        analytics = sagemaker.analytics.TrainingJobAnalytics(training_job_name=job_name,
+                                                             sagemaker_session=self.sagemaker_session)
+        return analytics.dataframe(force_refresh=True)
+
 
 class SageMakerJobMonitor:
+    MINIMUM_POLLING_INTERVAL_SECS = 60
+
     def __init__(self,
                  event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None,
                  notify_start: Optional[Callable[[BaseJob], Any]] = None,
+                 notify_update: Optional[Callable[[BaseJob, str, int, Optional[str]], Any]] = None,
                  notify_finish: Optional[Callable[[BaseJob], Any]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
         self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
-        self.notify_start = notify_start  # type: Optional[Callable[[SageMakerJob], None]]
-        self.notify_finish = notify_finish  # type: Optional[Callable[[SageMakerJob], None]]
+        self.notify_start = notify_start
+        self.notify_finish = notify_finish
+        self.notify_update = notify_update
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
-        # TODO Check that job exists
         return self._event_loop.create_task(self.monitor(job))
 
     async def monitor(self, job: SageMakerJob):
@@ -156,15 +184,41 @@ class SageMakerJobMonitor:
                 None, self.sagemaker_helper.wait_for_job_finish, job.name)
         try:
             job_status = await wait_for_finish_future
-        except Exception:  # pylint:disable=broad-except
+        except Exception as ex:  # pylint:disable=broad-except
+            if isinstance(ex, asyncio.CancelledError):
+                raise ex
             LOGGER.exception("Failed waiting for job to finish")
-            job.status = self.sagemaker_helper.get_job_status(job_name=job)
+            job_status = self.sagemaker_helper.get_job_status(job_name=job)
         finally:
-            update_polling_task.cancel()
+            if not update_polling_task.done():
+                LOGGER.info("Canceling polling for job %s", job.name)
+                try:
+                    update_polling_task.cancel()
+                except Exception:  # pylint:disable=broad-except
+                    LOGGER.exception("Canceling the task failed")
 
         job.status = job_status
         if self.notify_finish:
+            LOGGER.info("Notifying finish for job %s with status %s", job.name, job.status)
             self.notify_finish(job)
+
+    @staticmethod
+    def get_new_records(df_new: pd.DataFrame, df_old: Optional[pd.DataFrame] = None):
+        """
+        Return a list of new records
+        # TODO Verify this actually always works with sagemaker.analytics
+        :param df_new: New dataframe, should have the same rows as `df_old` plus any new records
+        :param df_old: Old dataframe, can be left None to return all records of the new DataFrame
+        :return: List of dictionaries of the form {'column' -> 'value'}
+        """
+        if df_old is None or df_old.empty:
+            return df_new.to_dict(orient='records')
+
+        if df_new.empty:
+            return []
+
+        assert len(df_new) >= len(df_old)
+        return df_new.loc[len(df_old):len(df_new)].to_dict(orient='records')
 
     async def poll_updates(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
@@ -174,8 +228,14 @@ class SageMakerJobMonitor:
             LOGGER.info("SageMaker job %s already finished, returning", job.name)
             return
 
-        LOGGER.debug("Starting SageMaker job tracking for job %s with polling interval %f", job.name, job.poll_time)
-        sleep_time = job.poll_time
+        sleep_time = max(job.poll_time, SageMakerJobMonitor.MINIMUM_POLLING_INTERVAL_SECS)
+        LOGGER.debug("Starting SageMaker job tracking for job %s with polling interval of %f seconds.",
+                     job.name, sleep_time)
+        previous_metrics_df = None
+
+        if job.status.is_launched and self.notify_start:
+            self.notify_start(job)
+
         try:
             while True:
                 LOGGER.debug("Checking updates for job %s", job.name)
@@ -187,6 +247,31 @@ class SageMakerJobMonitor:
 
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
+
+                try:
+                    metrics_df = await self._event_loop.run_in_executor(
+                        None,
+                        self.sagemaker_helper.get_training_job_analytics_df, job.name)
+                    if not metrics_df.empty:
+                        new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
+                        previous_metrics_df = metrics_df
+                    else:
+                        new_records = []
+
+                    LOGGER.debug("Got new metric records: %s", new_records)
+
+                    for record in new_records:
+                        # TODO Handle metric_name.lower() == 'epoch'?
+                        job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
+
+                    if len(new_records) > 0:
+                        # Something new to report
+                        self.__query_and_report(job=job)
+                except Exception as ex:  # pylint:disable=broad-except
+                    if isinstance(ex, asyncio.CancelledError):
+                        raise ex
+                    LOGGER.exception("Checking for SageMaker job metrics failed, ignoring.")
+
                 if job.status.is_processed:
                     break
 
@@ -195,6 +280,24 @@ class SageMakerJobMonitor:
             LOGGER.info("Stopped monitoring SageMakerJob %s, got status %s", job.name, job.status)
         except asyncio.CancelledError:
             LOGGER.debug("SageMakerJob tracking cancelled for job %s", job.name)
+        except Exception:  # pylint:disable=broad-except
+            LOGGER.exception("Polling for updates failed")
+            # Ignore
+
+    # TODO Remove duplicate code with Scheduler
+    def query_scalars(self, *names: Tuple[str, ...], job, latest_only: bool = True, plot: bool = False):
+        if not job:
+            raise JobNotFoundException(job_id=str(job.id))
+        return job.get_updates(*names, plot=plot, latest=latest_only)
+
+    def __query_and_report(self, job):
+        if self.notify_update:
+            # Get updates; TODO - vals should be reported once we update schema...
+            vals, imgpath = self.query_scalars(job=job, latest_only=True, plot=True)
+            if vals:  # Only send updates if there exists any updates
+                self.notify_update(job, imgpath, n_iterations=-1)
+            if imgpath is not None:
+                os.remove(imgpath)
 
     def create_job(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper

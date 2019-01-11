@@ -12,6 +12,7 @@ import meeshkan
 from .core.cloud import CloudClient
 from .core.service import Service
 from .core.api import Api
+from .exceptions import AgentNotAvailableException
 
 __all__ = ["save_token"]
 
@@ -32,7 +33,7 @@ def _get_api() -> Api:
     service = Service()
     if not service.is_running():
         print("Start the service first.")
-        sys.exit(1)
+        raise AgentNotAvailableException()
     api = service.api  # type: Api
     return api
 
