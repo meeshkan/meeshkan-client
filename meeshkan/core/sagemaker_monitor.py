@@ -192,9 +192,8 @@ class SageMakerJobMonitor:
             self.notify_finish(job)
 
     @staticmethod
-    def dataframe_diff(df_new: pd.DataFrame, df_old: pd.DataFrame):
-        df_diff = (df_new != df_old).stack()
-        return df_new[df_diff]
+    def get_new_records(df_new: pd.DataFrame, df_old: pd.DataFrame):
+        return df_new.loc[len(df_old):len(df_new)].to_dict(orient='records')
 
     async def poll_updates(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
@@ -229,7 +228,7 @@ class SageMakerJobMonitor:
                         None,
                         self.sagemaker_helper.get_training_job_analytics_df, job.name)
                     if previous_metrics_df is not None:
-                        # diff = SageMakerJobMonitor.dataframe_diff(df_new=metrics_df, df_old=previous_metrics_df)
+                        diff = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
                         diff = metrics_df
                     elif not metrics_df.empty:  # First round
                         diff = metrics_df
