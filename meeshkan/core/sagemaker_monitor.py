@@ -36,13 +36,14 @@ class SageMakerHelper:
     def __init__(self, client=None, sagemaker_session=None):
         """
         Init SageMaker helper in the disabled state.
-        :param client: SageMaker client built with boto3.client("sagemaker") used for connecting to SageMaker
+        :param client: SageMaker client built with boto3.client("sagemaker") used for low-level connections to SM API
+        :param sagemaker_session: SageMaker Python SDK session
         """
         self.client = client
         self.connection_tried = False
         self.connection_succeeded = False
         self._error_message = None  # type: Optional[str]
-        self.sagemaker_session = None
+        self.sagemaker_session = sagemaker_session
 
     @property
     def __has_client(self):
@@ -69,7 +70,7 @@ class SageMakerHelper:
             self._error_message = "Could not create boto client. Check your credentials"
             raise SageMakerNotAvailableException(self._error_message)
 
-        self.sagemaker_session = sagemaker.session.Session(sagemaker_client=self.client)
+        self.sagemaker_session = self.sagemaker_session or sagemaker.session.Session(sagemaker_client=self.client)
 
         try:
             self.client.list_training_jobs()
