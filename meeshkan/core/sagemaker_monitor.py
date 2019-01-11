@@ -3,6 +3,7 @@ import asyncio
 from typing import Any, Callable, List, Optional, Tuple
 import logging
 import os
+import threading
 
 import pandas as pd
 
@@ -48,6 +49,7 @@ class SageMakerHelper:
         self.connection_succeeded = False
         self._error_message = None  # type: Optional[str]
         self.sagemaker_session = sagemaker_session
+        self.lock = threading.Lock()
 
     @property
     def __has_client(self):
@@ -104,8 +106,8 @@ class SageMakerHelper:
         :raises JobNotFoundException: If job was not found.
         :return: Job status
         """
-
-        self.check_or_build_connection()
+        with self.lock:
+            self.check_or_build_connection()
 
         try:
             training_job = self.client.describe_training_job(TrainingJobName=job_name)
@@ -122,7 +124,8 @@ class SageMakerHelper:
         :raises Exception: If job does not finish cleanly (is stopped, for example) or waiting took too long
         :return JobStatus: Job status after waiting
         """
-        self.check_or_build_connection()
+        with self.lock:
+            self.check_or_build_connection()
         LOGGER.info("Started waiting for job %s to finish.", job_name)
         waiter = self.client.get_waiter('training_job_completed_or_stopped')
         attempt_delay_secs = 60
@@ -144,7 +147,8 @@ class SageMakerHelper:
         return job_status
 
     def get_training_job_analytics_df(self, job_name: str):
-        self.check_or_build_connection()
+        with self.lock:
+            self.check_or_build_connection()
 
         LOGGER.debug("Checking for updates for job %s", job_name)
         analytics = sagemaker.analytics.TrainingJobAnalytics(training_job_name=job_name,
