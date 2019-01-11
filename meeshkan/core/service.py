@@ -15,7 +15,7 @@ from .logger import remove_non_file_handlers
 from ..build import build_api
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
+DAEMON_BOOT_WAIT_TIME = 1.0  # In seconds
 
 
 # Do not expose anything by default (internal module)
@@ -99,7 +99,7 @@ class Service(object):
             finally:
                 loop.close()
             LOGGER.debug("Exiting service.")
-            time.sleep(1.0)  # Allows data scraping
+            time.sleep(2.0)  # Allows data scraping
 
         return
 
