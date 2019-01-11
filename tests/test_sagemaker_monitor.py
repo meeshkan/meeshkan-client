@@ -16,6 +16,11 @@ def mock_boto():
     return MagicMock()
 
 
+@pytest.fixture
+def mock_sagemaker_session():
+    return MagicMock()
+
+
 def raise_client_error():
     raise RuntimeError("Boto client is broken here!")
 
@@ -28,31 +33,31 @@ def training_job_description_for_status(status):
 
 class TestSageMakerHelper:
 
-    def test_get_job_status(self, mock_boto):
+    def test_get_job_status(self, mock_boto, mock_sagemaker_session):
         mock_boto.describe_training_job.return_value = training_job_description_for_status("InProgress")
-        sagemaker_helper = SageMakerHelper(client=mock_boto)
+        sagemaker_helper = SageMakerHelper(client=mock_boto, sagemaker_session=mock_sagemaker_session)
         job_name = "spameggs"
         job_status = sagemaker_helper.get_job_status(job_name=job_name)
         mock_boto.describe_training_job.assert_called_with(TrainingJobName=job_name)
         assert job_status == JobStatus.RUNNING
 
-    def test_get_job_status_only_checks_connection_once(self, mock_boto):
+    def test_get_job_status_only_checks_connection_once(self, mock_boto, mock_sagemaker_session):
         mock_boto.describe_training_job.return_value = training_job_description_for_status("InProgress")
-        sagemaker_helper = SageMakerHelper(client=mock_boto)
+        sagemaker_helper = SageMakerHelper(client=mock_boto, sagemaker_session=mock_sagemaker_session)
         job_name = "spameggs"
         sagemaker_helper.get_job_status(job_name=job_name)
         sagemaker_helper.get_job_status(job_name=job_name)
         mock_boto.list_training_jobs.assert_called_once()
 
-    def test_get_job_status_with_broken_boto_raises_exception(self, mock_boto):
+    def test_get_job_status_with_broken_boto_raises_exception(self, mock_boto, mock_sagemaker_session):
         mock_boto.list_training_jobs.side_effect = raise_client_error
-        sagemaker_helper = SageMakerHelper(client=mock_boto)
+        sagemaker_helper = SageMakerHelper(client=mock_boto, sagemaker_session=mock_sagemaker_session)
         job_name = "spameggs"
         with pytest.raises(exceptions.SageMakerNotAvailableException):
             sagemaker_helper.get_job_status(job_name=job_name)
 
-    def test_wait_for_job_finish_calls_waiter_and_returns_status(self, mock_boto):
-        sagemaker_helper = SageMakerHelper(client=mock_boto)
+    def test_wait_for_job_finish_calls_waiter_and_returns_status(self, mock_boto, mock_sagemaker_session):
+        sagemaker_helper = SageMakerHelper(client=mock_boto, sagemaker_session=mock_sagemaker_session)
         job_name = "spameggs"
 
         mock_boto.describe_training_job.return_value = training_job_description_for_status("Completed")
