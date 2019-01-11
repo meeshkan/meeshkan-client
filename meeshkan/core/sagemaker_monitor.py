@@ -195,6 +195,7 @@ class SageMakerJobMonitor:
     def get_new_records(df_new: pd.DataFrame, df_old: Optional[pd.DataFrame] = None):
         """
         Return a list of new records
+        # TODO Verify this actually always works with sagemaker.analytics
         :param df_new: New dataframe, should have the same rows as `df_old` plus any new records
         :param df_old: Old dataframe, can be left None to return all records of the new DataFrame
         :return: List of dictionaries of the form {'column' -> 'value'}
