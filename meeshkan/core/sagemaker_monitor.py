@@ -219,7 +219,7 @@ class SageMakerJobMonitor:
                      job.name, sleep_time)
         previous_metrics_df = None
 
-        if not job.status.is_launched and self.notify_start:
+        if job.status.is_launched and self.notify_start:
             self.notify_start(job)
 
         try:
