@@ -15,6 +15,12 @@ try:
 except ImportError as ex:
     boto3 = DeferredImportException(ex)
 
+try:
+    # Sagemaker Python SDK is optional
+    import sagemaker
+except ImportError as ex:
+    sagemaker = DeferredImportException(ex)
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,8 +73,6 @@ class SageMakerHelper:
         if not self.client:
             self._error_message = "Could not create boto client. Check your credentials"
             raise SageMakerNotAvailableException(self._error_message)
-
-        import sagemaker
 
         self.sagemaker_session = self.sagemaker_session or sagemaker.session.Session(sagemaker_client=self.client)
 
