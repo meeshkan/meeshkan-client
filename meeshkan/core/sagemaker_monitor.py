@@ -1,7 +1,8 @@
 """Watch a running SageMaker job."""
 import asyncio
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Tuple
 import logging
+import os
 
 import pandas as pd
 
@@ -156,13 +157,15 @@ class SageMakerJobMonitor:
                  event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None,
                  notify_start: Optional[Callable[[BaseJob], Any]] = None,
+                 notify_update: Optional[Callable[[BaseJob, str, int, Optional[str]], Any]] = None,
                  notify_finish: Optional[Callable[[BaseJob], Any]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
         self.sagemaker_helper = sagemaker_helper or SageMakerHelper()  # type: SageMakerHelper
-        self.notify_start = notify_start  # type: Optional[Callable[[SageMakerJob], None]]
-        self.notify_finish = notify_finish  # type: Optional[Callable[[SageMakerJob], None]]
+        self.notify_start = notify_start
+        self.notify_finish = notify_finish
+        self.notify_update = notify_update
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
@@ -248,6 +251,9 @@ class SageMakerJobMonitor:
                     for record in new_records:
                         # TODO Handle metric_name.lower() == 'epoch'?
                         job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
+                    # TODO Separate polling and report intervals?
+                    if not metrics_df.empty:  # Something to report
+                        self.__query_and_report(job=job)
                 except Exception as ex:  # pylint:disable=broad-except
                     if isinstance(ex, asyncio.CancelledError):
                         raise ex
@@ -264,6 +270,21 @@ class SageMakerJobMonitor:
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Polling for updates failed")
             # Ignore
+
+    # TODO Remove duplicate code with Scheduler
+    def query_scalars(self, *names: Tuple[str, ...], job, latest_only: bool = True, plot: bool = False):
+        if not job:
+            raise JobNotFoundException(job_id=str(job.id))
+        return job.get_updates(*names, plot=plot, latest=latest_only)
+
+    def __query_and_report(self, job):
+        if self.notify_update:
+            # Get updates; TODO - vals should be reported once we update schema...
+            vals, imgpath = self.query_scalars(job=job, latest_only=True, plot=True)
+            if vals:  # Only send updates if there exists any updates
+                self.notify_update(job, imgpath, n_iterations=-1)
+            if imgpath is not None:
+                os.remove(imgpath)
 
     def create_job(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper

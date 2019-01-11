@@ -28,6 +28,7 @@ def build_api(service, cloud_client):
     scheduler = Scheduler(queue_processor=queue_processor, notifier=notifier_collection)
 
     sagemaker_job_monitor = SageMakerJobMonitor(notify_start=notifier_collection.notify_job_start,
+                                                notify_update=notifier_collection.notify,
                                                 notify_finish=notifier_collection.notify_job_end)
 
     api = Api(scheduler=scheduler,
