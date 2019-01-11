@@ -43,3 +43,8 @@ class DeferredImportException:
 
     def __getattr__(self, name):
         raise self.exception
+
+
+class AgentNotAvailableException(Exception):
+    def __index__(self):
+        super().__init__("Start the agent first.")
