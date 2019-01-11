@@ -115,7 +115,7 @@ class Service(object):
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
         proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
-        self.terminate_daemon = mp_ctx.Event()
+        self.terminate_daemon = mp_ctx.Event()  # TODO Is this 100% surely shared with the child process?
         proc.daemon = True
         proc.start()
         proc.join()

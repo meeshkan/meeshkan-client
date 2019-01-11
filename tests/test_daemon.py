@@ -23,13 +23,11 @@ def service():
     yield service_
 
 
-# @pytest.mark.skip
 def test_start_stop(service, mock_cloud_client):
     service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
     assert service.stop(), "Service should be able to stop cleanly after the service is already running!"
 
 
-# @pytest.mark.skip
 def test_double_start(service, mock_cloud_client):
     service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
     with pytest.raises(RuntimeError):
