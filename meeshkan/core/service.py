@@ -16,7 +16,7 @@ from .logger import remove_non_file_handlers
 from ..build import build_api
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 1.0  # In seconds
+DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 
 
 # Do not expose anything by default (internal module)
