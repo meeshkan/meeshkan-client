@@ -1,8 +1,9 @@
 """Watch a running SageMaker job."""
+import asyncio
 from typing import Any, Callable, List, Optional
 import logging
 
-import asyncio
+import pandas as pd
 
 from .job import JobStatus, SageMakerJob, BaseJob
 from ..exceptions import SageMakerNotAvailableException, JobNotFoundException, DeferredImportException
@@ -149,6 +150,7 @@ class SageMakerHelper:
 
 
 class SageMakerJobMonitor:
+    MINIMUM_POLLING_INTERVAL_SECS = 60
     def __init__(self,
                  event_loop=None,
                  sagemaker_helper: Optional[SageMakerHelper] = None,
@@ -178,11 +180,21 @@ class SageMakerJobMonitor:
             job_status = self.sagemaker_helper.get_job_status(job_name=job)
         finally:
             if not update_polling_task.done():
-                update_polling_task.cancel()
+                LOGGER.info("Canceling polling for job %s", job.name)
+                try:
+                    update_polling_task.cancel()
+                except Exception:  # pylint:disable=broad-except
+                    LOGGER.exception("Canceling the task failed")
 
         job.status = job_status
         if self.notify_finish:
+            LOGGER.info("Notifying finish for job %s with status %s", job.name, job.status)
             self.notify_finish(job)
+
+    @staticmethod
+    def dataframe_diff(df_new: pd.DataFrame, df_old: pd.DataFrame):
+        df_diff = (df_new != df_old).stack()
+        return df_new[df_diff]
 
     async def poll_updates(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
@@ -192,8 +204,14 @@ class SageMakerJobMonitor:
             LOGGER.info("SageMaker job %s already finished, returning", job.name)
             return
 
-        LOGGER.debug("Starting SageMaker job tracking for job %s with polling interval %f", job.name, job.poll_time)
-        sleep_time = job.poll_time
+        sleep_time = max(job.poll_time, SageMakerJobMonitor.MINIMUM_POLLING_INTERVAL_SECS)
+        LOGGER.debug("Starting SageMaker job tracking for job %s with polling interval of %f seconds.",
+                     job.name, sleep_time)
+        previous_metrics_df = None
+
+        if not job.status.is_launched and self.notify_start:
+            self.notify_start(job)
+
         try:
             while True:
                 LOGGER.debug("Checking updates for job %s", job.name)
@@ -205,9 +223,28 @@ class SageMakerJobMonitor:
 
                 # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
                 # TODO Notify updates with `self._notify(sagemaker_job)`
-                metrics_df = await self._event_loop.run_in_executor(None,
-                                                                    self.sagemaker_helper.get_training_job_analytics_df, job.name)
-                LOGGER.debug("Got metrics %s", metrics_df)
+
+                try:
+                    metrics_df = await self._event_loop.run_in_executor(
+                        None,
+                        self.sagemaker_helper.get_training_job_analytics_df, job.name)
+                    if previous_metrics_df is not None:
+                        # diff = SageMakerJobMonitor.dataframe_diff(df_new=metrics_df, df_old=previous_metrics_df)
+                        diff = metrics_df
+                    elif not metrics_df.empty:  # First round
+                        diff = metrics_df
+                    else:  # First round, no new metrics
+                        diff = None
+
+                    LOGGER.debug("Got dataframe difference %s", diff)
+
+                    previous_metrics_df = metrics_df
+                    LOGGER.debug("Got metrics %s", metrics_df)
+                except Exception as ex:  # pylint:disable=broad-except
+                    if isinstance(ex, asyncio.CancelledError):
+                        raise ex
+                    LOGGER.exception("Checking for SageMaker job metrics failed, ignoring.")
+
                 if job.status.is_processed:
                     break
 
@@ -216,6 +253,9 @@ class SageMakerJobMonitor:
             LOGGER.info("Stopped monitoring SageMakerJob %s, got status %s", job.name, job.status)
         except asyncio.CancelledError:
             LOGGER.debug("SageMakerJob tracking cancelled for job %s", job.name)
+        except Exception:  # pylint:disable=broad-except
+            LOGGER.exception("Polling for updates failed")
+            # Ignore
 
     def create_job(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
         sagemaker_helper = self.sagemaker_helper
