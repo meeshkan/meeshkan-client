@@ -203,8 +203,11 @@ class SageMakerJobMonitor:
         :param df_old: Old dataframe, can be left None to return all records of the new DataFrame
         :return: List of dictionaries of the form {'column' -> 'value'}
         """
-        if df_old is None:
+        if df_old is None or df_old.empty:
             return df_new.to_dict(orient='records')
+
+        if df_new.empty:
+            return []
 
         assert len(df_new) >= len(df_old)
         return df_new.loc[len(df_old):len(df_new)].to_dict(orient='records')
@@ -248,11 +251,13 @@ class SageMakerJobMonitor:
                         new_records = []
 
                     LOGGER.debug("Got new metric records: %s", new_records)
+
                     for record in new_records:
                         # TODO Handle metric_name.lower() == 'epoch'?
                         job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
-                    # TODO Separate polling and report intervals?
-                    if not metrics_df.empty:  # Something to report
+
+                    if len(new_records) > 0:
+                        # Something new to report
                         self.__query_and_report(job=job)
                 except Exception as ex:  # pylint:disable=broad-except
                     if isinstance(ex, asyncio.CancelledError):
