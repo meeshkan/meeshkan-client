@@ -4,6 +4,7 @@ from unittest.mock import create_autospec, MagicMock
 
 import pandas as pd
 import pytest
+import sagemaker
 
 from meeshkan.core.job import JobStatus
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
@@ -68,6 +69,22 @@ class TestSageMakerHelper:
         _, wait_call_kw_args = mock_waiter.wait.call_args
         assert wait_call_kw_args['TrainingJobName'] == job_name
         assert status == JobStatus.FINISHED
+
+    def test_get_analytics_stores_analytics_object(self, mock_boto, mock_sagemaker_session):
+        sagemaker_helper = SageMakerHelper(client=mock_boto, sagemaker_session=mock_sagemaker_session)
+        job_name = "spameggs"
+
+        sagemaker_helper.get_training_job_analytics_df(job_name)
+        assert job_name in sagemaker_helper.analytics_by_job_name
+
+    def test_get_analytics_reuses_analytics_object(self, mock_boto, mock_sagemaker_session):
+        sagemaker_helper = SageMakerHelper(client=mock_boto, sagemaker_session=mock_sagemaker_session)
+        job_name = "spameggs"
+
+        mock_training_analytics = create_autospec(sagemaker.analytics.TrainingJobAnalytics).return_value
+        sagemaker_helper.analytics_by_job_name[job_name] = mock_training_analytics
+        sagemaker_helper.get_training_job_analytics_df(job_name)
+        mock_training_analytics.dataframe.assert_called_once()
 
 
 def get_mock_coro(return_value):
