@@ -3,7 +3,6 @@
 #     examples for such errors: "error: Name 'meeshkan.config.Configuration' is not defined",
 #                               "error: Module has no attribute "config"
 
-import sys
 import logging
 
 from typing import Tuple

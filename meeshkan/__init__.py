@@ -6,8 +6,9 @@ from .api import *  # pylint: disable=wildcard-import
 from . import api
 from . import exceptions
 from . import sagemaker
+from . import notifications  # Exposed for tests for now
 from .start import start_agent as start, restart_agent as restart, init, stop_agent as stop
-from .utils import save_token
+from .__utils__ import save_token
 
 # Only make the following available by default
 __all__ = ["__version__", "exceptions", "config"]
@@ -16,7 +17,6 @@ __all__ += ["save_token", "start", "restart_agent", "init"]
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 del api
-# del utils  # This is still required by mocking tests
 
 __doc__ = """
 Meeshkan - Monitoring and remote-control tool for machine learning jobs

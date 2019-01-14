@@ -7,9 +7,8 @@ import dill
 import requests
 import Pyro4
 
-from . import utils
-from .utils import get_auth, _get_api
-from .core.config import init_config
+from . import __utils__
+from .core.config import init_config, ensure_base_dirs
 from .core.service import Service
 from .__version__ import __version__
 
@@ -43,8 +42,9 @@ def __verify_version():
 
 
 def init(token: Optional[str] = None):
+    ensure_base_dirs()
     try:
-        _, credentials = get_auth()
+        _, credentials = __utils__.get_auth()
     except FileNotFoundError:
         # Credentials not found
         credentials = None
@@ -52,7 +52,7 @@ def init(token: Optional[str] = None):
     # Only save supplied token if it's not the same as that included already
     if token and (not credentials or credentials.refresh_token != token):
         print("Stored credentials.")
-        utils.save_token(token)
+        __utils__.save_token(token)
         init_config(force_refresh=True)
 
     restart_agent()
@@ -61,7 +61,7 @@ def init(token: Optional[str] = None):
 def _stop_if_running() -> bool:
     if Service().is_running():
         print("Stopping service...")
-        api = _get_api()
+        api = __utils__._get_api()
         api.stop()
         return True
     return False
@@ -92,9 +92,9 @@ def start_agent() -> str:
         print("Service is already running.")
         return service.uri
 
-    config, credentials = get_auth()
+    config, credentials = __utils__.get_auth()
 
-    cloud_client = utils._build_cloud_client(config, credentials)
+    cloud_client = __utils__._build_cloud_client(config, credentials)
     cloud_client.notify_service_start()
     cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
     pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)
