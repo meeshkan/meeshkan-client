@@ -13,7 +13,7 @@ import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
-from ..build import build_api
+from ..__build__ import _build_api
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
@@ -75,7 +75,7 @@ class Service(object):
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-        with build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
+        with _build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():

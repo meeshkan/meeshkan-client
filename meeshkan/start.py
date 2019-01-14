@@ -9,7 +9,7 @@ import Pyro4
 
 from . import __utils__
 from .__utils__ import get_auth, _get_api
-from .core.config import init_config
+from .core.config import init_config, ensure_base_dirs
 from .core.service import Service
 from .__version__ import __version__
 
@@ -43,6 +43,7 @@ def __verify_version():
 
 
 def init(token: Optional[str] = None):
+    ensure_base_dirs()
     try:
         _, credentials = get_auth()
     except FileNotFoundError:

@@ -1,10 +1,11 @@
 """
-Builder for the agent API, defining (almost) the whole dependency chain.
+Build the whole dependency chain leading to Api instance exposed by Pyro.
 """
-__all__ = ["build_api"]
+
+__all__ = []
 
 
-def build_api(service, cloud_client):
+def _build_api(service, cloud_client):
     from meeshkan.core.api import Api
     from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
     from meeshkan.core.tasks import TaskPoller
