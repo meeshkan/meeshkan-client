@@ -1,6 +1,6 @@
 """Watch a running SageMaker job."""
 import asyncio
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
 import os
 import threading
@@ -50,6 +50,7 @@ class SageMakerHelper:
         self._error_message = None  # type: Optional[str]
         self.sagemaker_session = sagemaker_session
         self.lock = threading.Lock()
+        self.analytics_by_job_name = {}  # type: Dict[str, sagemaker.analytics.TrainingJobAnalytics]
 
     @property
     def __has_client(self):
@@ -151,8 +152,10 @@ class SageMakerHelper:
             self.check_or_build_connection()
 
         LOGGER.debug("Checking for updates for job %s", job_name)
-        analytics = sagemaker.analytics.TrainingJobAnalytics(training_job_name=job_name,
-                                                             sagemaker_session=self.sagemaker_session)
+        analytics = self.analytics_by_job_name.setdefault(job_name,
+                                                          sagemaker.analytics.TrainingJobAnalytics(
+                                                              training_job_name=job_name,
+                                                              sagemaker_session=self.sagemaker_session))
         return analytics.dataframe(force_refresh=True)
 
 
@@ -253,6 +256,9 @@ class SageMakerJobMonitor:
                         None,
                         self.sagemaker_helper.get_training_job_analytics_df, job.name)
                     if not metrics_df.empty:
+                        # TODO Fix the bug where new metrics are prepended in the dataframe
+                        # and incorrectly handled by the `get_new_records`. Look `TrackerBase` for example.
+                        # LOGGER.debug("Got metrics df: %s", metrics_df)
                         new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
                         previous_metrics_df = metrics_df
                     else:
