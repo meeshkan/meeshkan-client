@@ -238,7 +238,7 @@ class TensorFlowTracker(TrackerBase):
         global TF_EXISTS  # pylint: disable=global-statement
         if not TF_EXISTS:
             raise ModuleNotFoundError("Cannot instantiate a TensorFlowTracker without TensorFlow!")
-        super(TensorFlowTracker, self).__init__()
+        super().__init__()
         self.path = path
         self.ea_tracker = tfproto.EventAccumulator(path)
         self.update()
