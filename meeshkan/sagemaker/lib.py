@@ -10,7 +10,8 @@ Pyro4.config.SERIALIZER = 'dill'
 
 def monitor(job_name: str, poll_interval: Optional[float] = None):
     """
-    Start monitoring a SageMaker training job
+    Start monitoring a SageMaker training job.
+
     :param job_name: SageMaker training job name
     :param poll_interval: Polling interval in seconds, optional. Defaults to one hour.
     :return: SageMakerJob instance

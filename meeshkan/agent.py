@@ -18,7 +18,7 @@ Pyro4.config.SERIALIZER = 'dill'
 Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
 
-__all__ = ["start_agent", "init", "stop_agent", "restart_agent"]
+__all__ = ["start", "init", "stop", "restart"]
 
 
 def __verify_version():
@@ -42,6 +42,10 @@ def __verify_version():
 
 
 def init(token: Optional[str] = None):
+    """Initialize the Meeshkan agent, optionally with the provided credentials.
+
+    :param token: Meeshkan service token. Only required if credentials have not been setup before.
+    """
     ensure_base_dirs()
     try:
         _, credentials = __utils__.get_auth()
@@ -55,7 +59,7 @@ def init(token: Optional[str] = None):
         __utils__.save_token(token)
         init_config(force_refresh=True)
 
-    restart_agent()
+    restart()
 
 
 def _stop_if_running() -> bool:
@@ -67,7 +71,9 @@ def _stop_if_running() -> bool:
     return False
 
 
-def stop_agent():
+def stop():
+    """Stop the agent.
+    """
     was_running = _stop_if_running()
     if was_running:
         print("Service stopped.")
@@ -75,16 +81,18 @@ def stop_agent():
         print("Service already stopped.")
 
 
-def restart_agent():
+def restart():
+    """Restart the agent.
+    """
     _stop_if_running()
     init_config(force_refresh=True)
-    start_agent()
+    start()
 
 
-def start_agent() -> str:
-    """
-    Starts the agent.
-    :raises UnauthorizedException: If credentials have not been setup.
+def start() -> str:
+    """Start the agent.
+
+    :return str: Pyro server URI.
     """
     __verify_version()
     service = Service()

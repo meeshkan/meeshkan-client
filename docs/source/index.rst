@@ -1,20 +1,25 @@
-.. Meeshkan documentation master file, created by
-   sphinx-quickstart on Thu Nov 22 14:20:05 2018.
+.. meeshkan documentation master file, created by
+   sphinx-quickstart on Mon Jan 14 12:44:49 2019.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Meeshkan's documentation!
-====================================
+Meeshkan - Monitoring and remote-control tool for machine learning jobs
+=======================================================================
+**meeshkan** is a Python package providing control to your machine learning jobs.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+Main Features
+-------------
+Here are just a few of the things meeshkan can do:
+  - Notify you of your job's progress at fixed intervals.
+  - Notify you when certain events happen
+  - Allow you to control training jobs remotely
+  - Allow monitoring Amazon SageMaker jobs
 
 
+.. automodule:: meeshkan
+   :members:
+   :undoc-members:
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. automodule:: meeshkan.sagemaker
+   :members:
+   :undoc-members:

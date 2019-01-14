@@ -27,7 +27,7 @@ from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
 from .__utils__ import save_token, get_auth, _get_api, _build_cloud_client
-from .start import start_agent
+from .agent import start as start_agent
 
 LOGGER = None
 
