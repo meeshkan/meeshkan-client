@@ -39,6 +39,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
 def cli(debug, silent):
+    """Command-line interface for working with the Meeshkan agent."""
     if not debug:
         sys.tracebacklimit = 0
 

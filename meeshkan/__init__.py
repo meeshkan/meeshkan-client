@@ -19,17 +19,3 @@ __all__ += agent.__all__
 del core  # Clean-up (make `meeshkan.core` unavailable)
 del api
 del agent
-
-__doc__ = """
-Meeshkan - Monitoring and remote-control tool for machine learning jobs
-=======================================================================
-**meeshkan** is a Python package providing control to your machine learning jobs. 
-
-Main Features
--------------
-Here are just a few of the things meeshkan can do:
-  - Notify you of your job's progress at fixed intervals.
-  - Notify you when certain events happen
-  - Allow you to control training jobs remotely
-  - Allow monitoring Amazon SageMaker jobs
-"""
