@@ -2,7 +2,7 @@
 Build the whole dependency chain leading to Api instance exposed by Pyro.
 """
 
-__all__ = []
+__all__ = []  # type: ignore
 
 
 def _build_api(service, cloud_client):
