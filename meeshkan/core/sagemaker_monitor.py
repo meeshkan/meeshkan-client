@@ -256,7 +256,9 @@ class SageMakerJobMonitor:
                         None,
                         self.sagemaker_helper.get_training_job_analytics_df, job.name)
                     if not metrics_df.empty:
-                        metrics_df = metrics_df.sort_values(by="timestamp")
+                        # TODO Fix the bug where new metrics are prepended in the dataframe
+                        # and incorrectly handled by the `get_new_records`. Look `TrackerBase` for example.
+                        # LOGGER.debug("Got metrics df: %s", metrics_df)
                         new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
                         previous_metrics_df = metrics_df
                     else:
