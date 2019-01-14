@@ -18,7 +18,7 @@ from .utils import MockResponse, DummyStore, PicklableMock
 CLI_RUNNER = CliRunner()
 
 
-BUILD_CLOUD_CLIENT_PATCH_PATH = 'meeshkan.utils._build_cloud_client'
+BUILD_CLOUD_CLIENT_PATCH_PATH = 'meeshkan.__utils__._build_cloud_client'
 
 
 def run_cli(args, inputs=None, catch_exceptions=True):
