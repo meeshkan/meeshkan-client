@@ -7,8 +7,8 @@ import dill
 import requests
 import Pyro4
 
-from . import utils
-from .utils import get_auth, _get_api
+from . import __utils__
+from .__utils__ import get_auth, _get_api
 from .core.config import init_config
 from .core.service import Service
 from .__version__ import __version__
@@ -52,7 +52,7 @@ def init(token: Optional[str] = None):
     # Only save supplied token if it's not the same as that included already
     if token and (not credentials or credentials.refresh_token != token):
         print("Stored credentials.")
-        utils.save_token(token)
+        __utils__.save_token(token)
         init_config(force_refresh=True)
 
     restart_agent()
@@ -94,7 +94,7 @@ def start_agent() -> str:
 
     config, credentials = get_auth()
 
-    cloud_client = utils._build_cloud_client(config, credentials)
+    cloud_client = __utils__._build_cloud_client(config, credentials)
     cloud_client.notify_service_start()
     cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
     pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)

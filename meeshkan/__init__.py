@@ -9,7 +9,7 @@ from . import sagemaker
 from . import notifications  # Exposed for tests for now
 from . import build  # Deleted below
 from .start import start_agent as start, restart_agent as restart, init, stop_agent as stop
-from .utils import save_token
+from .__utils__ import save_token
 
 # Only make the following available by default
 __all__ = ["__version__", "exceptions", "config"]
