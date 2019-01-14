@@ -20,7 +20,7 @@ del api
 
 __doc__ = """
 Meeshkan - Monitoring and remote-control tool for machine learning jobs
-=====================================================================
+=======================================================================
 **meeshkan** is a Python package providing control to your machine learning jobs. 
 
 Main Features
