@@ -8,7 +8,6 @@ import requests
 import Pyro4
 
 from . import __utils__
-from .__utils__ import get_auth, _get_api
 from .core.config import init_config, ensure_base_dirs
 from .core.service import Service
 from .__version__ import __version__
@@ -45,7 +44,7 @@ def __verify_version():
 def init(token: Optional[str] = None):
     ensure_base_dirs()
     try:
-        _, credentials = get_auth()
+        _, credentials = __utils__.get_auth()
     except FileNotFoundError:
         # Credentials not found
         credentials = None
@@ -62,7 +61,7 @@ def init(token: Optional[str] = None):
 def _stop_if_running() -> bool:
     if Service().is_running():
         print("Stopping service...")
-        api = _get_api()
+        api = __utils__._get_api()
         api.stop()
         return True
     return False
@@ -93,7 +92,7 @@ def start_agent() -> str:
         print("Service is already running.")
         return service.uri
 
-    config, credentials = get_auth()
+    config, credentials = __utils__.get_auth()
 
     cloud_client = __utils__._build_cloud_client(config, credentials)
     cloud_client.notify_service_start()
