@@ -18,7 +18,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 REQUIRED = ['boto3', 'dill', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
 
 DEV = ['jupyter', 'nbdime', 'pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker', 'sphinx',
-       'sphinx_rtd_theme']
+       'sphinx-click', 'sphinx_rtd_theme']
 
 # Optional packages
 EXTRAS = {'dev': DEV,

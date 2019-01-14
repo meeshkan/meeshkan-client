@@ -6,28 +6,16 @@ from .api import *  # pylint: disable=wildcard-import
 from . import api
 from . import exceptions
 from . import sagemaker
-from . import notifications  # Exposed for tests for now
-from .start import start_agent as start, restart_agent as restart, init, stop_agent as stop
 from .__utils__ import save_token
+from . import agent
+from .agent import *
+
 
 # Only make the following available by default
 __all__ = ["__version__", "exceptions", "config"]
 __all__ += api.__all__
-__all__ += ["save_token", "start", "restart_agent", "init"]
+__all__ += agent.__all__
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 del api
-
-__doc__ = """
-Meeshkan - Monitoring and remote-control tool for machine learning jobs
-=====================================================================
-**meeshkan** is a Python package providing control to your machine learning jobs. 
-
-Main Features
--------------
-Here are just a few of the things meeshkan can do:
-  - Notify you of your job's progress at fixed intervals.
-  - Notify you when certain events happen
-  - Allow you to control training jobs remotely
-  - Allow monitoring Amazon SageMaker jobs
-"""
+del agent
