@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @Pyro4.behavior(instance_mode="single")  # Singleton
-class Api(object):
+class Api:
     """Partially exposed by the Pyro server for communications with the CLI."""
 
     # Private methods

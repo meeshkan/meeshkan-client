@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 __all__ = []  # type: List[str]
 
 
-class TrackingPoller(object):
+class TrackingPoller:
     def __init__(self, notify_function: Callable[[uuid.UUID], Any]):
         self._notify = notify_function
 
@@ -41,7 +41,7 @@ class TrackingPoller(object):
             LOGGER.debug("Job tracking cancelled for job %s", job_id)
 
 
-class TrackerCondition(object):
+class TrackerCondition:
     DEF_COOLDOWN_PERIOD = 30  # 30 seconds interval default cooldown period
     def __init__(self, *value_names: str, condition: Callable[[float], bool], title: str,
                  default_value=1, cooldown_period: int = None, only_relevant: bool = False):
@@ -88,7 +88,7 @@ class TrackerCondition(object):
         return result
 
 
-class TrackerBase(object):
+class TrackerBase:
     DEF_IMG_EXT = "png"
     """Defines common API for Tracker objects"""
     def __init__(self):

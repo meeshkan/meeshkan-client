@@ -23,7 +23,7 @@ DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 __all__ = []  # type: List[str]
 
 
-class Service(object):
+class Service:
     """
     Service for running the Python daemon
     """

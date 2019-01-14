@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 __all__ = []  # type: List[str]
 
 
-class Notifier(object):
+class Notifier:
     def __init__(self, name: str = None):
         self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, List[NotificationWithStatusTime]]
         self.name = name or self.__class__.__name__
