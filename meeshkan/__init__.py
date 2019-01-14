@@ -17,7 +17,6 @@ __all__ += ["save_token", "start", "restart_agent", "init"]
 
 del core  # Clean-up (make `meeshkan.core` unavailable)
 del api
-# del utils  # This is still required by tests that use patching.
 
 __doc__ = """
 Meeshkan - Monitoring and remote-control tool for machine learning jobs
