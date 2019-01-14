@@ -40,7 +40,7 @@ class TestLoggingNotifier:
     def test_logging_notifier_job_start_end(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job start/end for Logging Notifier"""
         result = dict()
-        def fake_log(self, job_id, message):
+        def fake_log(job_id, message):
             # No need to check with exceptions (for history management), as it's checked in another test
             nonlocal result
             result[job_id] = message
@@ -48,8 +48,8 @@ class TestLoggingNotifier:
         job = _get_job()
         assert len(result) == 0, "Sanity test - `result` dictionary should be empty at this point"
 
-        with mock.patch('meeshkan.notifications.notifiers.LoggingNotifier.log', fake_log):
-            logging_notifier = LoggingNotifier()
+        logging_notifier = LoggingNotifier()
+        with mock.patch.object(logging_notifier, 'log', fake_log):
             logging_notifier.notify_job_start(job)
             # Verify internal state
             assert len(result) == 1, "There should be a single key-value pair " \
@@ -101,7 +101,7 @@ class TestLoggingNotifier:
         """Tests the job update for LoggingNotifier when both image and directory exist"""
         result = dict()
 
-        def fake_log(self, job_id, message):
+        def fake_log(job_id, message):
             # No need to check with exceptions (for history management), as it's checked in another test
             nonlocal result
             result[job_id] = message
@@ -114,8 +114,8 @@ class TestLoggingNotifier:
         job.output_path.mkdir()
         logging_notifier.notify(job, __file__, -1)
         # Both exist!
-        with mock.patch('meeshkan.notifications.notifiers.LoggingNotifier.log', fake_log):
-            logging_notifier = LoggingNotifier()
+        logging_notifier = LoggingNotifier()
+        with mock.patch.object(logging_notifier, 'log', fake_log):
             logging_notifier.notify(job, __file__, -1)
             last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
             assert last_notification.type == NotificationType.JOB_UPDATE, "The notification type should be an update " \
@@ -375,14 +375,15 @@ class TestNotifierCollection:
             nonlocal cloud_counter
             cloud_counter += 1
 
-        def fake_log(self, job_id, message):
+        def fake_log(job_id, message):
             nonlocal logging_counter
             logging_counter += 1
 
         job = _get_job()
-        with mock.patch('meeshkan.notifications.notifiers.LoggingNotifier.log', fake_log):
+        logging_notifier = LoggingNotifier()
+        with mock.patch.object(logging_notifier, 'log', fake_log):
             cloud_notifier = CloudNotifier(fake_post, _empty_upload)
-            logging_notifier = LoggingNotifier()
+
             collection = NotifierCollection(*[cloud_notifier, logging_notifier])
 
             # Test with notify_job_start
