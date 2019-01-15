@@ -7,7 +7,7 @@ import pytest
 import sagemaker
 
 from meeshkan.core.job import SageMakerJob, JobStatus
-from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper, ScalarHelper
+from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper, JobScalarHelper
 
 from meeshkan import exceptions
 
@@ -165,7 +165,7 @@ def sagemaker_job(sagemaker_job_monitor):
 @pytest.fixture
 def job_scalar_helper():
     sagemaker_job = create_autospec(SageMakerJob).return_value
-    return ScalarHelper(job=sagemaker_job)
+    return JobScalarHelper(job=sagemaker_job)
 
 
 class TestJobScalarHelper:

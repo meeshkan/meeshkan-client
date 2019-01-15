@@ -160,19 +160,36 @@ class SageMakerHelper:
         return analytics.dataframe(force_refresh=True)
 
 
-class ScalarHelper:
+class JobScalarHelper:
 
     def __init__(self, job: BaseJob):
         self.job = job
         self.last_timestamp_by_metric = {}  # type: Dict[str, float]
 
     def add_new_scalars_from(self, metrics_dataframe: pd.DataFrame) -> bool:
-        # Do job.add_scalar_to_history for all new timestamps per metric
-        records = metrics_dataframe.to_dict(orient="records")
-        for record in records:
-            # TODO Only add new
-            self.job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
-        return len(records) > 0
+        """
+        Add all new records from `metrics_dataframe` to job scalar history, keeping track of the previously
+        seen maximum timestamp. It is assumed that for a given metric, all new records have timestamps larger than
+        the previously seen maximum timestamp.
+        :param metrics_dataframe: DataFrame with records with names "metric_name", "value", "timestamp"
+        :return: Boolean denoting if new values were added to job scalar history
+        """
+        metrics_grouped_by_name = metrics_dataframe.groupby(by="metric_name")
+
+        added_new_metrics = False
+
+        for metric_name, metrics_for_name in metrics_grouped_by_name:
+            max_timestamp_for_name = metrics_for_name["timestamp"].max()
+            previous_last_timestamp_or_none = self.last_timestamp_by_metric.get(metric_name, None)
+            # Filter DataFrame by timestamp if previous not None
+            new_records_df = metrics_for_name[metrics_for_name.timestamp > previous_last_timestamp_or_none] \
+                if previous_last_timestamp_or_none is not None else metrics_for_name
+            for _, record in new_records_df.iterrows():
+                added_new_metrics = True
+                self.job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
+
+            self.last_timestamp_by_metric[metric_name] = max_timestamp_for_name
+        return added_new_metrics
 
 
 class SageMakerJobMonitor:
@@ -184,7 +201,7 @@ class SageMakerJobMonitor:
                  notify_start: Optional[Callable[[BaseJob], Any]] = None,
                  notify_update: Optional[Callable[[BaseJob, str, int, Optional[str]], Any]] = None,
                  notify_finish: Optional[Callable[[BaseJob], Any]] = None,
-                 scalar_helper_factory: Optional[Callable[[BaseJob], ScalarHelper]] = None):
+                 scalar_helper_factory: Optional[Callable[[BaseJob], JobScalarHelper]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
@@ -192,7 +209,7 @@ class SageMakerJobMonitor:
         self.notify_start = notify_start
         self.notify_finish = notify_finish
         self.notify_update = notify_update
-        self.job_scalar_helper_factory = scalar_helper_factory or ScalarHelper
+        self.job_scalar_helper_factory = scalar_helper_factory or JobScalarHelper
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
@@ -274,7 +291,7 @@ class SageMakerJobMonitor:
             LOGGER.exception("Polling for updates failed")
             # Ignore
 
-    async def check_and_apply_updates(self, job: BaseJob, job_scalar_helper: ScalarHelper):
+    async def check_and_apply_updates(self, job: BaseJob, job_scalar_helper: JobScalarHelper):
         LOGGER.debug("Checking updates for job %s", job.name)
         previous_status = job.status
         job.status = await self._event_loop.run_in_executor(None, self.sagemaker_helper.get_job_status, job.name)
