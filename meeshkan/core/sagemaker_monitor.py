@@ -97,7 +97,7 @@ class SageMakerHelper:
         """
         try:
             return boto3.client("sagemaker")
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             return None
 
     def get_job_status(self, job_name) -> JobStatus:
