@@ -210,6 +210,30 @@ class TestJobScalarHelper:
             scalar_name=new_record['metric_name'],
             scalar_value=new_record['value'])
 
+    def test_appending_new_record_with_different_name(self, example_sm_record, job_scalar_helper):
+        dataframe = pd.DataFrame.from_dict([example_sm_record])
+        sagemaker_job = job_scalar_helper.job
+
+        job_scalar_helper.add_new_scalars_from(dataframe)
+
+        # Create new record
+        new_record = example_sm_record.copy()
+        new_record.update(timestamp=-1.0, metric_name="val:loss")
+
+        dataframe_with_two_records = pd.DataFrame.from_dict([new_record, example_sm_record])
+
+        job_scalar_helper.add_new_scalars_from(dataframe_with_two_records)
+
+        assert sagemaker_job.add_scalar_to_history.call_count == 2, "Expected scalar to have been added only twice"
+
+        sagemaker_job.add_scalar_to_history.assert_any_call(
+            scalar_name=example_sm_record['metric_name'],
+            scalar_value=example_sm_record['value'])
+
+        sagemaker_job.add_scalar_to_history.assert_called_with(
+            scalar_name=new_record['metric_name'],
+            scalar_value=new_record['value'])
+
 
 def sagemaker_available():
     try:
