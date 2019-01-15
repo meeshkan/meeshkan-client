@@ -159,6 +159,21 @@ class SageMakerHelper:
         return analytics.dataframe(force_refresh=True)
 
 
+class ScalarHelper:
+
+    def __init__(self, job: BaseJob):
+        self.job = job
+        self.last_timestamp_by_metric = {}  # type: Dict[str, float]
+
+    def add_new_scalars_from(self, metrics_dataframe: pd.DataFrame) -> bool:
+        # Do job.add_scalar_to_history for all new timestamps per metric
+        records = metrics_dataframe.to_dict(orient="records")
+        for record in records:
+            # TODO Only add new
+            self.job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
+        return len(records) > 0
+
+
 class SageMakerJobMonitor:
     MINIMUM_POLLING_INTERVAL_SECS = 60
 
@@ -167,7 +182,8 @@ class SageMakerJobMonitor:
                  sagemaker_helper: Optional[SageMakerHelper] = None,
                  notify_start: Optional[Callable[[BaseJob], Any]] = None,
                  notify_update: Optional[Callable[[BaseJob, str, int, Optional[str]], Any]] = None,
-                 notify_finish: Optional[Callable[[BaseJob], Any]] = None):
+                 notify_finish: Optional[Callable[[BaseJob], Any]] = None,
+                 scalar_helper_factory: Optional[Callable[[BaseJob], ScalarHelper]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
@@ -175,6 +191,7 @@ class SageMakerJobMonitor:
         self.notify_start = notify_start
         self.notify_finish = notify_finish
         self.notify_update = notify_update
+        self.job_scalar_helper_factory = scalar_helper_factory or ScalarHelper
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
@@ -239,6 +256,8 @@ class SageMakerJobMonitor:
         if job.status.is_launched and self.notify_start:
             self.notify_start(job)
 
+        scalar_helper = self.job_scalar_helper_factory(job)
+
         try:
             while True:
                 LOGGER.debug("Checking updates for job %s", job.name)
@@ -248,29 +267,20 @@ class SageMakerJobMonitor:
                 if not previous_status.is_launched and job.status.is_launched and self.notify_start:
                     self.notify_start(job)
 
-                # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
-                # TODO Notify updates with `self._notify(sagemaker_job)`
-
                 try:
                     metrics_df = await self._event_loop.run_in_executor(
                         None,
                         self.sagemaker_helper.get_training_job_analytics_df, job.name)
                     if not metrics_df.empty:
-                        # TODO Fix the bug where new metrics are prepended in the dataframe
-                        # and incorrectly handled by the `get_new_records`. Look `TrackerBase` for example.
                         # LOGGER.debug("Got metrics df: %s", metrics_df)
                         new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
+                        added_new_scalars = scalar_helper.add_new_scalars_from(metrics_df)
                         previous_metrics_df = metrics_df
+                        LOGGER.debug("Got new metric records: %s", new_records)
                     else:
-                        new_records = []
+                        added_new_scalars = False
 
-                    LOGGER.debug("Got new metric records: %s", new_records)
-
-                    for record in new_records:
-                        # TODO Handle metric_name.lower() == 'epoch'?
-                        job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
-
-                    if len(new_records) > 0:
+                    if added_new_scalars:
                         # Something new to report
                         self.__query_and_report(job=job)
                 except Exception as ex:  # pylint:disable=broad-except
