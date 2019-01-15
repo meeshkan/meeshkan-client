@@ -9,6 +9,7 @@ import Pyro4
 import Pyro4.errors
 
 from .job import Job, SageMakerJob
+from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
@@ -25,12 +26,8 @@ class Api:
     """Partially exposed by the Pyro server for communications with the CLI."""
 
     # Private methods
-    def __init__(self,
-                 scheduler: Scheduler,
-                 service: Service = None,
-                 task_poller: TaskPoller = None,
-                 sagemaker_job_monitor = None,
-                 notifier: Notifier = None):
+    def __init__(self, scheduler: Scheduler, service: Service = None, task_poller: TaskPoller = None,
+                 sagemaker_job_monitor: Optional[SageMakerJobMonitor] = None, notifier: Notifier = None):
         self.scheduler = scheduler
         self.service = service
         self.sagemaker_job_monitor = sagemaker_job_monitor

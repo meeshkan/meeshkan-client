@@ -70,10 +70,6 @@ class Trackable:
 
 
 class Stoppable:
-    def __init__(self):
-        super().__init__()
-        pass
-
     def terminate(self):
         raise NotImplementedError
 

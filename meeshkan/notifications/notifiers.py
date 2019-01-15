@@ -59,7 +59,7 @@ class Notifier:
             self._notify_job_end(job)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
-        except Exception as ex:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             LOGGER.exception("Notifying job end failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
@@ -177,7 +177,7 @@ class CloudNotifier(Notifier):
             operation_input_vars = {"id": str(job.id), "name": job.name, "number": job.number}
         self._post(operation, {"in": operation_input_vars})
 
-    def _notify(self, job: BaseJob, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
+    def _notify(self, job: BaseJob, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations"):
         """Notifies job status update. Raises exception for failure.
         Build and posts GraphQL query payload to the server.
         If given a valid image_path, uploads it before sending the message.

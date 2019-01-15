@@ -95,7 +95,7 @@ class SageMakerHelper:
         """
         try:
             return boto3.client("sagemaker")
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             return None
 
     def get_job_status(self, job_name) -> JobStatus:
@@ -264,7 +264,7 @@ class SageMakerJobMonitor:
                         # TODO Handle metric_name.lower() == 'epoch'?
                         job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
 
-                    if len(new_records) > 0:
+                    if new_records:
                         # Something new to report
                         self.__query_and_report(job=job)
                 except Exception as ex:  # pylint:disable=broad-except

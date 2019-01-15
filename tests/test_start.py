@@ -3,7 +3,6 @@ import pytest
 
 def test_verify_version_failure():
     from meeshkan import agent
-    agent.requests = mock.Mock()
     agent.requests.get = mock.MagicMock()
     def fail_get(*args, **kwargs):   # pylint: disable=unused-argument,redefined-outer-name
         raise Exception
