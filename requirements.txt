@@ -1,2 +1,2 @@
 # Install dependencies using setup.py
--e .[dev]
+-e .
