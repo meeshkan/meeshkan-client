@@ -209,7 +209,7 @@ class CloudClient:
 
 class CloudTokenStore(TokenStore):
     def __init__(self, client: CloudClient, refresh_token: str):
-        super(CloudTokenStore, self).__init__(refresh_token)
+        super().__init__(refresh_token)
         self._client = client
 
     def _fetch_token(self) -> Token:

@@ -1,9 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 
 import Pyro4
 
 from ..core.service import Service
 from ..core.job import SageMakerJob
+
+__all__ = ["monitor"]  # type: List[str]
 
 Pyro4.config.SERIALIZER = 'dill'
 
@@ -25,6 +27,3 @@ def monitor(job_name: str, poll_interval: Optional[float] = None):
             print("Started monitoring job {job_name}, "
                   "currently in phase {status}".format(job_name=sagemaker_job.name, status=sagemaker_job.status.name))
         return sagemaker_job
-
-
-__all__ = ["monitor"]

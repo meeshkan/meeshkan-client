@@ -2,7 +2,7 @@
 from typing import NewType, Dict, Any, List, Tuple
 import time
 
-class ScalarIndexPairing(object):
+class ScalarIndexPairing:
     """Represents a coupling between a scalar value and an index. If no index is provided, time.monotonic() is used
     to maintain consistent scale."""
     def __init__(self, value: float, idx=None):
