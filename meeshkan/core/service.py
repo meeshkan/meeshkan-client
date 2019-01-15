@@ -23,7 +23,7 @@ DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 __all__ = []  # type: List[str]
 
 
-class Service(object):
+class Service:
     """
     Service for running the Python daemon
     """
@@ -79,7 +79,7 @@ class Service(object):
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():
-                polling_coro = api.poll()
+                polling_coro = api.poll()  # pylint: disable=assignment-from-no-return
                 # Create task from polling coroutine and schedule for execution
                 # Note: Unlike `asyncio.create_task`, `loop.create_task` works in Python < 3.7
                 polling_task = loop.create_task(polling_coro)  # type: asyncio.Task

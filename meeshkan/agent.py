@@ -65,7 +65,7 @@ def init(token: Optional[str] = None):
 def _stop_if_running() -> bool:
     if Service().is_running():
         print("Stopping service...")
-        api = __utils__._get_api()
+        api = __utils__._get_api()  # pylint: disable=protected-access
         api.stop()
         return True
     return False
@@ -102,7 +102,7 @@ def start() -> str:
 
     config, credentials = __utils__.get_auth()
 
-    cloud_client = __utils__._build_cloud_client(config, credentials)
+    cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
     cloud_client.notify_service_start()
     cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
     pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)

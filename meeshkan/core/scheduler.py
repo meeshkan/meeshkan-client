@@ -74,7 +74,7 @@ class QueueProcessor:
             self._queue = None
 
 
-class Scheduler(object):
+class Scheduler:
     def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]

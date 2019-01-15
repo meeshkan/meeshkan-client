@@ -26,4 +26,3 @@ def report_scalar(val_name, value, *vals) -> bool:
         except JobNotFoundException:
             return False
     return True
-
