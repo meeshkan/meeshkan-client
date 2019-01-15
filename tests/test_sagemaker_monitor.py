@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 import sagemaker
 
-from meeshkan.core.job import JobStatus
-from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
+from meeshkan.core.job import SageMakerJob, JobStatus
+from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper, ScalarHelper
 
 from meeshkan import exceptions
 
@@ -150,6 +150,65 @@ class TestSageMakerJobMonitor:
         assert row['timestamp'] == new_row['timestamp']
         assert row['metric_name'] == new_row['metric_name']
         assert row['value'] == new_row['value']
+
+
+@pytest.fixture
+def example_sm_record():
+    return {'metric_name': 'train_loss', 'value': 2.3, 'timestamp': 0.0}
+
+
+@pytest.fixture
+def sagemaker_job(sagemaker_job_monitor):
+    job_name = "spameggs"
+    return sagemaker_job_monitor.create_job(job_name=job_name)
+
+@pytest.fixture
+def job_scalar_helper():
+    sagemaker_job = create_autospec(SageMakerJob).return_value
+    return ScalarHelper(job=sagemaker_job)
+
+
+class TestJobScalarHelper:
+
+    def test_adding_new_metric(self, example_sm_record, job_scalar_helper):
+        dataframe = pd.DataFrame.from_dict([example_sm_record])
+        sagemaker_job = job_scalar_helper.job
+        job_scalar_helper.add_new_scalars_from(dataframe)
+        sagemaker_job.add_scalar_to_history.assert_called_once_with(
+            scalar_name=example_sm_record['metric_name'],
+            scalar_value=example_sm_record['value'])
+
+    def test_adding_same_metric_twice(self, example_sm_record, job_scalar_helper):
+        dataframe = pd.DataFrame.from_dict([example_sm_record])
+        sagemaker_job = job_scalar_helper.job
+        job_scalar_helper.add_new_scalars_from(dataframe)
+        job_scalar_helper.add_new_scalars_from(dataframe)
+        sagemaker_job.add_scalar_to_history.assert_called_once_with(
+            scalar_name=example_sm_record['metric_name'],
+            scalar_value=example_sm_record['value'])
+
+    def test_appending_new_record_with_larger_timestamp(self, example_sm_record, job_scalar_helper):
+        dataframe = pd.DataFrame.from_dict([example_sm_record])
+        sagemaker_job = job_scalar_helper.job
+
+        job_scalar_helper.add_new_scalars_from(dataframe)
+
+        # Create new record
+        new_record = example_sm_record.copy()
+        new_record.update(timestamp=1.0, value=23.0)
+        dataframe_with_two_records = pd.DataFrame.from_dict([example_sm_record, new_record])
+
+        job_scalar_helper.add_new_scalars_from(dataframe_with_two_records)
+
+        assert sagemaker_job.add_scalar_to_history.call_count == 2, "Expected scalar to have been added only twice"
+
+        sagemaker_job.add_scalar_to_history.assert_any_call(
+            scalar_name=example_sm_record['metric_name'],
+            scalar_value=example_sm_record['value'])
+
+        sagemaker_job.add_scalar_to_history.assert_called_with(
+            scalar_name=new_record['metric_name'],
+            scalar_value=new_record['value'])
 
 
 def sagemaker_available():
