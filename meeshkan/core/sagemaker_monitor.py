@@ -240,24 +240,6 @@ class SageMakerJobMonitor:
             LOGGER.info("Notifying finish for job %s with status %s", job.name, job.status)
             self.notify_finish(job)
 
-    @staticmethod
-    def get_new_records(df_new: pd.DataFrame, df_old: Optional[pd.DataFrame] = None):
-        """
-        Return a list of new records
-        # TODO Verify this actually always works with sagemaker.analytics
-        :param df_new: New dataframe, should have the same rows as `df_old` plus any new records
-        :param df_old: Old dataframe, can be left None to return all records of the new DataFrame
-        :return: List of dictionaries of the form {'column' -> 'value'}
-        """
-        if df_old is None or df_old.empty:
-            return df_new.to_dict(orient='records')
-
-        if df_new.empty:
-            return []
-
-        assert len(df_new) >= len(df_old)
-        return df_new.loc[len(df_old):len(df_new)].to_dict(orient='records')
-
     async def poll_updates(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
             raise RuntimeError("SageMakerJobMonitor can only monitor SageMakerJobs.")

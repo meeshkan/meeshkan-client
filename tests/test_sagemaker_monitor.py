@@ -132,25 +132,6 @@ class TestSageMakerJobMonitor:
         sagemaker_job_monitor.sagemaker_helper.wait_for_job_finish.assert_called_once()
         sagemaker_job_monitor.notify_finish.assert_called_with(job)
 
-    def test_compute_df_diff_for_no_changes(self):
-        df_old = pd.DataFrame.from_dict({'timestamp': [1, 2], 'metric_name': ['epoch', 'loss'], 'value': [1, 3.2]})
-        df_new = df_old.copy()
-        df_diff = SageMakerJobMonitor.get_new_records(df_new=df_new, df_old=df_old)
-        assert len(df_diff) == 0
-
-    def test_compute_df_diff_for_new_row(self):
-        df_old = pd.DataFrame.from_dict({'timestamp': [1, 2], 'metric_name': ['epoch', 'loss'], 'value': [1, 3.2]})
-        new_row = {'timestamp': 3, 'metric_name': 'loss', 'value': 2.3}
-        df_new = df_old.copy().append(new_row, ignore_index=True)
-        assert len(df_old) == 2
-        assert len(df_new) == 3
-        df_diff = SageMakerJobMonitor.get_new_records(df_new=df_new, df_old=df_old)
-        assert len(df_diff) == 1
-        row = df_diff[0]
-        assert row['timestamp'] == new_row['timestamp']
-        assert row['metric_name'] == new_row['metric_name']
-        assert row['value'] == new_row['value']
-
 
 @pytest.fixture
 def example_sm_record():
