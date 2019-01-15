@@ -1,5 +1,6 @@
 """Watch a running SageMaker job."""
 import asyncio
+from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
 import os
@@ -251,42 +252,15 @@ class SageMakerJobMonitor:
         sleep_time = max(job.poll_time, SageMakerJobMonitor.MINIMUM_POLLING_INTERVAL_SECS)
         LOGGER.debug("Starting SageMaker job tracking for job %s with polling interval of %f seconds.",
                      job.name, sleep_time)
-        previous_metrics_df = None
 
         if job.status.is_launched and self.notify_start:
             self.notify_start(job)
 
-        scalar_helper = self.job_scalar_helper_factory(job)
+        job_scalar_helper = self.job_scalar_helper_factory(job)
 
         try:
             while True:
-                LOGGER.debug("Checking updates for job %s", job.name)
-                previous_status = job.status
-                job.status = self.sagemaker_helper.get_job_status(job.name)
-                LOGGER.debug("Job %s: previous status %s, current status %s", job.name, previous_status, job.status)
-                if not previous_status.is_launched and job.status.is_launched and self.notify_start:
-                    self.notify_start(job)
-
-                try:
-                    metrics_df = await self._event_loop.run_in_executor(
-                        None,
-                        self.sagemaker_helper.get_training_job_analytics_df, job.name)
-                    if not metrics_df.empty:
-                        # LOGGER.debug("Got metrics df: %s", metrics_df)
-                        new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
-                        added_new_scalars = scalar_helper.add_new_scalars_from(metrics_df)
-                        previous_metrics_df = metrics_df
-                        LOGGER.debug("Got new metric records: %s", new_records)
-                    else:
-                        added_new_scalars = False
-
-                    if added_new_scalars:
-                        # Something new to report
-                        self.__query_and_report(job=job)
-                except Exception as ex:  # pylint:disable=broad-except
-                    if isinstance(ex, asyncio.CancelledError):
-                        raise ex
-                    LOGGER.exception("Checking for SageMaker job metrics failed, ignoring.")
+                await self.check_and_apply_updates(job=job, job_scalar_helper=job_scalar_helper)
 
                 if job.status.is_processed:
                     break
@@ -299,6 +273,32 @@ class SageMakerJobMonitor:
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Polling for updates failed")
             # Ignore
+
+    async def check_and_apply_updates(self, job: BaseJob, job_scalar_helper: ScalarHelper):
+        LOGGER.debug("Checking updates for job %s", job.name)
+        previous_status = job.status
+        job.status = await self._event_loop.run_in_executor(None, self.sagemaker_helper.get_job_status, job.name)
+        LOGGER.debug("Job %s: previous status %s, current status %s", job.name, previous_status, job.status)
+        if not previous_status.is_launched and job.status.is_launched and self.notify_start:
+            self.notify_start(job)
+
+        added_new_scalars = False
+
+        try:
+            get_training_job_analytics = partial(self.sagemaker_helper.get_training_job_analytics_df, job_name=job.name)
+            metrics_df = await self._event_loop.run_in_executor(None, get_training_job_analytics)
+            if not metrics_df.empty:
+                added_new_scalars = job_scalar_helper.add_new_scalars_from(metrics_df)
+        except Exception as ex:  # pylint:disable=broad-except
+            # Reading TrainingJobAnalytics routinely throws an exception, handle it here
+            # TODO Only catch a more specific exception to avoid getting into failure loop?
+            if isinstance(ex, asyncio.CancelledError):
+                raise ex
+            LOGGER.exception("Checking for SageMaker job metrics failed, ignoring.")
+
+        if added_new_scalars:
+            # Something new to report
+            self._event_loop.run_in_executor(None, self.__query_and_report, job)
 
     # TODO Remove duplicate code with Scheduler
     def query_scalars(self, *names: Tuple[str, ...], job, latest_only: bool = True, plot: bool = False):
