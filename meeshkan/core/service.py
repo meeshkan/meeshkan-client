@@ -68,7 +68,7 @@ class Service:
         if pid > 0:  # Close parent process
             return
         if not self.terminate_daemon:
-            self.terminate_daemon = multiprocessing.get_context("spawn").Event()
+            self.terminate_daemon = asyncio.Event()  # Only have one spawned process and semaphore tracker
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         serializer = DillSerializer()
