@@ -1,2 +1,3 @@
+from typing import List
 
-__all__ = []  # type: ignore
+__all__ = []  # type: List[str]

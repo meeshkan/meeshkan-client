@@ -3,10 +3,12 @@ This repository contains Meeshkan client-side code.
 
 ## Table of contents
 1. [Overview](#overview)
-2. [Quick start](#quick-start)
-3. [Command-line interface](#command-line-interface)
-4. [Usage as Python library](#usage-as-python-library)
-5. [Development](#development)
+1. [Quick start](#quick-start)
+1. [Command-line interface](#command-line-interface)
+1. [Usage as Python library](#usage-as-python-library)
+1. [Working with Amazon SageMaker](#working-with-amazon-sagemaker)
+1. [Known issues](#known-issues)
+1. [Development](#development)
 
 ## Overview
 Client code consists of two parts: the Meeshkan agent controlled with
@@ -248,6 +250,10 @@ meeshkan.add_condition("train loss", "evaluation loss", lambda train_loss, eval_
 meeshkan.add_condition("F1", lambda f1: f1 < 0.1)
 ```
 
+## Working with Amazon SageMaker
+For an example of how to use Meeshkan to monitor [Amazon SageMaker](https://aws.amazon.com/sagemaker/) jobs,
+see the example [notebook](./examples/sagemaker/pytorch_rnn_meeshkan.ipynb).
+
 ## Known issues
 #### Start occasionally fails in macOS
 In macOS, running `meeshkan start` may fail with
@@ -287,11 +293,16 @@ pytest
 pylint -f msvs meeshkan
 ```
 
+### Running static type checks
+```bash
+mypy --ignore-missing-imports meeshkan
+```
+
 ### Building the documentation
 ```bash
-python setup.py docs
+python setup.py doc
 # OR (the long way...)
 cd docs
 sphinx-apidoc -f -e -o source/ ../meeshkan/
-make html
+sphinx-build -M html -D version={VERSION} source build
 ```

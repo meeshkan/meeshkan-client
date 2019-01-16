@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 from functools import partial
 import logging
+import multiprocessing
 import os
 from typing import List
 import socket  # To verify daemon
@@ -12,16 +13,17 @@ import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
+from ..__build__ import _build_api
 
 LOGGER = logging.getLogger(__name__)
-DAEMON_BOOT_WAIT_TIME = 0.5  # In seconds
+DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 
 
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
 
 
-class Service(object):
+class Service:
     """
     Service for running the Python daemon
     """
@@ -60,22 +62,24 @@ class Service(object):
     def uri(self):
         return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
 
-    def daemonize(self, build_api_bytes):
+    def daemonize(self, serialized):
         """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
         pid = os.fork()
         if pid > 0:  # Close parent process
             return
+        if not self.terminate_daemon:
+            self.terminate_daemon = multiprocessing.get_context("spawn").Event()
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        build_api = dill.loads(build_api_bytes)
+        cloud_client = dill.loads(serialized.encode('cp437'))
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-        with build_api(self) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
+        with _build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():
-                polling_coro = api.poll()
+                polling_coro = api.poll()  # pylint: disable=assignment-from-no-return
                 # Create task from polling coroutine and schedule for execution
                 # Note: Unlike `asyncio.create_task`, `loop.create_task` works in Python < 3.7
                 polling_task = loop.create_task(polling_coro)  # type: asyncio.Task
@@ -98,25 +102,22 @@ class Service(object):
             finally:
                 loop.close()
             LOGGER.debug("Exiting service.")
-            time.sleep(1.0)  # Allows data scraping
+            time.sleep(2.0)  # Allows data scraping
 
         return
 
-    # Need single quotes here for type annotation, see
-    # https://stackoverflow.com/questions/15853469/putting-current-class-as-return-type-annotation
-    def start(self, mp_ctx, build_api_serialized) -> str:
+    def start(self, mp_ctx, cloud_client_serialized: str) -> str:
         """
         Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
         :param mp_ctx: Multiprocessing context, e.g. `multiprocessing.get_context("spawn")`
-        :param build_api_serialized: Dill-serialized function for creating API object
+        :param cloud_client_serialized: Dill-serialized CloudClient instance
         :return: Pyro URI
         """
 
         if self.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=self.uri))
         LOGGER.info("Starting service...")
-        proc = mp_ctx.Process(target=self.daemonize, args=[build_api_serialized])
-        self.terminate_daemon = mp_ctx.Event()
+        proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
         proc.daemon = True
         proc.start()
         proc.join()
@@ -127,7 +128,8 @@ class Service(object):
     def stop(self) -> bool:
         if self.is_running():
             if not self.terminate_daemon:
-                raise RuntimeError("Terminate daemon event does not exist.")
+                raise RuntimeError("Terminate daemon event does not exist. "
+                                   "The stop() method may have called from the wrong process.")
             self.terminate_daemon.set()  # Flag for requestLoop to terminate
             with Pyro4.Proxy(self.uri) as pyro_proxy:
                 # triggers checking loopCondition

@@ -6,138 +6,30 @@
 
 """ Command-line interface """
 import logging
-import multiprocessing as mp
 import sys
 import tarfile
 import shutil
 import tempfile
 import os
-from typing import Callable, Tuple, Optional
-from distutils.version import StrictVersion
+from typing import Optional
+
 import random
 import uuid
-from pathlib import Path
 
 import click
-import dill
 import Pyro4
 import requests
 import tabulate
 
 import meeshkan
 from .core.api import Api
-from .core.cloud import CloudClient
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
+from .__utils__ import save_token, get_auth, _get_api, _build_cloud_client
+from .agent import start as start_agent
 
 LOGGER = None
-
-Pyro4.config.SERIALIZER = 'dill'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
-Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-
-
-def __get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentials]:
-    config, credentials = meeshkan.config.init_config()
-    return config, credentials
-
-
-def __get_api() -> Api:
-    service = Service()
-    if not service.is_running():
-        print("Start the service first.")
-        sys.exit(1)
-    api = Pyro4.Proxy(service.uri)  # type: Api
-    return api
-
-
-def __build_cloud_client(config: meeshkan.config.Configuration,
-                         credentials: meeshkan.config.Credentials) -> CloudClient:
-
-    # token_store = TokenStore(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-    cloud_client = CloudClient(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-    return cloud_client
-
-
-def __notify_service_start(config: meeshkan.config.Configuration, credentials: meeshkan.config.Credentials):
-    cloud_client = __build_cloud_client(config, credentials)
-    cloud_client.notify_service_start()
-    cloud_client.close()  # Explicitly clean resources
-
-
-def __build_api(config: meeshkan.config.Configuration,
-                credentials: meeshkan.config.Credentials) -> Callable[[Service], Api]:
-
-    # This MUST be serializable so it can be sent to the process starting Pyro daemon with forkserver
-    def build_api(service: Service) -> Api:
-        # Build all dependencies except for `Service` instance (attached when daemonizing)
-        import inspect
-        # Disable pylint tests for reimport
-        import sys as sys_  # pylint: disable=reimported
-        import os as os_  # pylint: disable=reimported
-
-        # TODO - do we need this?
-        current_file = inspect.getfile(inspect.currentframe())
-        current_dir = os_.path.split(current_file)[0]
-        cmd_folder = os_.path.realpath(os_.path.abspath(os_.path.join(current_dir, '../')))
-        if cmd_folder not in sys_.path:
-            sys_.path.insert(0, cmd_folder)
-
-        from meeshkan.core.cloud import CloudClient as CloudClient_
-        from meeshkan.core.api import Api as Api_
-        from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
-        from meeshkan.core.tasks import TaskPoller
-        from meeshkan.core.scheduler import Scheduler, QueueProcessor
-        from meeshkan.core.config import ensure_base_dirs as ensure_base_dirs_
-        from meeshkan.core.logger import setup_logging as setup_logging_
-
-
-        ensure_base_dirs_()
-        setup_logging_(silent=True)
-
-        # token_store = TokenStore_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-        # cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token,
-        #                             token_store=token_store)
-        cloud_client = CloudClient_(cloud_url=config.cloud_url, refresh_token=credentials.refresh_token)
-
-        cloud_notifier = CloudNotifier(name="Cloud Service", post_payload=cloud_client.post_payload,
-                                       upload_file=cloud_client.post_payload_with_file)
-        logging_notifier = LoggingNotifier(name="Local Service")
-
-        task_poller = TaskPoller(cloud_client.pop_tasks)
-        queue_processor = QueueProcessor()
-
-        notifier_collection = NotifierCollection(*[cloud_notifier, logging_notifier])
-
-        scheduler = Scheduler(queue_processor=queue_processor, notifier=notifier_collection)
-
-        api = Api_(scheduler=scheduler, service=service, task_poller=task_poller, notifier=notifier_collection)
-        api.add_stop_callback(cloud_client.close)
-        return api
-
-    return build_api
-
-
-def __verify_version():
-    urllib_logger = logging.getLogger("urllib3")
-    urllib_logger.setLevel(logging.WARNING)
-    pypi_url = "https://pypi.org/pypi/meeshkan/json"
-    try:
-        res = requests.get(pypi_url, timeout=2)
-    except Exception:  # pylint: disable=broad-except
-        return  # If we can't access the server, assume all is good
-    urllib_logger.setLevel(logging.DEBUG)
-    if res.ok:
-        latest_release_string = max(res.json()['releases'].keys())  # Textual "max" (i.e. comparison by ascii values)
-        latest_release = StrictVersion(latest_release_string)
-        current_version = StrictVersion(meeshkan.__version__)
-        if latest_release > current_version:  # Compare versions
-            print("A newer version of Meeshkan is available!")
-            if latest_release.version[0] > current_version.version[0]:  # More messages on major version change...
-                print("\tPlease consider upgrading soon with 'pip install meeshkan --upgrade'")
-            print()
-
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -147,6 +39,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
 def cli(debug, silent):
+    """Command-line interface for working with the Meeshkan agent."""
     if not debug:
         sys.tracebacklimit = 0
 
@@ -167,7 +60,6 @@ def help_cmd(ctx):
 @cli.command()
 def setup():
     """Configures the Meeshkan client."""
-    meeshkan.config.ensure_base_dirs(verbose=False)
     print("Welcome to Meeshkan!\n")
     if os.path.isfile(meeshkan.config.CREDENTIALS_FILE):
         res = input("Credential file already exists! Are you sure you want to overwrite it? [Y]/n: ")
@@ -175,31 +67,22 @@ def setup():
             print("Aborting")
             sys.exit(2)
     token = input("Please enter your client secret: ")
-    meeshkan.config.Credentials.to_isi(refresh_token=token)
+    save_token(token)
     print("You're all set up! Now run \"meeshkan start\" to start the service.")
+
 
 @cli.command()
 def start():
-    """Starts Meeshkan service daemon."""
-    __verify_version()
-    service = Service()
-    if service.is_running():
-        print("Service is already running.")
-        sys.exit(1)
-    config, credentials = __get_auth()
     try:
-        __notify_service_start(config, credentials)
-        build_api_serialized = dill.dumps(__build_api(config, credentials))
-        pyro_uri = service.start(mp.get_context("spawn"), build_api_serialized=build_api_serialized)
-        print('Service started.')
-        return pyro_uri
+        start_agent()
     except meeshkan.exceptions.UnauthorizedRequestException as ex:
         print(ex.message)
         sys.exit(1)
     except Exception as ex:  # pylint: disable=broad-except
         print("Starting service failed.")
         LOGGER.exception("Starting service failed.")
-        sys.exit(1)
+        # sys.exit(1)
+        raise
 
 
 @cli.command(name='status')
@@ -217,7 +100,7 @@ def daemon_status():
 @click.argument("job_identifier")
 def report(job_identifier):
     """Returns latest scalar from given job identifier."""
-    api = __get_api()
+    api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
@@ -241,7 +124,7 @@ def submit(args, name, report_interval):
         print("CLI error: Specify job.")
         return
 
-    api = __get_api()  # type: Api
+    api = _get_api()  # type: Api
     cwd = os.getcwd()
     try:
         job = api.submit(args, name=name, poll_interval=report_interval, cwd=cwd)
@@ -259,7 +142,7 @@ def cancel_job(job_identifier):
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
-    api = __get_api()
+    api = _get_api()
     job = api.get_job(job_id)  # type: Job
     if job.status.is_running:
         res = input("Job '{name}' is currently running! "
@@ -274,16 +157,19 @@ def cancel_job(job_identifier):
 @cli.command()
 def stop():
     """Stops the service daemon."""
-    api = __get_api()  # type: Api
-    api.stop()
-    LOGGER.info("Service stopped.")
-    print("Service stopped.")
+    try:
+        api = _get_api()  # type: Api
+        api.stop()
+        LOGGER.info("Service stopped.")
+        print("Service stopped.")
+    except meeshkan.exceptions.AgentNotAvailableException:
+        pass
 
 
 @cli.command(name='list')
 def list_jobs():
     """Lists the job queue and status for each job."""
-    api = __get_api()  # type: Api
+    api = _get_api()  # type: Api
     jobs = api.list_jobs()
     if not jobs:
         print('No jobs submitted yet.')
@@ -298,7 +184,7 @@ def list_jobs():
 def logs(job_identifier):
     """Retrieves the logs for a given job. job_identifier can be UUID, job number of pattern for job name.
     First job name that matches is accessed (allows patterns)."""
-    api = __get_api()
+    api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
@@ -320,7 +206,7 @@ def logs(job_identifier):
 def notifications(job_identifier):
     """Retrieves notification history for a given job. job_identifier can be UUID, job number of pattern for job name.
     First job name that matches is accessed (allows patterns)."""
-    api = __get_api()
+    api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
@@ -336,9 +222,9 @@ def notifications(job_identifier):
 def sorry():
     """Send error logs to Meeshkan HQ. Sorry for inconvenience!
     """
-    config, credentials = __get_auth()
+    config, credentials = get_auth()
     status = 0
-    cloud_client = __build_cloud_client(config, credentials)
+    cloud_client = _build_cloud_client(config, credentials)
     remove_non_file_handlers()
 
     # Collect log files to compressed tar
@@ -399,7 +285,7 @@ def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
     Returns the actual job-id if matching. Otherwise returns None.
     """
     # Determine identifier type and search over scheduler
-    api = __get_api()
+    api = _get_api()
     job_id = job_number = None
     try:
         job_id = uuid.UUID(identifier)

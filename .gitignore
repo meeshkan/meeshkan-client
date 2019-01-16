@@ -99,3 +99,5 @@ tests/resources/logs
 
 # MyPy
 .mypy_cache/
+
+.DS_Store

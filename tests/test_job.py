@@ -1,3 +1,4 @@
+# pylint:disable=redefined-outer-name
 import os
 from pathlib import Path
 import uuid
@@ -5,7 +6,7 @@ import uuid
 import pytest
 
 
-from meeshkan.core.job import ProcessExecutable, Job
+from meeshkan.core.job import ProcessExecutable, Job, JobStatus
 
 JOBS_OUTPUT_PATH = Path(os.path.dirname(__file__)).joinpath('resources', 'jobs')
 
@@ -49,3 +50,32 @@ def test_job_args_to_full_path_with_runtime():
     assert len(job.executable.args) == 3, "`create_job` should add the python executable to the argument list"
     assert job.executable.args[1] == __file__, "Expected '{}' to be full " \
                                                "path '{}'".format(job.executable.args[1], __file__)
+
+
+JOB_NAME = "spameggs"
+
+
+@pytest.fixture
+def example_job():
+    cwd, base = os.path.split(__file__)
+    return Job.create_job(args=(base, 'another argument'), cwd=cwd, job_number=1, name=JOB_NAME)
+
+
+def test_job_cancel_changes_status(example_job):
+    example_job.cancel()  # Runs with
+    assert example_job.status == JobStatus.CANCELLED_BY_USER
+
+
+def test_job_inherits_attributes(example_job):
+    assert example_job.scalar_history is not None
+    assert example_job.name == JOB_NAME
+
+
+def test_job_add_tracked_works(example_job):
+    example_job.add_scalar_to_history("scalar", 0.1)
+
+
+def test_job_add_condition_works(example_job):
+    not example_job.add_condition("train loss", "evaluation loss",
+                                  condition=lambda train_loss, eval_loss: abs(train_loss - eval_loss) > 0.2,
+                                  only_relevant=True)

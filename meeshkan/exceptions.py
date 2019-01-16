@@ -27,3 +27,24 @@ class TrackedScalarNotFoundException(Exception):
     def __init__(self, name=""):
         super().__init__()
         self.message = "Couldn't find history for requested scalar '{name}'.".format(name=name)
+
+
+class SageMakerNotAvailableException(Exception):
+    def __init__(self, message=None):
+        error_message = message or "Unable to access SageMaker training jobs. " \
+                                   "Please check your AWS credential chain and try again."
+        super().__init__(error_message)
+
+
+class DeferredImportException:
+
+    def __init__(self, exception):
+        self.exception = exception
+
+    def __getattr__(self, name):
+        raise self.exception
+
+
+class AgentNotAvailableException(Exception):
+    def __index__(self):
+        super().__init__("Start the agent first.")

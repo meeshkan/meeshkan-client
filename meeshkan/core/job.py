@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import subprocess
-from typing import Tuple, Optional, List, Union, Callable, Any
+from typing import Tuple, Optional, List, Callable
 import uuid
 import datetime
 import os
@@ -50,11 +50,61 @@ CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated a
 SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 return codes as success with message?)
 
 
-class Executable(object):
+class Trackable:
+    """
+    Base class for all trackable jobs, run by Meeshkan, SageMaker or some other means
+    """
+    def __init__(self, scalar_history=None):
+        super().__init__()
+        self.scalar_history = scalar_history or TrackerBase()
+
+    def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
+        return self.scalar_history.add_tracked(scalar_name, scalar_value)
+
+    def get_updates(self, *names, plot, latest):
+        """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
+        If latest == True, returns only latest updates, otherwise returns entire history.
+        """
+        # Delegate to HistoryTracker
+        return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
+
+
+class Stoppable:
+    def terminate(self):
+        raise NotImplementedError
+
+
+class BaseJob(Stoppable, Trackable):
+    """
+    Base class for all jobs handled by Meeshkan agent
+    """
+    def __init__(self,
+                 status: JobStatus,
+                 job_uuid: Optional[uuid.UUID] = None,
+                 job_number: Optional[int] = None,
+                 name: Optional[str] = None,
+                 poll_interval: Optional[float] = None):  # TODO Move also `status` here
+        super().__init__()
+        self.status = status
+        self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
+        self.number = job_number  # Human-readable integer ID
+        self.poll_time = poll_interval or Job.DEF_POLLING_INTERVAL  # type: float
+        self.created = datetime.datetime.utcnow()
+        self.name = name or "Job #{number}".format(number=self.number)
+
+    def terminate(self):
+        raise NotImplementedError
+
+
+class Executable:
+    """
+    Base class for all executables executable by the Meeshkan agent, either as subprocesses, functions, or other means
+    """
     STDOUT_FILE = 'stdout'
     STDERR_FILE = 'stderr'
 
     def __init__(self, output_path: Path = None):
+        super().__init__()
         self.pid = None  # type: Optional[int]
         self.output_path = output_path  # type: Optional[Path]
 
@@ -65,13 +115,6 @@ class Executable(object):
         """
         return 0
 
-    def terminate(self):  # pylint: disable=no-self-use
-        """
-        Terminate execution
-        :return: None
-        """
-        return
-
     @property
     def stdout(self):
         return self.output_path.joinpath(self.STDOUT_FILE) if self.output_path else None
@@ -79,6 +122,9 @@ class Executable(object):
     @property
     def stderr(self):
         return self.output_path.joinpath(self.STDERR_FILE) if self.output_path else None
+
+    def terminate(self):
+        raise NotImplementedError
 
     @staticmethod
     def to_full_path(args: Tuple[str, ...], cwd: str):
@@ -155,11 +201,32 @@ class ProcessExecutable(Executable):
         return ' '.join(truncated_args)
 
 
-class Job(object):
+class SageMakerJob(BaseJob):
+    """
+    Job run by SageMaker, meeshkan doing only monitoring.
+    """
+    def __init__(self,
+                 job_name: str,
+                 status: JobStatus,
+                 poll_interval: Optional[float]):
+        super().__init__(status=status,
+                         job_uuid=None,
+                         job_number=0,  # TODO
+                         name=job_name,
+                         poll_interval=poll_interval)
+
+    def terminate(self):
+        raise NotImplementedError
+
+
+class Job(BaseJob):  # TODO Change base properties to use composition instead of inheritance?
+    """
+    Job submitted to the Meeshkan scheduler for running (rename as `SchedulerJob`)?
+    """
     DEF_POLLING_INTERVAL = 3600.0  # Default is notifications every hour.
 
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
-                 desc: str = None, poll_interval: float = None):
+                 desc: str = None, poll_interval: Optional[float] = None):
         """
         :param executable: Executable instance
         :param job_number: Like PID, used for interacting with the job from the CLI
@@ -168,17 +235,16 @@ class Job(object):
         :param desc
         :param poll_interval
         """
+        super().__init__(status=JobStatus.CREATED,
+                         job_uuid=job_uuid,
+                         job_number=job_number,
+                         name=name,
+                         poll_interval=poll_interval)
         self.executable = executable
-        self.scalar_history = TrackerBase()
-        # General descriptors
-        # Absolutely unique identifier
-        self.id = job_uuid or uuid.uuid4()  # pylint: disable=invalid-name
-        self.number = job_number  # Human-readable integer ID
-        self.created = datetime.datetime.utcnow()
         self.status = JobStatus.CREATED
-        self.name = name or "Job #{number}".format(number=self.number)
         self.description = desc or str(executable)
-        self.poll_time = poll_interval
+
+    # Properties
 
     @property
     def pid(self):
@@ -223,18 +289,8 @@ class Job(object):
         return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
                                                                         id=self.id, status=self.status.name)
 
-    def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
-        return self.scalar_history.add_tracked(scalar_name, scalar_value)
-
     def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
         self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
-
-    def get_updates(self, *names, plot, latest):
-        """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
-        If latest == True, returns only latest updates, otherwise returns entire history.
-        """
-        # Delegate to HistoryTracker
-        return self.scalar_history.get_updates(*names, plot=plot, latest=latest)
 
     def cancel(self):
         """
@@ -274,7 +330,6 @@ class Job(object):
         job_name = name or "Job #{job_number}".format(job_number=job_number)
         return Job(executable, job_number=job_number, job_uuid=job_uuid, name=job_name, poll_interval=poll_interval,
                    desc=description)
-
 
     @staticmethod
     def __verify_python_executable(args: Tuple[str, ...]):

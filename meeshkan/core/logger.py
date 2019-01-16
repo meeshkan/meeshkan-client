@@ -12,6 +12,7 @@ LOGGER = logging.getLogger(__name__)
 # Do not expose anything by default (internal module)
 __all__ = []  # type: List[str]
 
+
 def setup_logging(log_config: Path = LOG_CONFIG_FILE, silent: bool = False):
     """Setup logging configuration
     This MUST be called before creating any loggers.

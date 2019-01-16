@@ -13,10 +13,13 @@ AUTHOR = 'Meeshkan Dev Team'
 REQUIRES_PYTHON = '>=3.6.0'
 SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 
-# Required packages
-REQUIRED = ['dill', 'requests', 'Click', 'Pyro4', 'PyYAML>=4.2b1', 'tabulate', 'matplotlib']
+# Required packages.
+# Older version of requests because >= 2.21 conflicts with sagemaker.
+REQUIRED = ['boto3', 'dill', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
 
-DEV = ['pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio']
+DEV = ['jupyter', 'nbdime', 'pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker', 'sphinx',
+       'sphinx-click', 'sphinx_rtd_theme']
+
 # Optional packages
 EXTRAS = {'dev': DEV,
           'devTF': DEV + ['tensorflow', 'tensorboard', 'keras'],
@@ -68,6 +71,13 @@ class BuildDistCommand(SetupCommand):
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
         sys.exit()
 
+
+def build_docs():
+    os.chdir("docs")
+    os.system("sphinx-apidoc -f -e -o source/ ../meeshkan/")
+    os.system("sphinx-build -M html -D version={version} source build".format(version=about['__version__']))
+
+
 class BuildDocumentationCommand(SetupCommand):
     """Builds the sphinx documentation"""
     description = "Builds the sphinx documentation."
@@ -79,11 +89,12 @@ class BuildDocumentationCommand(SetupCommand):
         except OSError:
             pass
 
-        self.status("Building documentation")
-        os.chdir("docs")
-        os.system("sphinx-apidoc -f -e -o source/ ../meeshkan/")
-        os.system("sphinx-build -M html -D version={version} source build".format(version=about['__version__']))
+        self.status("Building documentation...")
+        build_docs()
+        self.status("Docs were built. Now change to fresh branch, `git add docs/build`, `git commit -a` and do "
+                    "`git subtree push --prefix docs/build origin gh-pages` to push the build to `gh-pages` branch.")
         sys.exit()
+
 
 class UploadCommand(SetupCommand):
     """Support setup.py upload."""
@@ -117,6 +128,7 @@ class TestCommand(SetupCommand):
         os.system("pytest")
         sys.exit()
 
+
 setup(
     name=NAME,
     version=about['__version__'],
@@ -144,5 +156,6 @@ setup(
         'Operating System :: Unix'
     ],
     entry_points={'console_scripts': ENTRY_POINTS},
-    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand, 'doc': BuildDocumentationCommand}
+    cmdclass={'dist': BuildDistCommand, 'upload': UploadCommand, 'test': TestCommand,
+              'doc': BuildDocumentationCommand}
 )

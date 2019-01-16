@@ -36,8 +36,12 @@ handlers:
 loggers:
     urllib3.connectionpool:
         level: WARNING
+    urllib3:
+        level: INFO
     matplotlib:
         level: WARNING
+    botocore:
+        level: INFO
 
 root:
     level: DEBUG

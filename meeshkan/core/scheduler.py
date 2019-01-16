@@ -8,7 +8,7 @@ import os
 import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
-from .job import ProcessExecutable, JobStatus, Job
+from .job import ProcessExecutable, JobStatus, Job, SageMakerJob
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
 from ..notifications.notifiers import Notifier
@@ -74,7 +74,7 @@ class QueueProcessor:
             self._queue = None
 
 
-class Scheduler(object):
+class Scheduler:
     def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
@@ -102,7 +102,6 @@ class Scheduler(object):
         self.stop()
 
     # Job handling methods
-
     def _handle_job(self, job: Job) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.status.stale:

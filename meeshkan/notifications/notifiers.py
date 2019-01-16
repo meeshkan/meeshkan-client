@@ -8,7 +8,7 @@ import os
 
 
 from .__types__ import NotificationType, NotificationStatus, NotificationWithStatusTime
-from ..core.job import Job, JobStatus
+from ..core.job import BaseJob, Job, JobStatus
 from ..__types__ import Payload
 
 LOGGER = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 __all__ = []  # type: List[str]
 
 
-class Notifier(object):
+class Notifier:
     def __init__(self, name: str = None):
         self._notification_history_by_job = dict()  # type: Dict[uuid.UUID, List[NotificationWithStatusTime]]
         self.name = name or self.__class__.__name__
@@ -44,45 +44,47 @@ class Notifier(object):
             res[self.name] = job_notifications[-1]
         return res
 
-    def notify_job_start(self, job: Job) -> None:
+    def notify_job_start(self, job: BaseJob) -> None:
         try:
             self._notify_job_start(job)
             notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Notifying job start failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_START, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
-    def notify_job_end(self, job: Job) -> None:
+    def notify_job_end(self, job: BaseJob) -> None:
         try:
             self._notify_job_end(job)
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
-        except Exception as ex:  # pylint: disable=broad-except
-            LOGGER.exception(ex)
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Notifying job end failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_END, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
-    def notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
+    def notify(self, job: BaseJob, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         try:
             self._notify(job, image_path, n_iterations, iterations_unit)
             notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.SUCCESS)
             self.__add_to_history(job.id, notification)
         except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Notifying job update failed")
             notification = NotificationWithStatusTime(NotificationType.JOB_UPDATE, NotificationStatus.FAILED)
             self.__add_to_history(job.id, notification)
 
     # Functions inheriting classes must implement
 
-    def _notify_job_start(self, job: Job) -> None:
+    def _notify_job_start(self, job: BaseJob) -> None:
         """Notifies of a job start. Raises exception for failure."""
         raise NotImplementedError
 
-    def _notify_job_end(self, job: Job) -> None:
+    def _notify_job_end(self, job: BaseJob) -> None:
         """Notifies of a job end. Raises exception for failure."""
         raise NotImplementedError
 
-    def _notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
+    def _notify(self, job: BaseJob, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         """
         Notifies job status. Raises exception for failure.
         :return:
@@ -97,8 +99,11 @@ class LoggingNotifier(Notifier):
     def log(self, job_id, message):
         LOGGER.debug("%s: Notified for job %s:\n\t%s", self.__class__.__name__, job_id, message)
 
-    def _notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
+    def _notify(self, job: BaseJob, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         """Logs job status update and saves image to job directory. Raises exception for failure."""
+        if not isinstance(job, Job):
+            # TODO Implement for SageMaker?
+            return
         if not os.path.isdir(job.output_path):  # Copy image file to job directory
             # Caught by `notify`
             raise RuntimeError("Target directory {dir} does not exist!".format(dir=job.output_path))
@@ -106,11 +111,11 @@ class LoggingNotifier(Notifier):
         self.log(job.id, "#{itr} {units} (view at {link})".format(itr=n_iterations, units=iterations_unit,
                                                                   link=new_image_path))
 
-    def _notify_job_start(self, job: Job) -> None:
+    def _notify_job_start(self, job: BaseJob) -> None:
         """Notifies of a job start. Raises exception for failure."""
         self.log(job.id, "Job started")
 
-    def _notify_job_end(self, job: Job) -> None:
+    def _notify_job_end(self, job: BaseJob) -> None:
         """Notifies of a job end. Raises exception for failure."""
         self.log(job.id, "Job finished")
 
@@ -125,24 +130,25 @@ class CloudNotifier(Notifier):
         self._post_payload = post_payload
         self._upload_file = upload_file
 
-    def _notify_job_start(self, job: Job) -> None:
+    def _notify_job_start(self, job: BaseJob) -> None:
         """Notifies of a job start. Raises exception for failure."""
         mutation = "mutation NotifyJobStart($in: JobStartInput!) { notifyJobStart(input: $in) }"
         job_input = {"id": str(job.id),
                      "name": job.name,
                      "number": job.number,
                      "created": job.created.isoformat() + "Z",  # Assume it's UTC
-                     "description": job.description}
+                     "description": job.description if isinstance(job, Job) else None}
         self._post(mutation, {"in": job_input})
 
     @staticmethod
-    def _input_vars_for_failed(job: Job):
+    def _input_vars_for_failed(base_job: BaseJob):
 
         input_vars = {
-            "job_id": str(job.id)
+            "job_id": str(base_job.id)
         }
 
-        def parse_stderr():
+        def parse_stderr(job: Job):
+            # TODO Move this to be a method in `BaseJob` and implement for SageMaker
             stderr_path = job.stderr
             if stderr_path:
                 with open(stderr_path, "r") as file:
@@ -154,12 +160,14 @@ class CloudNotifier(Notifier):
                 stderr = None
             return stderr
 
-        input_vars["stderr"] = parse_stderr()
+        if isinstance(base_job, Job):
+            input_vars["stderr"] = parse_stderr(job=base_job)
+
         return input_vars
 
-    def _notify_job_end(self, job: Job) -> None:
+    def _notify_job_end(self, job: BaseJob) -> None:
         """Notifies of a job end. Raises exception for failure."""
-        LOGGER.debug("Notifying server of job with status {}".format(job.status))
+        LOGGER.debug("Notifying server of job with status %s", job.status)
 
         if job.status == JobStatus.FAILED:
             operation = "mutation NotifyJobFailed($in: JobFailedInput!) { notifyJobFailed(input: $in) }"
@@ -169,7 +177,7 @@ class CloudNotifier(Notifier):
             operation_input_vars = {"id": str(job.id), "name": job.name, "number": job.number}
         self._post(operation, {"in": operation_input_vars})
 
-    def _notify(self, job: Job, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations") -> None:
+    def _notify(self, job: BaseJob, image_path: str, n_iterations: int = -1, iterations_unit: str = "iterations"):
         """Notifies job status update. Raises exception for failure.
         Build and posts GraphQL query payload to the server.
         If given a valid image_path, uploads it before sending the message.
@@ -251,17 +259,17 @@ class NotifierCollection(Notifier):
 
     # Methods to handle notifications
 
-    def _notify_job_start(self, job: Job) -> None:
+    def _notify_job_start(self, job: BaseJob) -> None:
         """Notifies of a job start."""
         for notifier in self._notifiers:
             notifier.notify_job_start(job)
 
-    def _notify_job_end(self, job: Job) -> None:
+    def _notify_job_end(self, job: BaseJob) -> None:
         """Notifies of a job end."""
         for notifier in self._notifiers:
             notifier.notify_job_end(job)
 
-    def _notify(self, job: Job, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
+    def _notify(self, job: BaseJob, image_path: str, n_iterations: int, iterations_unit: str = "iterations") -> None:
         """
         Notifies job status update.
         :return:

@@ -29,6 +29,7 @@ del os
 del List
 del Optional
 
+
 def ensure_base_dirs(verbose=True):
 
     def create_dir_if_not_exist(path: Path):
@@ -85,11 +86,12 @@ class Credentials:
             credential_file.write("[meeshkan]\ntoken={token}\n".format(token=refresh_token))
             credential_file.flush()
 
-def init_config(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_FILE):
+
+def init_config(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_FILE, force_refresh=False):
     """Allows a one-time initialization of CONFIG and CREDENTIALS."""
     global CONFIG, CREDENTIALS  # pylint:disable=global-statement
-    if CONFIG is None:
+    if CONFIG is None or force_refresh:
         CONFIG = Configuration.from_yaml(config_path)
-    if CREDENTIALS is None:
+    if CREDENTIALS is None or force_refresh:
         CREDENTIALS = Credentials.from_isi(credentials_path)
     return CONFIG, CREDENTIALS
