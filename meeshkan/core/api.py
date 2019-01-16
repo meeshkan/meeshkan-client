@@ -14,7 +14,7 @@ from .service import Service
 from .tasks import TaskPoller, Task, TaskType
 from ..notifications.notifiers import Notifier
 from ..__types__ import HistoryByScalar
-from .serializer import DillSerializer
+from .serializer import Serializer
 
 __all__ = ["Api"]
 
@@ -181,8 +181,7 @@ class Api:
     @Pyro4.expose
     def add_condition(self, pid, condition, only_relevant, *vals):
         """Sets a condition for notifications"""
-        serializer = DillSerializer()
-        self.scheduler.add_condition(pid, *vals, condition=serializer(condition), only_relevant=only_relevant)
+        self.scheduler.add_condition(pid, *vals, condition=Serializer.serialize(condition), only_relevant=only_relevant)
 
     @Pyro4.expose
     def get_updates(self, job_id: uuid.UUID) -> HistoryByScalar:

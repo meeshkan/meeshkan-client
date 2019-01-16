@@ -1,7 +1,7 @@
 import os
 
 from ..core.service import Service
-from ..core.serializer import DillSerializer
+from ..core.serializer import Serializer
 
 __all__ = ["add_condition"]
 
@@ -20,5 +20,4 @@ def add_condition(*vals, condition, only_reported=False):
 
     pid = os.getpid()
     with Service().api as proxy:
-        serializer = DillSerializer()
-        proxy.add_condition(pid, serializer(condition), only_reported, *vals)
+        proxy.add_condition(pid, Serializer.serialize(condition), only_reported, *vals)
