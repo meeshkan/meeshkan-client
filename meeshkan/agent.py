@@ -105,6 +105,7 @@ def start() -> str:
     cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
     cloud_client.notify_service_start()
     cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
+    # TODO - Keep track of 'spawn' related crashes on macOS: https://bugs.python.org/issue33725
     pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)
     print('Service started.')
     cloud_client.close()
