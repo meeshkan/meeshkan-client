@@ -9,11 +9,11 @@ import socket  # To verify daemon
 import time
 import sys
 
-import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
 from ..__build__ import _build_api
+from .serializer import DillSerializer
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
@@ -71,9 +71,10 @@ class Service:
             self.terminate_daemon = multiprocessing.get_context("spawn").Event()
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        cloud_client = dill.loads(serialized.encode('cp437'))
-        Pyro4.config.SERIALIZER = 'dill'
-        Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+        serializer = DillSerializer()
+        cloud_client = serializer.deserialize(serialized)
+        Pyro4.config.SERIALIZER = str(serializer)
+        Pyro4.config.SERIALIZERS_ACCEPTED.add(str(serializer))
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
         with _build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
             daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon

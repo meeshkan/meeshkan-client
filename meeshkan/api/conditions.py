@@ -1,7 +1,7 @@
 import os
-import dill
 
 from ..core.service import Service
+from ..core.serializer import DillSerializer
 
 __all__ = ["add_condition"]
 
@@ -20,6 +20,5 @@ def add_condition(*vals, condition, only_reported=False):
 
     pid = os.getpid()
     with Service().api as proxy:
-        # Uses old encoding, see https://stackoverflow.com/a/27527728/4133131
-        # recurse==True also packs relevant modules etc and imports if needed and declared in a different module...
-        proxy.add_condition(pid, dill.dumps(condition, recurse=True).decode('cp437'), only_reported, *vals)
+        serializer = DillSerializer()
+        proxy.add_condition(pid, serializer(condition), only_reported, *vals)

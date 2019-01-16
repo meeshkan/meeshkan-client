@@ -3,21 +3,21 @@ import multiprocessing as mp
 import logging
 from typing import Optional
 
-import dill
 import requests
 import Pyro4
 
 from . import __utils__
 from .core.config import init_config, ensure_base_dirs
 from .core.service import Service
+from .core.serializer import DillSerializer
 from .__version__ import __version__
 
 LOGGER = logging.getLogger(__name__)
+SERIALIZER = DillSerializer()
 
-Pyro4.config.SERIALIZER = 'dill'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+Pyro4.config.SERIALIZER = str(SERIALIZER)
+Pyro4.config.SERIALIZERS_ACCEPTED.add(str(SERIALIZER))
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-
 __all__ = ["start", "init", "stop", "restart"]
 
 
@@ -104,7 +104,7 @@ def start() -> str:
 
     cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
     cloud_client.notify_service_start()
-    cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
+    cloud_client_serialized = SERIALIZER(cloud_client)
     pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)
     print('Service started.')
     cloud_client.close()
