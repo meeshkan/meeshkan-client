@@ -180,10 +180,10 @@ class JobScalarHelper:
 
         for metric_name, metrics_for_name in metrics_grouped_by_name:
             max_timestamp_for_name = metrics_for_name["timestamp"].max()
-            previous_last_timestamp_or_none = self.last_timestamp_by_metric.get(metric_name, None)
-            # Filter DataFrame by timestamp if previous not None
-            new_records_df = metrics_for_name[metrics_for_name.timestamp > previous_last_timestamp_or_none] \
-                if previous_last_timestamp_or_none is not None else metrics_for_name
+            previous_last_timestamp_or_none = self.last_timestamp_by_metric.get(metric_name, float("-inf"))
+
+            new_records_df = metrics_for_name[metrics_for_name.timestamp > previous_last_timestamp_or_none]
+
             for _, record in new_records_df.iterrows():
                 added_new_metrics = True
                 self.job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
