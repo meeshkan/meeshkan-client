@@ -1,5 +1,6 @@
 """Watch a running SageMaker job."""
 import asyncio
+from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
 import os
@@ -159,6 +160,38 @@ class SageMakerHelper:
         return analytics.dataframe(force_refresh=True)
 
 
+class JobScalarHelper:
+
+    def __init__(self, job: BaseJob):
+        self.job = job
+        self.last_timestamp_by_metric = {}  # type: Dict[str, float]
+
+    def add_new_scalars_from(self, metrics_dataframe: pd.DataFrame) -> bool:
+        """
+        Add all new records from `metrics_dataframe` to job scalar history, keeping track of the previously
+        seen maximum timestamp. It is assumed that for a given metric, all new records have timestamps larger than
+        the previously seen maximum timestamp.
+        :param metrics_dataframe: DataFrame with records with names "metric_name", "value", "timestamp"
+        :return: Boolean denoting if new values were added to job scalar history
+        """
+        metrics_grouped_by_name = metrics_dataframe.groupby(by="metric_name")
+
+        added_new_metrics = False
+
+        for metric_name, metrics_for_name in metrics_grouped_by_name:
+            max_timestamp_for_name = metrics_for_name["timestamp"].max()
+            previous_last_timestamp_or_none = self.last_timestamp_by_metric.get(metric_name, float("-inf"))
+
+            new_records_df = metrics_for_name[metrics_for_name.timestamp > previous_last_timestamp_or_none]
+
+            for _, record in new_records_df.iterrows():
+                added_new_metrics = True
+                self.job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
+
+            self.last_timestamp_by_metric[metric_name] = max_timestamp_for_name
+        return added_new_metrics
+
+
 class SageMakerJobMonitor:
     MINIMUM_POLLING_INTERVAL_SECS = 60
 
@@ -167,7 +200,8 @@ class SageMakerJobMonitor:
                  sagemaker_helper: Optional[SageMakerHelper] = None,
                  notify_start: Optional[Callable[[BaseJob], Any]] = None,
                  notify_update: Optional[Callable[[BaseJob, str, int, Optional[str]], Any]] = None,
-                 notify_finish: Optional[Callable[[BaseJob], Any]] = None):
+                 notify_finish: Optional[Callable[[BaseJob], Any]] = None,
+                 scalar_helper_factory: Optional[Callable[[BaseJob], JobScalarHelper]] = None):
         super().__init__()
         # self._notify = notify_function
         self._event_loop = event_loop or asyncio.get_event_loop()
@@ -175,6 +209,7 @@ class SageMakerJobMonitor:
         self.notify_start = notify_start
         self.notify_finish = notify_finish
         self.notify_update = notify_update
+        self.job_scalar_helper_factory = scalar_helper_factory or JobScalarHelper
 
     def start(self, job: SageMakerJob) -> asyncio.Task:
         self.sagemaker_helper.check_or_build_connection()
@@ -205,24 +240,6 @@ class SageMakerJobMonitor:
             LOGGER.info("Notifying finish for job %s with status %s", job.name, job.status)
             self.notify_finish(job)
 
-    @staticmethod
-    def get_new_records(df_new: pd.DataFrame, df_old: Optional[pd.DataFrame] = None):
-        """
-        Return a list of new records
-        # TODO Verify this actually always works with sagemaker.analytics
-        :param df_new: New dataframe, should have the same rows as `df_old` plus any new records
-        :param df_old: Old dataframe, can be left None to return all records of the new DataFrame
-        :return: List of dictionaries of the form {'column' -> 'value'}
-        """
-        if df_old is None or df_old.empty:
-            return df_new.to_dict(orient='records')
-
-        if df_new.empty:
-            return []
-
-        assert len(df_new) >= len(df_old)
-        return df_new.loc[len(df_old):len(df_new)].to_dict(orient='records')
-
     async def poll_updates(self, job: BaseJob):
         if not isinstance(job, SageMakerJob):
             raise RuntimeError("SageMakerJobMonitor can only monitor SageMakerJobs.")
@@ -234,49 +251,15 @@ class SageMakerJobMonitor:
         sleep_time = max(job.poll_time, SageMakerJobMonitor.MINIMUM_POLLING_INTERVAL_SECS)
         LOGGER.debug("Starting SageMaker job tracking for job %s with polling interval of %f seconds.",
                      job.name, sleep_time)
-        previous_metrics_df = None
 
         if job.status.is_launched and self.notify_start:
             self.notify_start(job)
 
+        job_scalar_helper = self.job_scalar_helper_factory(job)
+
         try:
             while True:
-                LOGGER.debug("Checking updates for job %s", job.name)
-                previous_status = job.status
-                job.status = self.sagemaker_helper.get_job_status(job.name)
-                LOGGER.debug("Job %s: previous status %s, current status %s", job.name, previous_status, job.status)
-                if not previous_status.is_launched and job.status.is_launched and self.notify_start:
-                    self.notify_start(job)
-
-                # TODO Add new scalars with `sagemaker_job.add_scalar_to_history()`
-                # TODO Notify updates with `self._notify(sagemaker_job)`
-
-                try:
-                    metrics_df = await self._event_loop.run_in_executor(
-                        None,
-                        self.sagemaker_helper.get_training_job_analytics_df, job.name)
-                    if not metrics_df.empty:
-                        # TODO Fix the bug where new metrics are prepended in the dataframe
-                        # and incorrectly handled by the `get_new_records`. Look `TrackerBase` for example.
-                        # LOGGER.debug("Got metrics df: %s", metrics_df)
-                        new_records = SageMakerJobMonitor.get_new_records(df_new=metrics_df, df_old=previous_metrics_df)
-                        previous_metrics_df = metrics_df
-                    else:
-                        new_records = []
-
-                    LOGGER.debug("Got new metric records: %s", new_records)
-
-                    for record in new_records:
-                        # TODO Handle metric_name.lower() == 'epoch'?
-                        job.add_scalar_to_history(scalar_name=record['metric_name'], scalar_value=record['value'])
-
-                    if new_records:
-                        # Something new to report
-                        self.__query_and_report(job=job)
-                except Exception as ex:  # pylint:disable=broad-except
-                    if isinstance(ex, asyncio.CancelledError):
-                        raise ex
-                    LOGGER.exception("Checking for SageMaker job metrics failed, ignoring.")
+                await self.check_and_apply_updates(job=job, job_scalar_helper=job_scalar_helper)
 
                 if job.status.is_processed:
                     break
@@ -289,6 +272,32 @@ class SageMakerJobMonitor:
         except Exception:  # pylint:disable=broad-except
             LOGGER.exception("Polling for updates failed")
             # Ignore
+
+    async def check_and_apply_updates(self, job: BaseJob, job_scalar_helper: JobScalarHelper):
+        LOGGER.debug("Checking updates for job %s", job.name)
+        previous_status = job.status
+        job.status = await self._event_loop.run_in_executor(None, self.sagemaker_helper.get_job_status, job.name)
+        LOGGER.debug("Job %s: previous status %s, current status %s", job.name, previous_status, job.status)
+        if not previous_status.is_launched and job.status.is_launched and self.notify_start:
+            self.notify_start(job)
+
+        added_new_scalars = False
+
+        try:
+            get_training_job_analytics = partial(self.sagemaker_helper.get_training_job_analytics_df, job_name=job.name)
+            metrics_df = await self._event_loop.run_in_executor(None, get_training_job_analytics)
+            if not metrics_df.empty:
+                added_new_scalars = job_scalar_helper.add_new_scalars_from(metrics_df)
+        except Exception as ex:  # pylint:disable=broad-except
+            # Reading TrainingJobAnalytics routinely throws an exception, handle it here
+            # TODO Only catch a more specific exception to avoid getting into failure loop?
+            if isinstance(ex, asyncio.CancelledError):
+                raise ex
+            LOGGER.exception("Checking for SageMaker job metrics failed, ignoring.")
+
+        if added_new_scalars:
+            # Something new to report
+            self._event_loop.run_in_executor(None, self.__query_and_report, job)
 
     # TODO Remove duplicate code with Scheduler
     def query_scalars(self, *names: Tuple[str, ...], job, latest_only: bool = True, plot: bool = False):
