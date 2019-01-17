@@ -4,7 +4,6 @@ import uuid
 from pathlib import Path
 from fnmatch import fnmatch
 
-import dill
 import Pyro4
 import Pyro4.errors
 
@@ -15,6 +14,7 @@ from .service import Service
 from .tasks import TaskPoller, Task, TaskType
 from ..notifications.notifiers import Notifier
 from ..__types__ import HistoryByScalar
+from .serializer import Serializer
 
 __all__ = ["Api"]
 
@@ -181,8 +181,7 @@ class Api:
     @Pyro4.expose
     def add_condition(self, pid, condition, only_relevant, *vals):
         """Sets a condition for notifications"""
-        self.scheduler.add_condition(pid, *vals, condition=dill.loads(condition.encode('cp437')),
-                                     only_relevant=only_relevant)
+        self.scheduler.add_condition(pid, *vals, condition=Serializer.serialize(condition), only_relevant=only_relevant)
 
     @Pyro4.expose
     def get_updates(self, job_id: uuid.UUID) -> HistoryByScalar:

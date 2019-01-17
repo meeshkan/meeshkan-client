@@ -2,21 +2,20 @@ from distutils.version import StrictVersion
 import logging
 from typing import Optional
 
-import dill
 import requests
 import Pyro4
 
 from . import __utils__
 from .core.config import init_config, ensure_base_dirs
 from .core.service import Service
+from .core.serializer import Serializer
 from .__version__ import __version__
 
 LOGGER = logging.getLogger(__name__)
 
-Pyro4.config.SERIALIZER = 'dill'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+Pyro4.config.SERIALIZER = Serializer.NAME
+Pyro4.config.SERIALIZERS_ACCEPTED.add(Serializer.NAME)
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-
 __all__ = ["start", "init", "stop", "restart"]
 
 
@@ -102,7 +101,7 @@ def start() -> str:
 
     cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
     cloud_client.notify_service_start()
-    cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
+    cloud_client_serialized = Serializer.serialize(cloud_client)
     # TODO - Keep track of 'spawn' related crashes on macOS: https://bugs.python.org/issue33725
     pyro_uri = Service.start(cloud_client_serialized=cloud_client_serialized)
     print('Service started.')

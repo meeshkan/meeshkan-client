@@ -7,9 +7,6 @@ from ..core.job import SageMakerJob
 
 __all__ = ["monitor"]  # type: List[str]
 
-Pyro4.config.SERIALIZER = 'dill'
-
-
 def monitor(job_name: str, poll_interval: Optional[float] = None):
     """
     Start monitoring a SageMaker training job.

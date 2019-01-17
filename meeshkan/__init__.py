@@ -4,6 +4,8 @@ from . import core
 from .core import *  # pylint: disable=wildcard-import
 from . import api
 from .api import *  # pylint: disable=wildcard-import
+# TODO - this import system works mainly with submodules; `agent` and accompanying `__utils__` should be moved to their
+#        own submodule
 from . import agent
 from .agent import *  # pylint: disable=wildcard-import
 from . import notifications
