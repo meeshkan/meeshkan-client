@@ -63,12 +63,6 @@ class Service:
         return Pyro4.Proxy(Service.URI)
 
     @staticmethod
-    def uri() -> str:
-        return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME,
-                                                      host=Service.HOST,
-                                                      port=Service.PORT)
-
-    @staticmethod
     def daemonize(serialized):
         """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
         pid = os.fork()
