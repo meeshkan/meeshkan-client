@@ -110,8 +110,8 @@ class Service:
     @staticmethod
     def start(cloud_client_serialized: str) -> str:
         """
-        Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
-        :param cloud_client_serialized: Dill-serialized CloudClient instance
+        Runs the agent as a Pyro4 object on a predetermined location in a subprocess.
+        :param cloud_client_serialized: Serialized CloudClient instance
         :return: Pyro URI
         """
 
