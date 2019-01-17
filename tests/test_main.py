@@ -192,7 +192,8 @@ def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefine
         mock_cloud_client.notify_service_start.side_effect = fail_notify_start
         start_result = run_cli('start')
 
-    assert start_result.stdout == "Starting service failed.\n", "`meeshkan start` is expected to fail"
+    assert "Starting the Meeshkan agent failed" in start_result.stdout,\
+        "`meeshkan start` is expected to fail with error message"
     assert start_result.exit_code == 1, "`meeshkan start` exit code should be non-zero upon failure"
     assert not Service.is_running(), "Service should not be running!"
 
