@@ -62,7 +62,7 @@ def init(token: Optional[str] = None):
 
 
 def _stop_if_running() -> bool:
-    if Service().is_running():
+    if Service.is_running():
         print("Stopping service...")
         api = __utils__._get_api()  # pylint: disable=protected-access
         api.stop()

@@ -43,8 +43,8 @@ class Service:
                                                  host=HOST,
                                                  port=PORT)
 
-    def __init__(self):
-        self.terminate_daemon = None  # Set at start time
+    def __init__(self, terminate_daemon_event: asyncio.Event):
+        self.terminate_daemon_event = terminate_daemon_event
 
     @staticmethod
     def is_running() -> bool:
@@ -63,17 +63,15 @@ class Service:
         return Pyro4.Proxy(Service.URI)
 
     @staticmethod
-    def daemonize(serialized):
-        """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
+    def daemonize(cloud_client_serialized):
+        """Makes sure the daemon runs even if the process that called `start` terminates"""
         pid = os.fork()
         if pid > 0:  # Close parent process
             return
-        service = Service()
-        if not service.terminate_daemon:
-            service.terminate_daemon = asyncio.Event()  # Only have one spawned process and semaphore tracker
+        service = Service(terminate_daemon_event=asyncio.Event())
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        cloud_client = dill.loads(serialized.encode('cp437'))
+        cloud_client = dill.loads(cloud_client_serialized.encode('cp437'))
         Pyro4.config.SERIALIZER = 'dill'
         Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
@@ -92,7 +90,7 @@ class Service:
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     try:
                         loop_daemon_until_event_set = partial(daemon.requestLoop,
-                                                              lambda: not service.terminate_daemon.is_set())
+                                                              lambda: not service.terminate_daemon_event.is_set())
                         await loop.run_in_executor(pool, loop_daemon_until_event_set)
                     finally:
                         LOGGER.debug("Canceling polling task.")
@@ -132,10 +130,10 @@ class Service:
 
     def stop(self) -> bool:
         if self.is_running():
-            if not self.terminate_daemon:
+            if self.terminate_daemon_event is None:
                 raise RuntimeError("Terminate daemon event does not exist. "
                                    "The stop() method may have called from the wrong process.")
-            self.terminate_daemon.set()  # Flag for requestLoop to terminate
+            self.terminate_daemon_event.set()  # Flag for requestLoop to terminate
             with Service.api() as pyro_proxy:
                 # triggers checking loopCondition
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
