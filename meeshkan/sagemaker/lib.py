@@ -18,7 +18,7 @@ def monitor(job_name: str, poll_interval: Optional[float] = None):
     :param poll_interval: Polling interval in seconds, optional. Defaults to one hour.
     :return: SageMakerJob instance
     """
-    with Service().api as proxy:
+    with Service.api() as proxy:
         sagemaker_job = proxy.monitor_sagemaker(job_name=job_name, poll_interval=poll_interval)  # type: SageMakerJob
         if sagemaker_job.status.is_processed:
             print("Job {job_name} is already finished with status {status}.".format(job_name=sagemaker_job.name,

@@ -147,8 +147,6 @@ def test_version_mismatch(pre_post_tests):  # pylint:disable=unused-argument,red
 
 
 def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service()
-
     # Patch CloudClient as it connects to cloud at start-up
     # Lots of reverse-engineering happening here...
     with mock.patch(BUILD_CLOUD_CLIENT_PATCH_PATH) as mock_build_cloud_client:
@@ -157,9 +155,9 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
         mock_cloud_client.notify_service_start.return_value = None
         start_result = run_cli('start')
         assert start_result.exit_code == 0
-        assert service.is_running(), "Service should be running after using `meeshkan start`"
+        assert Service.is_running(), "Service should be running after using `meeshkan start`"
         stop_result = run_cli(args=['stop'])
-        assert not service.is_running(), "Service should NOT be running after using `meeshkan stop`"
+        assert not Service.is_running(), "Service should NOT be running after using `meeshkan stop`"
 
     assert start_result.exit_code == 0, "`meeshkan start` is expected to run without errors"
     assert stop_result.exit_code == 0, "`meeshkan stop` is expected to run without errors"
@@ -169,13 +167,12 @@ def test_start_stop(pre_post_tests):  # pylint: disable=unused-argument,redefine
 
 
 def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service()
     with mock.patch(BUILD_CLOUD_CLIENT_PATCH_PATH) as mock_build_cloud_client:
         mock_cloud_client = PicklableMock()
         mock_build_cloud_client.return_value = mock_cloud_client
         mock_cloud_client.notify_service_start.return_value = None
         start_result = run_cli('start')
-        assert service.is_running(), "Service should be running after using `meeshkan start`"
+        assert Service.is_running(), "Service should be running after using `meeshkan start`"
         double_start_result = run_cli('start')
         assert double_start_result.stdout == "Service is already running.\n", "Service should already be running"
 
@@ -186,8 +183,6 @@ def test_double_start(pre_post_tests):  # pylint: disable=unused-argument,redefi
 
 
 def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service()
-
     def fail_notify_start(*args, **kwargs):  # pylint: disable=unused-argument,redefined-outer-name
         raise RuntimeError("Mocking notify service start failure")
 
@@ -199,7 +194,7 @@ def test_start_fail(pre_post_tests):  # pylint: disable=unused-argument,redefine
 
     assert start_result.stdout == "Starting service failed.\n", "`meeshkan start` is expected to fail"
     assert start_result.exit_code == 1, "`meeshkan start` exit code should be non-zero upon failure"
-    assert not service.is_running(), "Service should not be running!"
+    assert not Service.is_running(), "Service should not be running!"
 
 
 def test_help(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
@@ -214,7 +209,6 @@ def test_help(pre_post_tests):  # pylint: disable=unused-argument,redefined-oute
 
 
 def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service()
 
     # Patch CloudClient as it connects to cloud at start-up
     with mock.patch(BUILD_CLOUD_CLIENT_PATCH_PATH) as mock_build_cloud_client:
@@ -232,14 +226,12 @@ def test_start_with_401_fails(pre_post_tests):  # pylint: disable=unused-argumen
                                                                                  "start` should match the error " \
                                                                                  "message in " \
                                                                                  "UnauthorizedRequestException"
-    assert not service.is_running(), "Service should not be running after a failed `start`"
+    assert not Service.is_running(), "Service should not be running after a failed `start`"
     assert mock_cloud_client.notify_service_start.call_count == 1, "`notify_service_start` should be " \
                                                                                 "called once (where it fails)"
 
 
 def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service()
-
     # Patch CloudClient as it connects to cloud at start-up
     with mock.patch(BUILD_CLOUD_CLIENT_PATCH_PATH) as mock_build_cloud_client:
         mock_cloud_client = PicklableMock()
@@ -250,7 +242,7 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
         start_result = run_cli(args=['start'])
 
     assert start_result.exit_code == 0, "`start` should run smoothly"
-    assert service.is_running(), "Service should be running after `start`"
+    assert Service.is_running(), "Service should be running after `start`"
 
     submit_result = run_cli(args='submit echo Hello')
     assert submit_result.exit_code == 0, "`submit` is expected to succeed"
@@ -264,7 +256,7 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
     job_uuid = match.group(2)
     assert uuid.UUID(job_uuid), "Job UUID should be a valid UUID and match the regex pattern"
 
-    assert service.is_running(), "Service should still be running!"
+    assert Service.is_running(), "Service should still be running!"
 
     list_result = run_cli(args='list')
     # Better testing at some point.
@@ -341,7 +333,6 @@ def test_sorry_connection_fail(pre_post_tests):  # pylint: disable=unused-argume
 
 
 def test_empty_list(pre_post_tests):  # pylint: disable=unused-argument,redefined-outer-name
-    service = Service()
     with mock.patch(BUILD_CLOUD_CLIENT_PATCH_PATH) as mock_build_cloud_client:
         mock_cloud_client = PicklableMock()
         mock_build_cloud_client.return_value = mock_cloud_client
@@ -351,7 +342,7 @@ def test_empty_list(pre_post_tests):  # pylint: disable=unused-argument,redefine
         run_cli(args=['start'])
         list_result = run_cli(args=['list'])
 
-    assert service.is_running(), "Service should be running after running `start`"
+    assert Service.is_running(), "Service should be running after running `start`"
     assert list_result.exit_code == 0, "`list` is expected to succeed"
     assert list_result.stdout == "No jobs submitted yet.\n", "`list` output message should match"
 

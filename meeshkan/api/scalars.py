@@ -18,7 +18,7 @@ def report_scalar(val_name, value, *vals) -> bool:
         raise RuntimeError("Invalid number of arguments given - did you forget a name/value?")
 
     pid = os.getpid()
-    with Service().api as proxy:
+    with Service.api() as proxy:
         try:
             proxy.report_scalar(pid, val_name, value)
             for name, val in zip(vals[::2], vals[1::2]):

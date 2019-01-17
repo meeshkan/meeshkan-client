@@ -1,5 +1,4 @@
 from distutils.version import StrictVersion
-import multiprocessing as mp
 import logging
 from typing import Optional
 
@@ -95,10 +94,9 @@ def start() -> str:
     :return str: Pyro server URI.
     """
     __verify_version()
-    service = Service()
-    if service.is_running():
+    if Service.is_running():
         print("Service is already running.")
-        return service.uri
+        return Service.URI
 
     config, credentials = __utils__.get_auth()
 
@@ -106,7 +104,7 @@ def start() -> str:
     cloud_client.notify_service_start()
     cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
     # TODO - Keep track of 'spawn' related crashes on macOS: https://bugs.python.org/issue33725
-    pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)
+    pyro_uri = Service.start(cloud_client_serialized=cloud_client_serialized)
     print('Service started.')
     cloud_client.close()
     return pyro_uri
