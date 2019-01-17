@@ -38,7 +38,6 @@ def _token_store(build_session=None):
     """Returns a TokenStore for unit testing"""
     _cloud_url = 'favorite-url-yay.com'
     _refresh_token = 'meeshkan-top-secret'
-    # return DummyStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
     if build_session is None:
         return DummyStore(cloud_url=_cloud_url, refresh_token=_refresh_token)
     return DummyStore(cloud_url=_cloud_url, refresh_token=_refresh_token, build_session=build_session)
@@ -47,29 +46,11 @@ def _token_store(build_session=None):
 @pytest.fixture
 def pre_post_tests():
     """Pre- and post-test method to explicitly start and stop various instances."""
-    def _get_fetch_token():
-        """
-        :return: Function returning tokens that increment by one for every call
-        """
-        requests_counter = 0
-
-        def fetch(self):  # pylint:disable=unused-argument
-            nonlocal requests_counter
-            requests_counter += 1
-            return str(requests_counter)
-        return fetch
-
-    def _no_tasks():
-        return []
-    # Stuff before tests
-    # tokenstore_patcher = mock.patch('meeshkan.__main__.cloud.CloudTokenStore', _get_fetch_token())
-    # tokenstore_patcher.start()  # Augment TokenStore
 
     def stop_service():
         run_cli(args=['stop'])
     yield stop_service()
     stop_service()  # Stuff to run after every test
-    # tokenstore_patcher.stop()
 
 
 def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
