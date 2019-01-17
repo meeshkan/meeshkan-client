@@ -71,7 +71,7 @@ class Service:
         service = Service(terminate_daemon_event=asyncio.Event())
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        cloud_client = Serializer.deserialize(serialized)
+        cloud_client = Serializer.deserialize(cloud_client_serialized)
         Pyro4.config.SERIALIZER = Serializer.NAME
         Pyro4.config.SERIALIZERS_ACCEPTED.add(Serializer.NAME)
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
