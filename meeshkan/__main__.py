@@ -79,21 +79,23 @@ def start():
         print(ex.message)
         sys.exit(1)
     except Exception as ex:  # pylint: disable=broad-except
-        print("Starting service failed.")
+        print("Starting the Meeshkan agent failed :'( Please try again.")
+        print("If the problem persists, "
+              "please let us know in the meeshkan-community Slack channel or create an issue in GitHub: "
+              "https://github.com/Meeshkan/meeshkan-client/issues")
         LOGGER.exception("Starting service failed.")
-        # sys.exit(1)
         raise
 
 
 @cli.command(name='status')
 def daemon_status():
     """Checks and returns the service daemon status."""
-    service = Service()
-    is_running = service.is_running()
+    is_running = Service.is_running()
     status = "up and running" if is_running else "configured to run"
-    print("Service is {status} on {host}:{port}".format(status=status, host=service.host, port=service.port))
+    print("Service is {status} on {host}:{port}".format(status=status, host=Service.HOST,
+                                                        port=Service.PORT))
     if is_running:
-        print("URI for Daemon is {uri}".format(uri=service.uri))
+        print("URI for Daemon is {uri}".format(uri=Service.URI))
 
 
 @cli.command()
