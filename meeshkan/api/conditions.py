@@ -19,5 +19,5 @@ def add_condition(*vals, condition, only_reported=False):
         raise RuntimeError("No arguments given for condition!")
 
     pid = os.getpid()
-    with Service().api as proxy:
+    with Service.api() as proxy:
         proxy.add_condition(pid, Serializer.serialize(condition), only_reported, *vals)
