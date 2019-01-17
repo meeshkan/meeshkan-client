@@ -8,7 +8,7 @@ import os
 import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
-from .job import ProcessExecutable, JobStatus, Job, SageMakerJob
+from .job import ProcessExecutable, JobStatus, BaseJob, SageMakerJob
 from .config import JOBS_DIR
 from ..exceptions import JobNotFoundException
 from ..notifications.notifiers import Notifier
@@ -102,7 +102,7 @@ class Scheduler:
         self.stop()
 
     # Job handling methods
-    def _handle_job(self, job: Job) -> None:
+    def _handle_job(self, job: BaseJob) -> None:
         LOGGER.debug("Handling job: %s", job)
         if job.status.stale:
             return
@@ -127,7 +127,7 @@ class Scheduler:
         self._running_job = None
         LOGGER.debug("Finished handling job: %s", job)
 
-    def submit_job(self, job: Job):
+    def submit_job(self, job: BaseJob):
         job.status = JobStatus.QUEUED
         self.submitted_jobs[job.id] = job
         self._job_queue.put(job)  # TODO Blocks if queue full

@@ -50,7 +50,11 @@ class BaseJob(Stoppable, Trackable):
         self.number = job_number  # Human-readable integer ID
         self.poll_time = poll_interval or BaseJob.DEF_POLLING_INTERVAL  # type: float
         self.created = datetime.datetime.utcnow()
-        self.name = name or "Job #{number}".format(number=self.number)
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name or "Job #{number}".format(number=self.number)
 
     def terminate(self):
         raise NotImplementedError

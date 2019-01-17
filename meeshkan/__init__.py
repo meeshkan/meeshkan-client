@@ -4,8 +4,6 @@ from . import core
 from .core import *  # pylint: disable=wildcard-import
 from . import api
 from .api import *  # pylint: disable=wildcard-import
-# TODO - this import system works mainly with submodules; `agent` and accompanying `__utils__` should be moved to their
-#        own submodule
 from . import agent
 from .agent import *  # pylint: disable=wildcard-import
 from . import notifications
@@ -24,7 +22,33 @@ __all__ += core.__all__
 __all__ += notifications.__all__
 
 # Clean-up (make `meeshkan.core`, etc unavailable)
-del core
-del api
-del agent
-del notifications
+del core, api, agent, notifications
+
+
+try:
+    from IPython.core.magic import line_magic, Magics, magics_class
+    @magics_class
+    class MeeshkanMagic(Magics):
+        @line_magic
+        def meeshkan(self, line):
+            from .core.job import IPythonJob
+            from .__utils__ import _get_api
+
+            job = IPythonJob(self.shell, line)
+            job.launch_and_wait()
+            return job
+            # _get_api().submit_job(job)
+
+
+
+    def load_ipython_extension(ipython):
+        ipython.register_magics(MeeshkanMagic)
+    try:
+        ip = get_ipython()
+        ip.magic("load_ext meeshkan")
+    except Exception:
+        pass
+
+    del Magics, magics_class, line_magic
+except ModuleNotFoundError:
+    pass

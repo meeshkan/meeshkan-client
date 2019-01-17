@@ -4,6 +4,8 @@ import uuid
 import os
 import sys
 from pathlib import Path
+import tempfile
+import inspect
 
 from .base import BaseJob
 from .status import JobStatus
@@ -13,11 +15,70 @@ from ..config import JOBS_DIR
 LOGGER = logging.getLogger(__name__)
 
 # Expose Job, SageMakerJob to upper level
-__all__ = ["Job", "SageMakerJob"]  # type: List[str]
+__all__ = ["Job", "SageMakerJob", "IPythonJob"]  # type: List[str]
 
 
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
 SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 return codes as success with message?)
+
+
+class IPythonJob(BaseJob):
+    def __init__(self, shell, line, block=True):
+        # def __init__(self, status: JobStatus, job_uuid: Optional[uuid.UUID] = None, job_number: Optional[int] = None,
+        #              name: Optional[str] = None, poll_interval: Optional[float] = None):
+        super().__init__(status=JobStatus.CREATED)
+        self.shell = shell
+        self.block = block
+        self.backup = dict()
+
+        args = line.split()
+        print(args)
+        func_name = args[0]
+        del args[0]
+
+        # Write code to temporary file:
+        script_path = Path(tempfile.mkdtemp())
+        fname = "{fname}.py".format(fname=func_name)
+        self.script_file = script_path.joinpath(fname)
+        # run_file = script_path.joinpath("run.py")
+        with self.script_file.open('w') as f:
+            f.write(inspect.getsource(self.shell.user_ns[func_name]))
+            f.write("\n\nif __name__ == \"__main__\":\n")
+            f.write("    {func}(*{args})".format(func=func_name, args=args))
+        print(self.script_file)
+
+    def terminate(self):
+        pass
+
+    def launch_and_wait(self):
+        import builtins as builtin_mod
+        # Save state:
+        save_argv = sys.argv
+        restore_main = sys.modules['__main__']
+        name_save = self.shell.user_ns['__name__']
+
+        # Set up globals for script file
+        prog_ns = self.shell.user_ns
+        prog_ns['__name__'] = '__main__'
+        prog_ns['__file__'] = self.script_file.name
+        sys.modules['__main__'] = self.shell.user_module
+
+        if self.block:
+            self.shell.safe_execfile(self.script_file, prog_ns, prog_ns, exit_ignore=False)
+        else:  # TODO - threading? multiprocessing?
+            pass
+
+        # Restore
+        self.shell.user_ns['__name__'] = name_save
+        self.shell.user_ns['__builtins__'] = builtin_mod
+        sys.argv = save_argv
+        sys.modules['__main__'] = restore_main
+
+    # def __str__(self):
+    #     pass
+    #
+    # def __repr__(self):
+    #     pass
 
 
 class SageMakerJob(BaseJob):
@@ -53,10 +114,7 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
         :param desc
         :param poll_interval
         """
-        super().__init__(status=JobStatus.CREATED,
-                         job_uuid=job_uuid,
-                         job_number=job_number,
-                         name=name,
+        super().__init__(status=JobStatus.CREATED, job_uuid=job_uuid, job_number=job_number, name=name,
                          poll_interval=poll_interval)
         self.executable = executable
         self.description = desc or str(executable)
@@ -126,8 +184,8 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
                 'args': repr(self.executable)}
 
     @staticmethod
-    def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
-                   description: str = None, output_path: Optional[Path] = None):
+    def create_job(args: Tuple[str, ...], job_number: int = None, cwd: str = None, name: str = None,
+                   poll_interval: int = None, description: str = None, output_path: Optional[Path] = None):
         """Creates a job from given arguments.
         :param args: arguments that make up an executable
         :param job_number: human-readable job number

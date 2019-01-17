@@ -7,7 +7,7 @@ from fnmatch import fnmatch
 import Pyro4
 import Pyro4.errors
 
-from .job import Job, SageMakerJob
+from .job import Job, SageMakerJob, BaseJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
@@ -137,10 +137,14 @@ class Api:
 
     @Pyro4.expose
     def submit(self, args: Tuple[str, ...], cwd: str = None, name=None, poll_interval=None):
-        job_number = len(self.scheduler.jobs) + 1
-        job = Job.create_job(args, cwd=cwd, job_number=job_number, name=name, poll_interval=poll_interval)
-        self.scheduler.submit_job(job)
+        job = Job.create_job(args, cwd=cwd, name=name, poll_interval=poll_interval)
+        self.submit_job(job)
         return job
+
+    @Pyro4.expose
+    def submit_job(self, job: BaseJob):
+        job.number = len(self.scheduler.jobs) + 1
+        self.scheduler.submit_job(job)
 
     @Pyro4.expose
     def monitor_sagemaker(self, job_name: str, poll_interval: Optional[float] = None) -> SageMakerJob:
