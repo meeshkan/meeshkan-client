@@ -19,5 +19,5 @@ steps:
   displayName: 'Test with pylint'
 
 - script: |
-    mypy --ignore-missing-imports meeshkan
+    mypy meeshkan
   displayName: 'Static type checking'
