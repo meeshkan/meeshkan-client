@@ -4,7 +4,8 @@ import queue
 
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
-from meeshkan.core.job import JobStatus, Executable, Job
+from meeshkan.core.job import JobStatus, Job
+from meeshkan.core.job.executables import Executable
 from meeshkan.core.tasks import Task, TaskType
 
 from .utils import MockNotifier, wait_for_true, FUTURE_TIMEOUT
