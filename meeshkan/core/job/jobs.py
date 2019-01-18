@@ -12,7 +12,7 @@ from ..config import JOBS_DIR
 
 LOGGER = logging.getLogger(__name__)
 
-# Do not expose anything by default (internal module)
+# Expose Job, SageMakerJob to upper level
 __all__ = ["Job", "SageMakerJob"]  # type: List[str]
 
 
