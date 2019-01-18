@@ -6,6 +6,8 @@ __all__ = []  # type: ignore
 
 
 def _build_api(service, cloud_client):  # pylint: disable=too-many-locals
+    # Cyclic import check is cancelled here; pylint complains about it even though it's only imported in the daemon
+    # process, which is a clean one and therefore there are no cyclic imports.
     from meeshkan.core.api import Api  # pylint: disable=cyclic-import
     from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
     from meeshkan.core.tasks import TaskPoller
