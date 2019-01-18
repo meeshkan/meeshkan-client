@@ -1,4 +1,4 @@
-from typing import Callable, Any, Tuple, Union, List, Optional, Dict
+from typing import Callable, Any, Tuple, List, Optional, Dict
 import logging
 import uuid
 from pathlib import Path
@@ -113,7 +113,7 @@ class Api:
 
         if job_id is not None:  # Match by UUID
             job = self.get_job(job_id)
-            if job:
+            if isinstance(job, Job):  # mypy understands this better than "is not None"
                 return job.id
 
         if job_number is not None:  # Match by job number
