@@ -1,15 +1,13 @@
 import logging
 import queue
 import threading
-from typing import Any, Dict, List, Tuple, Callable, Optional, Union  # For self-documenting typing
-from pathlib import Path
+from typing import Dict, List, Tuple, Callable, Optional, Union  # For self-documenting typing
 import uuid
 import os
 import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
-from .job import ProcessExecutable, JobStatus, Job, SageMakerJob
-from .config import JOBS_DIR
+from .job import JobStatus, Job, NotebookJob
 from ..exceptions import JobNotFoundException
 from ..notifications.notifiers import Notifier
 
@@ -77,12 +75,13 @@ class QueueProcessor:
 class Scheduler:
     def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
-        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
+        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Union[Job, NotebookJob]]  # Temporary union hack
         self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
         self._job_poller = TrackingPoller(self.__query_and_report)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
         self._notifier = notifier  # type: Optional[Notifier]
+        self.active_notebook_job = None  # type: Optional[uuid.UUID]
 
     # Properties and Python magic
 
@@ -139,13 +138,22 @@ class Scheduler:
             return
         self.submitted_jobs[job_id].cancel()
 
+
     # Tracking methods
 
     def __get_job_by_pid(self, pid):
-        job_id = [job.id for job in self.jobs if job.pid == pid]
-        if not job_id:
+        jobs = [job for job in self.jobs if job.pid == pid]
+        if not jobs:
             raise JobNotFoundException(job_id=str(pid))
-        return job_id[0]
+        if len(jobs) == 1:
+            return jobs[0].id
+        # Check if one of them is active
+        active_jobs = [job for job in jobs if self.active_notebook_job == job.id]
+        if not active_jobs:
+            return jobs[0].id
+        else:
+            return active_jobs[0]
+
 
     def add_condition(self, pid: int, *vals: str, condition: Callable[[float], bool], only_relevant: bool):
         """Adds a new condition for a job that matches the given process id.

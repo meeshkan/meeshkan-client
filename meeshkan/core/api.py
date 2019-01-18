@@ -7,7 +7,7 @@ from fnmatch import fnmatch
 import Pyro4
 import Pyro4.errors
 
-from .job import Job, SageMakerJob
+from .job import Job, SageMakerJob, NotebookJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
@@ -189,6 +189,19 @@ class Api:
         # We leave the recent_vals in a list for easy use in tabulate
         recent_vals = {val_name: values[-1:] for val_name, values in vals.items()}
         return recent_vals
+
+    @Pyro4.expose
+    def create_notebook_job(self, pid: int, name: str) -> uuid.UUID:
+        """
+        Create a new notebook job and set it as active so that incoming reports with the same
+        PID are registered to this job.
+        :param pid: Process ID of creating process
+        :param name: Job name
+        :return: Job ID
+        """
+        notebook_job = NotebookJob.create(pid=pid, name=name)
+        self.scheduler.submitted_jobs[notebook_job.id] = notebook_job
+        return notebook_job.id
 
     @Pyro4.expose
     def stop(self):

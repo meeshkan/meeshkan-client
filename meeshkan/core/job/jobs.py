@@ -13,7 +13,7 @@ from ..config import JOBS_DIR
 LOGGER = logging.getLogger(__name__)
 
 # Expose Job, SageMakerJob to upper level
-__all__ = ["Job", "SageMakerJob"]  # type: List[str]
+__all__ = ["Job", "SageMakerJob", "NotebookJob"]  # type: List[str]
 
 
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
@@ -36,6 +36,30 @@ class SageMakerJob(BaseJob):
 
     def terminate(self):
         raise NotImplementedError
+
+
+class NotebookJob(BaseJob):
+    def __init__(self, pid: int, job_uuid: uuid.UUID = None, name: str = None,
+                 desc: str = None, poll_interval: Optional[float] = None):
+        """
+        :param pid: Notebook process ID
+        :param job_uuid
+        :param name
+        :param desc
+        :param poll_interval
+        """
+        super().__init__(status=JobStatus.CREATED,
+                         job_uuid=job_uuid,
+                         job_number=0,
+                         name=name,
+                         poll_interval=poll_interval)
+        self.pid = pid
+        self.description = desc
+
+
+    @staticmethod
+    def create(pid: int, name: str) -> 'NotebookJob':
+        return NotebookJob(pid=pid, name=name)
 
 
 class Job(BaseJob):  # TODO Change base properties to use composition instead of inheritance?
@@ -105,9 +129,6 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
     def __str__(self):
         return "Job: {executable}, #{number}, ({id}) - {status}".format(executable=self.executable, number=self.number,
                                                                         id=self.id, status=self.status.name)
-
-    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
-        self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
 
     def cancel(self):
         """
