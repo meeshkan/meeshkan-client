@@ -285,18 +285,23 @@ pip install -e .[dev]
 
 ### Running tests
 ```bash
-pytest
+pytest [-s]
 ```
 
 ### Running lint
 ```bash
 pylint -f msvs meeshkan
 ```
+To check for required coverage:
+```bash
+python run_pylint.py --fail-under=9.75 -f msvs meeshkan
+```
 
 ### Running static type checks
 ```bash
-mypy --ignore-missing-imports meeshkan
+mypy meeshkan
 ```
+The configuration for `mypy` can be found in [mypy.ini](./mypy.ini).
 
 ### Building the documentation
 ```bash
