@@ -238,7 +238,6 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
                          name=name,
                          poll_interval=poll_interval)
         self.executable = executable
-        self.status = JobStatus.CREATED
         self.description = desc or str(executable)
 
     # Properties
