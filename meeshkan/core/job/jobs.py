@@ -23,28 +23,40 @@ SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 retur
 
 
 class IPythonJob(BaseJob):
-    def __init__(self, shell, line, block=True):
+    def __init__(self, shell, line, block=True, inline=True):
         # def __init__(self, status: JobStatus, job_uuid: Optional[uuid.UUID] = None, job_number: Optional[int] = None,
         #              name: Optional[str] = None, poll_interval: Optional[float] = None):
         super().__init__(status=JobStatus.CREATED)
         self.shell = shell
         self.block = block
+        self.inline = inline
         self.backup = dict()
 
+        # Break arguments to function to test + arguments supplied
         args = line.split()
-        print(args)
         func_name = args[0]
         del args[0]
 
-        # Write code to temporary file:
+        # Set up script file and location, etc
         script_path = Path(tempfile.mkdtemp())
         fname = "{fname}.py".format(fname=func_name)
         self.script_file = script_path.joinpath(fname)
-        # run_file = script_path.joinpath("run.py")
+        source = inspect.getsource(self.shell.user_ns[func_name])  # Get source code for the function
+        if inline:  # Inline -> remove the definition statement and indentation
+            source_lines = source.splitlines()[1:]
+            spacing = len(source_lines[0]) - len(source_lines[0].lstrip())
+            source_lines_unindented = [codeline[spacing:] for codeline in source_lines]
+            source = "\n".join(source_lines_unindented)
+
+        # Write the actual code
         with self.script_file.open('w') as f:
-            f.write(inspect.getsource(self.shell.user_ns[func_name]))
-            f.write("\n\nif __name__ == \"__main__\":\n")
-            f.write("    {func}(*{args})".format(func=func_name, args=args))
+            if inline:  # Inline; set the sys.argv to include all the arguments
+                f.write("import sys\n")
+                f.write("sys.argv = {args}\n".format(args=[fname] + args))
+            f.write(source)
+            if not inline:  # Not source code -> make sure the function is called
+                f.write("\n\nif __name__ == \"__main__\":\n")
+                f.write("    {func}(*{args})".format(func=func_name, args=args))
         print(self.script_file)
 
     def terminate(self):
@@ -52,6 +64,8 @@ class IPythonJob(BaseJob):
 
     def launch_and_wait(self):
         import builtins as builtin_mod
+        # IPython state restoration is taken from the IPython code according to needed flags (-i)
+        #     https://github.com/ipython/ipython/blob/master/IPython/core/magics/execution.py
         # Save state:
         save_argv = sys.argv
         restore_main = sys.modules['__main__']
@@ -74,11 +88,8 @@ class IPythonJob(BaseJob):
         sys.argv = save_argv
         sys.modules['__main__'] = restore_main
 
-    # def __str__(self):
-    #     pass
-    #
-    # def __repr__(self):
-    #     pass
+
+    # TODO: Add __str__ and __repr__
 
 
 class SageMakerJob(BaseJob):
