@@ -5,8 +5,8 @@ Build the whole dependency chain leading to Api instance exposed by Pyro.
 __all__ = []  # type: ignore
 
 
-def _build_api(service, cloud_client):
-    from meeshkan.core.api import Api
+def _build_api(service, cloud_client):  # pylint: disable=too-many-locals
+    from meeshkan.core.api import Api  # pylint: disable=cyclic-import
     from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
     from meeshkan.core.tasks import TaskPoller
     from meeshkan.core.scheduler import Scheduler, QueueProcessor

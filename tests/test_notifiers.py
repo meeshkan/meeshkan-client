@@ -9,7 +9,8 @@ import pytest
 
 from meeshkan.notifications.notifiers import CloudNotifier, LoggingNotifier, NotifierCollection
 from meeshkan.notifications.__types__ import NotificationStatus, NotificationType
-from meeshkan.core.job import Executable, Job, JobStatus
+from meeshkan.core.job import Job, JobStatus
+from meeshkan.core.job.executables import Executable
 from meeshkan.core.config import JOBS_DIR
 
 
