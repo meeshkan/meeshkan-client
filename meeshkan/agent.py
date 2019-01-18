@@ -66,7 +66,7 @@ def is_running() -> bool:
 
 
 def _stop_if_running() -> bool:
-    if Service.is_running():
+    if is_running():
         print("Stopping service...")
         api = __utils__._get_api()  # pylint: disable=protected-access
         api.stop()
@@ -98,7 +98,7 @@ def start() -> str:
     :return str: Pyro server URI.
     """
     __verify_version()
-    if Service.is_running():
+    if is_running():
         print("Service is already running.")
         return Service.URI
 
