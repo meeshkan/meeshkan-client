@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 Pyro4.config.SERIALIZER = Serializer.NAME
 Pyro4.config.SERIALIZERS_ACCEPTED.add(Serializer.NAME)
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-__all__ = ["start", "init", "stop", "restart"]
+__all__ = ["start", "init", "stop", "restart", "is_running"]
 
 
 def __verify_version():
@@ -60,8 +60,13 @@ def init(token: Optional[str] = None):
     restart()
 
 
+def is_running() -> bool:
+    """Returns whether or not the agent is currently running."""
+    return Service.is_running()
+
+
 def _stop_if_running() -> bool:
-    if Service.is_running():
+    if is_running():
         print("Stopping service...")
         api = __utils__._get_api()  # pylint: disable=protected-access
         api.stop()
@@ -93,7 +98,7 @@ def start() -> str:
     :return str: Pyro server URI.
     """
     __verify_version()
-    if Service.is_running():
+    if is_running():
         print("Service is already running.")
         return Service.URI
 
