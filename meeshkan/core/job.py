@@ -78,17 +78,15 @@ class BaseJob(Stoppable, Trackable):
     """
     Base class for all jobs handled by Meeshkan agent
     """
-    def __init__(self,
-                 status: JobStatus,
-                 job_uuid: Optional[uuid.UUID] = None,
-                 job_number: Optional[int] = None,
-                 name: Optional[str] = None,
-                 poll_interval: Optional[float] = None):  # TODO Move also `status` here
+    DEF_POLLING_INTERVAL = 3600.0  # Default is notifications every hour.
+
+    def __init__(self, status: JobStatus, job_uuid: Optional[uuid.UUID] = None, job_number: Optional[int] = None,
+                 name: Optional[str] = None, poll_interval: Optional[float] = None):
         super().__init__()
         self.status = status
         self.id = job_uuid or uuid.uuid4()  # type: uuid.UUID  # pylint: disable=invalid-name
         self.number = job_number  # Human-readable integer ID
-        self.poll_time = poll_interval or Job.DEF_POLLING_INTERVAL  # type: float
+        self.poll_time = poll_interval or BaseJob.DEF_POLLING_INTERVAL  # type: float
         self.created = datetime.datetime.utcnow()
         self.name = name or "Job #{number}".format(number=self.number)
 
@@ -223,7 +221,6 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
     """
     Job submitted to the Meeshkan scheduler for running (rename as `SchedulerJob`)?
     """
-    DEF_POLLING_INTERVAL = 3600.0  # Default is notifications every hour.
 
     def __init__(self, executable: Executable, job_number: int, job_uuid: uuid.UUID = None, name: str = None,
                  desc: str = None, poll_interval: Optional[float] = None):
