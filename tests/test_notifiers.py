@@ -70,23 +70,22 @@ class TestLoggingNotifier:
         job = _get_job()
         logging_notifier = LoggingNotifier()
 
-        # Job directory doesn't exist but file does exist -> expected a failure in notification!
+        # Job directory is expected to be created upon initialization of Executable
         logging_notifier.notify(job, __file__, -1)
         # Assumes this works from previous tests (and onwards)
         last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
         assert last_notification.type == NotificationType.JOB_UPDATE, "The notification type should be an update " \
                                                                       "pertaining to the job"
-        assert last_notification.status == NotificationStatus.FAILED, "The notification should fail " \
-                                                                      "when the Job output " \
-                                                                      "path does not exist."
+        assert last_notification.status == NotificationStatus.SUCCESS, "The notification should succeed (output path " \
+                                                                       "created when Executable is initialized)"
 
     def test_logging_notifier_job_update_no_file_with_dir(self):  # pylint:disable=unused-argument,redefined-outer-name
         """Tests the job update for LoggingNotifier when an image doesn't exist bu the directory does"""
         job = _get_job()
         logging_notifier = LoggingNotifier()
 
-        job.output_path.mkdir()
-        # Job directory exists but file doesn't -> expected a failure in notification still!
+        # Job directory is expected to be created upon initialization of Executable, but file doesn't ->
+        #     expected a failure in notification still!
         logging_notifier.notify(job, "does_not_exist", -1)
         last_notification = logging_notifier.get_last_notification_status(job.id)[logging_notifier.name]
         assert last_notification.type == NotificationType.JOB_UPDATE, "The notification type should be an update " \
@@ -112,7 +111,6 @@ class TestLoggingNotifier:
         job = _get_job()
         logging_notifier = LoggingNotifier()
 
-        job.output_path.mkdir()
         logging_notifier.notify(job, __file__, -1)
         # Both exist!
         logging_notifier = LoggingNotifier()

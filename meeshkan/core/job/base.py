@@ -63,7 +63,7 @@ class BaseJob(Stoppable, Trackable):
 class NotebookConverter:
     """Class that converts .ipynb files (version >= 4.0) to .py files.
     Provides the `from_file` method. to match with PythonExporter from `nbconvert`."""
-    def from_file(self, filename) -> Tuple[str, None]:
+    def from_file(self, filename) -> Tuple[str, None]:  # pylint: disable=no-self-use
         """Converts .ipynb to list of source code lines; based on specification found at
                 https://nbformat.readthedocs.io/en/latest/format_description.html#code-cells
 
@@ -72,8 +72,8 @@ class NotebookConverter:
                         API.
         """
         source_code = ["#!/usr/bin/env python\n# coding: utf-8\n\n"]  # Initial content
-        with open(filename) as f:
-            json_input = json.load(f)
+        with open(filename) as nb_file:
+            json_input = json.load(nb_file)
         if json_input["nbformat"] != 4:
             raise RuntimeError("Internal notebook converter only handles notebooks that correspond to the version 4 "
                                "format. Try installing `nbconvert` (i.e. `pip install nbconvert`) and try again.")

@@ -22,7 +22,7 @@ class Executable:
         super().__init__()
         self.pid = None  # type: Optional[int]
         self.output_path = output_path  # type: Optional[Path]
-        if self.output_path is not None and not self.output_path.is_dir():
+        if self.output_path is not None and not self.output_path.is_dir():  # Prepare output path if needed
             self.output_path.mkdir()
 
     def launch_and_wait(self) -> int:  # pylint: disable=no-self-use
@@ -51,9 +51,9 @@ class Executable:
         except ModuleNotFoundError:
             PythonExporter = NotebookConverter
         py_code, _ = PythonExporter().from_file(notebook_file)
-        with open(target, "w") as f:
-            f.write(py_code)
-            f.flush()
+        with open(target, "w") as script_fd:
+            script_fd.write(py_code)
+            script_fd.flush()
 
     def to_full_path(self, args: Tuple[str, ...], cwd: str) -> List[str]:
         """Iterates over arg and prepends known files (.sh, .py) with given current working directory.
@@ -72,6 +72,8 @@ class Executable:
                 if not os.path.isfile(new_argument):  # Verify file exists
                     raise IOError
                 if ext == ".ipynb":  # Argument is notebook file -> convert to .py instead
+                    if self.output_path is None:
+                        raise RuntimeError("Cannot convert notebook to Python code without target directory")
                     new_fn = os.path.join(self.output_path, os.path.splitext(os.path.basename(new_argument))[0] + ".py")
                     Executable.convert_notebook(new_argument, new_fn)
                     new_argument = new_fn
