@@ -13,7 +13,7 @@ from ..config import JOBS_DIR
 LOGGER = logging.getLogger(__name__)
 
 # Expose Job, SageMakerJob to upper level
-__all__ = ["Job", "SageMakerJob", "NotebookJob"]  # type: List[str]
+__all__ = ["Job", "SageMakerJob", "ExternalJob"]  # type: List[str]
 
 
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
@@ -38,11 +38,11 @@ class SageMakerJob(BaseJob):
         raise NotImplementedError
 
 
-class NotebookJob(BaseJob):
+class ExternalJob(BaseJob):
     def __init__(self, pid: int, job_uuid: uuid.UUID = None, name: str = None,
                  desc: str = None, poll_interval: Optional[float] = None):
         """
-        :param pid: Notebook process ID
+        :param pid: External job process ID
         :param job_uuid
         :param name
         :param desc
@@ -56,10 +56,12 @@ class NotebookJob(BaseJob):
         self.pid = pid
         self.description = desc
 
-
     @staticmethod
-    def create(pid: int, name: str) -> 'NotebookJob':
-        return NotebookJob(pid=pid, name=name)
+    def create(pid: int, name: str, poll_interval=BaseJob.DEF_POLLING_INTERVAL) -> 'ExternalJob':
+        return ExternalJob(pid=pid, name=name, poll_interval=poll_interval)
+
+    def terminate(self):
+        raise NotImplementedError
 
 
 class Job(BaseJob):  # TODO Change base properties to use composition instead of inheritance?

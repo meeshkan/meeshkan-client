@@ -7,7 +7,7 @@ import os
 import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
-from .job import JobStatus, Job, NotebookJob
+from .job import JobStatus, Job, ExternalJob
 from ..exceptions import JobNotFoundException
 from ..notifications.notifiers import Notifier
 
@@ -75,13 +75,14 @@ class QueueProcessor:
 class Scheduler:
     def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
         self._queue_processor = queue_processor
-        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Union[Job, NotebookJob]]  # Temporary union hack
+        self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Union[Job, ExternalJob]]  # Temporary union hack
         self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
         self._job_poller = TrackingPoller(self.__query_and_report)
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
         self._notifier = notifier  # type: Optional[Notifier]
-        self.active_notebook_job = None  # type: Optional[uuid.UUID]
+        self.active_external_job = None  # type: Optional[uuid.UUID]  # TODO Allow one per process ID
+        self.external_job_polling_tasks = dict()  # type[Dict[uuid.UUID, asyncio.Task]]
 
     # Properties and Python magic
 
@@ -138,8 +139,24 @@ class Scheduler:
             return
         self.submitted_jobs[job_id].cancel()
 
+    def register_external_job(self, job_id: uuid.UUID):
+        self.active_external_job = job_id
+        job = self.submitted_jobs[job_id]  # type: ExternalJob
+        LOGGER.debug("Handling job: %s", job)
 
-    # Tracking methods
+        if job.poll_time:
+            task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))
+            self.external_job_polling_tasks[job_id] = task
+        if self._notifier:
+            self._notifier.notify_job_start(job)
+
+    def unregister_external_job(self, job_id: uuid.UUID):
+        job = self.submitted_jobs[job_id]  # type: ExternalJob
+        if self._notifier:
+            self._notifier.notify_job_end(job)
+        task = self.external_job_polling_tasks.pop(job.id, None)  # type: asyncio.Task
+        if task is not None:
+            task.cancel()
 
     def __get_job_by_pid(self, pid):
         jobs = [job for job in self.jobs if job.pid == pid]
@@ -148,12 +165,11 @@ class Scheduler:
         if len(jobs) == 1:
             return jobs[0].id
         # Check if one of them is active
-        active_jobs = [job for job in jobs if self.active_notebook_job == job.id]
+        active_jobs = [job for job in jobs if self.active_external_job == job.id]
         if not active_jobs:
             return jobs[0].id
         else:
             return active_jobs[0]
-
 
     def add_condition(self, pid: int, *vals: str, condition: Callable[[float], bool], only_relevant: bool):
         """Adds a new condition for a job that matches the given process id.

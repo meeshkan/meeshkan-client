@@ -7,7 +7,7 @@ from fnmatch import fnmatch
 import Pyro4
 import Pyro4.errors
 
-from .job import Job, SageMakerJob, NotebookJob
+from .job import Job, SageMakerJob, ExternalJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
@@ -191,17 +191,25 @@ class Api:
         return recent_vals
 
     @Pyro4.expose
-    def create_notebook_job(self, pid: int, name: str) -> uuid.UUID:
+    def create_external_job(self, pid: int, name: str, poll_interval: Optional[float] = None) -> uuid.UUID:
         """
-        Create a new notebook job and set it as active so that incoming reports with the same
+        Create a new external job and set it as active so that incoming reports with the same
         PID are registered to this job.
         :param pid: Process ID of creating process
         :param name: Job name
         :return: Job ID
         """
-        notebook_job = NotebookJob.create(pid=pid, name=name)
-        self.scheduler.submitted_jobs[notebook_job.id] = notebook_job
-        return notebook_job.id
+        external_job = ExternalJob.create(pid=pid, name=name, poll_interval=poll_interval)
+        self.scheduler.submitted_jobs[external_job.id] = external_job
+        return external_job.id
+
+    @Pyro4.expose
+    def register_active_external_job(self, job_id: uuid.UUID):
+        self.scheduler.register_external_job(job_id=job_id)
+
+    @Pyro4.expose
+    def unregister_active_external_job(self, job_id: uuid.UUID):
+        self.scheduler.unregister_external_job(job_id)
 
     @Pyro4.expose
     def stop(self):
