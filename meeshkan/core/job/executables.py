@@ -4,6 +4,8 @@ from pathlib import Path
 import os
 import subprocess
 
+from nbconvert import PythonExporter
+
 LOGGER = logging.getLogger(__name__)
 
 # Expose only valid classes
@@ -41,16 +43,19 @@ class Executable:
     def terminate(self):
         raise NotImplementedError
 
-    @staticmethod
-    def convert_notebook(notebook_file: str, target: str):
-        try:
-            from nbconvert import PythonExporter
-        except ModuleNotFoundError:
-            raise RuntimeError("Cannot convert notebook without IPython or `nbconvert`!")
+    def convert_notebook(self, notebook_file: str) -> str:
+        """Converts a given notebook file to a matching Python file, to be saved in the output directory.
+        :param notebook_file: Absolute path to the notebook file to-be converted.
+        :return Absolute path of converted script file.
+        """
+        if self.output_path is None:
+            raise RuntimeError("Cannot convert notebook to Python code without target directory")
+        target = os.path.join(self.output_path, os.path.splitext(os.path.basename(notebook_file))[0] + ".py")
         py_code, _ = PythonExporter().from_file(notebook_file)
         with open(target, "w") as script_fd:
             script_fd.write(py_code)
             script_fd.flush()
+        return target
 
     def to_full_path(self, args: Tuple[str, ...], cwd: str) -> List[str]:
         """Iterates over arg and prepends known files (.sh, .py) with given current working directory.
@@ -69,11 +74,7 @@ class Executable:
                 if not os.path.isfile(new_argument):  # Verify file exists
                     raise IOError
                 if ext == ".ipynb":  # Argument is notebook file -> convert to .py instead
-                    if self.output_path is None:
-                        raise RuntimeError("Cannot convert notebook to Python code without target directory")
-                    new_fn = os.path.join(self.output_path, os.path.splitext(os.path.basename(new_argument))[0] + ".py")
-                    Executable.convert_notebook(new_argument, new_fn)
-                    new_argument = new_fn
+                    new_argument = self.convert_notebook(new_argument)
             new_args.append(new_argument)
         return new_args
 
