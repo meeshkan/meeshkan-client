@@ -40,29 +40,36 @@ class Executable:
         raise NotImplementedError
 
     @staticmethod
-    def convert_notebook(notebook_file):
+    def convert_notebook(notebook_file: str, target: str):
         try:
             from nbconvert import PythonExporter
         except ModuleNotFoundError:
             PythonExporter = NotebookConverter
         py_code = PythonExporter().from_file(notebook_file)
+        with open(target, "w") as f:
+            f.write(py_code)
+            f.flush()
 
-    @staticmethod
-    def to_full_path(args: Tuple[str, ...], cwd: str):
+    def to_full_path(self, args: Tuple[str, ...], cwd: str) -> List[str]:
         """Iterates over arg and prepends known files (.sh, .py) with given current working directory.
         Raises exception if any of supported file suffixes cannot be resolved to an existing file.
         :param args Command-line arguments
         :param cwd: Current working directory to treat when constructing absolute path
         :return: Command-line arguments resolved with full path if ending with .py or .sh
         """
-        supported_file_suffixes = [".py", ".sh"]
+        supported_file_suffixes = [".py", ".sh", ".ipynb"]
         new_args = list()
         for argument in args:
             new_argument = argument
-            if os.path.splitext(argument)[1] in supported_file_suffixes:  # A known file type
+            ext = os.path.splitext(argument)[1]
+            if ext in supported_file_suffixes:  # A known file type
                 new_argument = os.path.join(cwd, argument)
                 if not os.path.isfile(new_argument):  # Verify file exists
                     raise IOError
+                if ext == ".ipynb":  # Argument is notebook file -> convert to .py instead
+                    new_fn = os.path.join(self.output_path, os.path.splitext(os.path.basename(new_argument))[0] + ".py")
+                    Executable.convert_notebook(new_argument, new_fn)
+                    new_argument = new_fn
             new_args.append(new_argument)
         return new_args
 

@@ -62,7 +62,7 @@ class BaseJob(Stoppable, Trackable):
 class NotebookConverter:
     """Class that converts .ipynb files (version >= 4.0) to .py files.
     Provides the `from_file` method. to match with PythonExporter from `nbconvert`."""
-    def from_file(self, filename, replace_magic=False):
+    def from_file(self, filename, replace_magic=False) -> Tuple[str, None]:
         """Converts .ipynb to list of source code lines; based on specification found at
                 https://nbformat.readthedocs.io/en/latest/format_description.html#code-cells
 
