@@ -1,4 +1,4 @@
-  File "/Users/kimmo/git/meeshkan/meeshkan-client/examples/hello_world.py", line 5
+  File "/hidden/meeshkan-client/examples/hello_world.py", line 5
     if __name__ == '__main__':
                              ^
 SyntaxError: invalid syntax
