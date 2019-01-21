@@ -4,6 +4,8 @@ from pathlib import Path
 import os
 import subprocess
 
+from .base import NotebookConverter
+
 LOGGER = logging.getLogger(__name__)
 
 # Expose only valid classes
@@ -43,6 +45,7 @@ class Executable:
 
     @staticmethod
     def convert_notebook(notebook_file: str, target: str):
+        # TODO: Should we use this temporary fallback, or just crash if `nbconvert` does not exist?
         try:
             from nbconvert import PythonExporter
         except ModuleNotFoundError:
@@ -102,7 +105,7 @@ class ProcessExecutable(Executable):
         """
         :return: Return code from subprocess
         """
-        if self.output_path is None:
+        if self.output_path is None:  # TODO - should output_path be mandatory?
             self.popen = subprocess.Popen(self.args, stdout=subprocess.PIPE)
             return self._update_pid_and_wait()
 

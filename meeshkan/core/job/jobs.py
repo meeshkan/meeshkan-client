@@ -158,10 +158,21 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
 
     @staticmethod
     def __verify_python_executable(args: Tuple[str, ...]):
+        """Checks if the first argument's extension is one of .py, .ipy or .ipynb, and prepends the matching
+        interpreter to args."""
         """Checks if the first argument's extension is .py, and prepends the full path to Python interpreter to args.
         If the full path is unavailable, defaults to using 'python' alias as runtime. """
-        if len(args) > 0:    # pylint: disable=len-as-condition
-            if os.path.splitext(args[0])[1] == ".py":
+        if args:
+            ext = os.path.splitext(args[0])[1]
+            if ext == ".py":
                 #TODO: default executable should be in config.yaml?
                 args = (sys.executable or "python",) + args  # Full path to interpreter or "python" alias by default
+            if ext in [".ipy", ".ipynb"]:
+                # Check if `ipython` is installed
+                import importlib
+                ipython_exists = importlib.util.find_spec("IPython") is not None
+                if ipython_exists:
+                    args = ("ipython",) + args
+                else:  # Default being python; if IPython doesn't exist, magic commands will be eliminated
+                    args = (sys.executable or "python",) + args
         return args
