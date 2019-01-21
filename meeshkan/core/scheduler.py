@@ -83,7 +83,7 @@ class Scheduler:
         self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
         self._notifier = notifier  # type: Optional[Notifier]
         self.active_external_job_id = None  # type: Optional[uuid.UUID]  # TODO Allow one per process ID
-        self.external_job_polling_tasks = dict()  # type[Dict[uuid.UUID, asyncio.Task]]
+        self.external_job_polling_tasks = dict()  # type: Dict[uuid.UUID, asyncio.Task]
 
     # Properties and Python magic
 
@@ -156,7 +156,7 @@ class Scheduler:
         self.active_external_job_id = None
         if self._notifier:
             self._notifier.notify_job_end(job)
-        task = self.external_job_polling_tasks.pop(job.id, None)  # type: asyncio.Task
+        task = self.external_job_polling_tasks.pop(job.id, None)  # type: Optional[asyncio.Task]
         if task is not None:
             task.cancel()
 

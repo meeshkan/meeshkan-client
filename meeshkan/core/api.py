@@ -72,14 +72,14 @@ class Api:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    @Pyro4.expose
+    @Pyro4.expose  # type: ignore
     @property
     def external_jobs(self):
         return self._external_jobs
 
     def register_with_pyro(self, daemon: Pyro4.Daemon, name: str):
         daemon.register(self, name)
-        self._pyroDaemon.register(self._external_jobs)
+        daemon.register(self._external_jobs)
 
     def get_notification_status(self, job_id: uuid.UUID) -> str:
         """Returns last notification status for job_id
