@@ -26,9 +26,8 @@ if __name__ == '__main__':
     meeshkan_agent_was_running = meeshkan.is_running()
 
     if not meeshkan_agent_was_running:
-        # time.sleep(2)
         meeshkan.start()
-        # time.sleep(2)
+
     main()
 
     if not meeshkan_agent_was_running:
