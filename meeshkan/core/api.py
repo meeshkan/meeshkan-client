@@ -37,7 +37,7 @@ class ExternalJobs:
         :return: Job ID
         """
         external_job = ExternalJob.create(pid=pid, name=name, poll_interval=poll_interval)
-        self.scheduler.submitted_jobs[external_job.id] = external_job
+        self.scheduler.external_jobs[external_job.id] = external_job
         return external_job.id
 
     @Pyro4.expose
