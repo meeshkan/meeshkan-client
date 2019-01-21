@@ -5,7 +5,7 @@ import uuid
 from ..core.service import Service
 from ..core.api import Api
 
-__all__ = ["create_external_job", "as_blocking_job"]
+__all__ = ["create_blocking_job", "as_blocking_job"]
 
 
 class ExternalJobWrapper:
@@ -23,14 +23,14 @@ def as_blocking_job(job_name, report_interval_secs):
     def job_decorator(func):
         @wraps(func)
         def func_wrapper(*args, **kwargs):
-            job = create_external_job(name=job_name, poll_interval=report_interval_secs)
+            job = create_blocking_job(name=job_name, poll_interval=report_interval_secs)
             with job:
                 func(*args, *kwargs)
         return func_wrapper
     return job_decorator
 
 
-def create_external_job(name: str, poll_interval: Optional[float] = None) -> ExternalJobWrapper:
+def create_blocking_job(name: str, poll_interval: Optional[float] = None) -> ExternalJobWrapper:
     pid = os.getpid()
     with Service.api() as proxy:  # type: Api
         job_id = proxy.external_jobs.create_external_job(pid=pid, name=name, poll_interval=poll_interval)
