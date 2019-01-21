@@ -101,7 +101,7 @@ def test_executable_notebook(notebook_job):
     assert open(args[1]).read() == expected_conversion, "Expected output of conversion does not match"
 
 def test_executable_notebook_run(notebook_job):
-    expected_outcome = '\x0710\n'  # ANSI-encoded via IPython interpreter
+    expected_outcome = '10\n'  # ANSI-encoded via IPython interpreter
 
     def clean_failing_lines(line):
         return "non-existing-module" not in line and "run_line_magic" not in line
@@ -115,5 +115,4 @@ def test_executable_notebook_run(notebook_job):
         script_fd.flush()
 
     assert notebook_job.launch_and_wait() == 0, "Expected job to run smoothly"
-    with notebook_job.stdout.open('r') as stdout:
-        assert stdout.read().endswith(expected_outcome), "Expected outcome: 10"
+    assert notebook_job.stdout.read_text().endswith(expected_outcome), "Expected outcome: 10"
