@@ -77,6 +77,10 @@ class Api:
     def external_jobs(self):
         return self._external_jobs
 
+    def register_with_pyro(self, daemon: Pyro4.Daemon, name: str):
+        daemon.register(self, name)
+        self._pyroDaemon.register(self._external_jobs)
+
     def get_notification_status(self, job_id: uuid.UUID) -> str:
         """Returns last notification status for job_id
         """
