@@ -11,7 +11,7 @@ from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus, SageMakerJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 from meeshkan.core.tasks import TaskType, Task
-from meeshkan import exceptions
+from meeshkan import exceptions, config
 
 from .utils import wait_for_true, MockNotifier
 
@@ -22,6 +22,7 @@ def __get_job(sleep_duration=10):
 
 @pytest.fixture
 def cleanup():
+    config.ensure_base_dirs()
     yield None
     # Post-test code
     # Cleanup for `job`, if possible
