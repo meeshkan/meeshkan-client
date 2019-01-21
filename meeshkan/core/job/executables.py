@@ -20,6 +20,8 @@ class Executable:
         super().__init__()
         self.pid = None  # type: Optional[int]
         self.output_path = output_path  # type: Optional[Path]
+        if self.output_path is not None and not self.output_path.is_dir():
+            self.output_path.mkdir()
 
     def launch_and_wait(self) -> int:  # pylint: disable=no-self-use
         """
@@ -45,7 +47,7 @@ class Executable:
             from nbconvert import PythonExporter
         except ModuleNotFoundError:
             PythonExporter = NotebookConverter
-        py_code = PythonExporter().from_file(notebook_file)
+        py_code, _ = PythonExporter().from_file(notebook_file)
         with open(target, "w") as f:
             f.write(py_code)
             f.flush()
@@ -104,8 +106,6 @@ class ProcessExecutable(Executable):
             self.popen = subprocess.Popen(self.args, stdout=subprocess.PIPE)
             return self._update_pid_and_wait()
 
-        if not self.output_path.is_dir():
-            self.output_path.mkdir()
         with self.stdout.open(mode='w') as f_stdout, self.stderr.open(mode='w') as f_stderr:
             self.popen = subprocess.Popen(self.args, stdout=f_stdout, stderr=f_stderr)
             return self._update_pid_and_wait()
