@@ -19,11 +19,11 @@ class ExternalJobWrapper:
         unregister_external_job(self.job_id)
 
 
-def as_blocking_job(job_name, report_interval):
+def as_blocking_job(job_name, report_interval_secs):
     def job_decorator(func):
         @wraps(func)
         def func_wrapper(*args, **kwargs):
-            job = create_external_job(name=job_name, poll_interval=report_interval)
+            job = create_external_job(name=job_name, poll_interval=report_interval_secs)
             with job:
                 func(*args, *kwargs)
         return func_wrapper
