@@ -115,4 +115,5 @@ def test_executable_notebook_run(notebook_job):
         script_fd.flush()
 
     assert notebook_job.launch_and_wait() == 0, "Expected job to run smoothly"
-    assert notebook_job.stdout.read_text().endswith(expected_outcome), "Expected outcome: 10"
+    with notebook_job.stdout.open('r') as stdout:
+        assert stdout.read().endswith(expected_outcome), "Expected outcome: 10"
