@@ -40,6 +40,14 @@ class Executable:
         raise NotImplementedError
 
     @staticmethod
+    def convert_notebook(notebook_file):
+        try:
+            from nbconvert import PythonExporter
+        except ModuleNotFoundError:
+            PythonExporter = NotebookConverter
+        py_code = PythonExporter().from_file(notebook_file)
+
+    @staticmethod
     def to_full_path(args: Tuple[str, ...], cwd: str):
         """Iterates over arg and prepends known files (.sh, .py) with given current working directory.
         Raises exception if any of supported file suffixes cannot be resolved to an existing file.

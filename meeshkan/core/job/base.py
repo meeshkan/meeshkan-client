@@ -1,7 +1,10 @@
+"""Contains the base classes for the Job API, as well as some other _basic functionality_ classes"""
+
 import logging
 from typing import Optional
 import uuid
 import datetime
+import json
 
 from ..tracker import TrackerBase, TrackerCondition
 from .status import JobStatus
@@ -54,3 +57,35 @@ class BaseJob(Stoppable, Trackable):
 
     def terminate(self):
         raise NotImplementedError
+
+
+class NotebookConverter:
+    """Class that converts .ipynb files (version >= 4.0) to .py files.
+    Provides the `from_file` method. to match with PythonExporter from `nbconvert`."""
+    def from_file(self, filename, replace_magic=False):
+        """Converts .ipynb to list of source code lines; based on specification found at
+                https://nbformat.readthedocs.io/en/latest/format_description.html#code-cells
+
+            :param filename: A .ipynb file (or matching format)
+            :return A tuple of list of source code lines (and matching comments), and None, to match the `nbconvert`
+                        API.
+        """
+        source_code = ["#!/usr/bin/env python\n# coding: utf-8\n\n"]  # Initial content
+        with open(filename) as f:
+            json_input = json.load(f)
+        if json_input["nbformat"] != 4:
+            raise RuntimeError("Internal notebook converter only handles notebooks that correspond to the version 4 "
+                               "format. Try installing `nbconvert` (i.e. `pip install nbconvert`) and try again.")
+        for cell_no, cell in enumerate(json_input["cells"], 1):
+            cell_type = cell["cell_type"]  # TODO: Add support for markdown cells as comments in triple-quotations
+            if cell_type == "code":
+                source_code.append("# cell #{cell_number}\n".format(cell_number=cell_no))
+                for line in cell["source"]:  # Filters magic commands
+                    if line.strip().startswith("%"):
+                        if not replace_magic:  # Write as comments
+                            line = r"#  " + line
+                        # TODO if replace_magic, replace with get_ipython().run_line_magic...
+                    if not line.endswith("\n"):  # Make sure all lines end with newline
+                        line += "\n"
+                    source_code.append(line)
+        return "".join(source_code), None

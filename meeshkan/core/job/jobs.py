@@ -13,11 +13,18 @@ from ..config import JOBS_DIR
 LOGGER = logging.getLogger(__name__)
 
 # Expose Job, SageMakerJob to upper level
-__all__ = ["Job", "SageMakerJob"]  # type: List[str]
+__all__ = ["Job", "SageMakerJob", "NotebookJob"]  # type: List[str]
 
 
 CANCELED_RETURN_CODES = [-2, -3, -9, -15]  # Signals indicating user-initiated abort
 SUCCESS_RETURN_CODE = [0]  # Completeness, extend later (i.e. consider > 0 return codes as success with message?)
+
+
+class NotebookJob(BaseJob):
+    """
+    Job used to run notebook files (*.ipynb). Converts them to .py files before run.
+    """
+    pass
 
 
 class SageMakerJob(BaseJob):
@@ -125,6 +132,7 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
                 'status': self.status.name,
                 'args': repr(self.executable)}
 
+    # TODO - change to a factory method outside `Job` class?
     @staticmethod
     def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
                    description: str = None, output_path: Optional[Path] = None):
