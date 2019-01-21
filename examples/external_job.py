@@ -9,7 +9,7 @@ def my_loop():
         time.sleep(2)
 
 
-@meeshkan.as_job(job_name="test-job", report_interval=10)
+@meeshkan.as_blocking_job(job_name="test-job", report_interval=10)
 def main():
     my_loop()
 

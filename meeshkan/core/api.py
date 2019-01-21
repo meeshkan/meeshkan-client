@@ -21,6 +21,34 @@ __all__ = ["Api"]
 LOGGER = logging.getLogger(__name__)
 
 
+class ExternalJobs:
+    def __init__(self, scheduler: Scheduler):
+        self.scheduler = scheduler
+
+    @Pyro4.expose
+    def create_external_job(self, pid: int, name: str,
+                            poll_interval: Optional[float] = None) -> uuid.UUID:
+        """
+        Create a new external job and set it as active so that incoming reports with the same
+        PID are registered to this job.
+        :param pid: Process ID of creating process
+        :param name: Job name
+        :param poll_interval: Report interval in seconds
+        :return: Job ID
+        """
+        external_job = ExternalJob.create(pid=pid, name=name, poll_interval=poll_interval)
+        self.scheduler.submitted_jobs[external_job.id] = external_job
+        return external_job.id
+
+    @Pyro4.expose
+    def register_active_external_job(self, job_id: uuid.UUID):
+        self.scheduler.register_external_job(job_id=job_id)
+
+    @Pyro4.expose
+    def unregister_active_external_job(self, job_id: uuid.UUID):
+        self.scheduler.unregister_external_job(job_id)
+
+
 @Pyro4.behavior(instance_mode="single")  # Singleton
 class Api:
     """Partially exposed by the Pyro server for communications with the CLI."""
@@ -35,6 +63,7 @@ class Api:
         self.notifier = notifier
         self.__stop_callbacks = []  # type: List[Callable[[], None]]
         self.__was_shutdown = False
+        self._external_jobs = self.create_external_jobs_api()
 
     def __enter__(self):
         self.scheduler.start()
@@ -42,6 +71,11 @@ class Api:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+    @Pyro4.expose
+    @property
+    def external_jobs(self):
+        return self._external_jobs
 
     def get_notification_status(self, job_id: uuid.UUID) -> str:
         """Returns last notification status for job_id
@@ -191,27 +225,6 @@ class Api:
         return recent_vals
 
     @Pyro4.expose
-    def create_external_job(self, pid: int, name: str, poll_interval: Optional[float] = None) -> uuid.UUID:
-        """
-        Create a new external job and set it as active so that incoming reports with the same
-        PID are registered to this job.
-        :param pid: Process ID of creating process
-        :param name: Job name
-        :return: Job ID
-        """
-        external_job = ExternalJob.create(pid=pid, name=name, poll_interval=poll_interval)
-        self.scheduler.submitted_jobs[external_job.id] = external_job
-        return external_job.id
-
-    @Pyro4.expose
-    def register_active_external_job(self, job_id: uuid.UUID):
-        self.scheduler.register_external_job(job_id=job_id)
-
-    @Pyro4.expose
-    def unregister_active_external_job(self, job_id: uuid.UUID):
-        self.scheduler.unregister_external_job(job_id)
-
-    @Pyro4.expose
     def stop(self):
         if self.__was_shutdown:
             LOGGER.warning("Agent API was shutdown twice.")
@@ -222,3 +235,7 @@ class Api:
             self.service.stop()
         for callback in self.__stop_callbacks:
             callback()
+
+    def create_external_jobs_api(self):
+        return ExternalJobs(scheduler=self.scheduler)
+
