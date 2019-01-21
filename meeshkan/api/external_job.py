@@ -20,15 +20,6 @@ class ExternalJobWrapper:
         unregister_external_job(self.job_id)
 
 
-def tags(tag_name):
-    def tags_decorator(func):
-        @wraps(func)
-        def func_wrapper(name):
-            return "<{0}>{1}</{0}>".format(tag_name, func(name))
-        return func_wrapper
-    return tags_decorator
-
-
 def as_job(job_name, report_interval):
     def job_decorator(func):
         @wraps(func)
@@ -48,7 +39,6 @@ def create_external_job(name: str, poll_interval: Optional[float] = None) -> Ext
 
 
 def register_external_job(job_id: uuid.UUID):
-    pid = os.getpid()
     with Service.api() as proxy:
         proxy.register_active_external_job(job_id=job_id)
 
