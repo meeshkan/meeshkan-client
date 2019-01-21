@@ -22,7 +22,7 @@ def __get_job(sleep_duration=10):
 
 @pytest.fixture
 def cleanup():
-    config.ensure_base_dirs()
+    config.ensure_base_dirs()  # Make sure all the base directories exist before tests
     yield None
     # Post-test code
     # Cleanup for `job`, if possible

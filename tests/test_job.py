@@ -61,6 +61,11 @@ def example_job():
     return Job.create_job(args=(base, 'another argument'), cwd=cwd, job_number=1, name=JOB_NAME)
 
 
+@pytest.fixture
+def notebook_job():
+    cwd, _ = os.path.split(__file__)
+    return Job.create_job(args=(os.path.join("resources", "dummy_nb.ipynb"),), cwd=cwd, job_number=1)
+
 def test_job_cancel_changes_status(example_job):
     example_job.cancel()  # Runs with
     assert example_job.status == JobStatus.CANCELLED_BY_USER
@@ -76,6 +81,38 @@ def test_job_add_tracked_works(example_job):
 
 
 def test_job_add_condition_works(example_job):
-    not example_job.add_condition("train loss", "evaluation loss",
-                                  condition=lambda train_loss, eval_loss: abs(train_loss - eval_loss) > 0.2,
-                                  only_relevant=True)
+    example_job.add_condition("train loss", "evaluation loss",
+                              condition=lambda train_loss, eval_loss: abs(train_loss - eval_loss) > 0.2,
+                              only_relevant=True)
+
+def test_executable_notebook(notebook_job):
+    expected_conversion = "#!/usr/bin/env python\n# coding: utf-8\n\n# In[1]:\n\n\nget_ipython().run_line_magic" \
+                          "('load_ext', 'autoreload  # Have some magic functions to convert')\nget_ipython().run_" \
+                          "line_magic('autoreload', '2')\nimport numpy as np  # Some non-standard library\nimport " \
+                          "non-existing-module  # Shouldn't fail anyway\n\n\n# In[2]:\n\n\nplus_one = True\n\n\n# " \
+                          "In[3]:\n\n\ndef add(*args):  # Some bogus function here\n    global add_result\n    add_" \
+                          "result = 0\n    if not args:\n        args = sys.argv[1:]\n    for val in args:\n        " \
+                          "add_result += int(val)\n    if plus_one:\n        add_result += 1\n    print(add_result)" \
+                          "\n\n\n# In[4]:\n\n\nadd(*['3', '5', '1'])\n\n\n# In[1]:\n\n\nfiles = get_ipython()" \
+                          ".getoutput('ls  # Some more magic stuff')\n\n"
+    args = notebook_job.executable.args
+    assert len(args) == 2, "Expecting interpreter to be added to .ipynb Jobs"
+    assert args[0] == "ipython", "Expecting interpreter to be ipython"
+    assert open(args[1]).read() == expected_conversion, "Expected output of conversion does not match"
+
+def test_executable_notebook_run(notebook_job):
+    expected_outcome = '\x0710\n'  # ANSI-encoded via IPython interpreter
+
+    def clean_failing_lines(line):
+        return "non-existing-module" not in line and "run_line_magic" not in line
+
+    # Remove some false magic lines from the code
+    converted_script = notebook_job.executable.args[1]
+    with open(converted_script) as script_fd:
+        script_code = list(filter(clean_failing_lines, script_fd.readlines()))
+    with open(converted_script, 'w') as script_fd:
+        script_fd.writelines(script_code)
+        script_fd.flush()
+
+    assert notebook_job.launch_and_wait() == 0, "Expected job to run smoothly"
+    assert notebook_job.stdout.read_text().endswith(expected_outcome), "Expected outcome: 10"
