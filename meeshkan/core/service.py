@@ -23,8 +23,12 @@ DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 __all__ = []  # type: List[str]
 
 
+def _platform_is_darwin() -> bool:
+    return sys.platform.startswith('darwin')
+
+
 def _get_localhost():
-    if sys.platform.startswith('darwin'):
+    if _platform_is_darwin():
         # Mac OS has issues with `socket.gethostname()`
         # See https://bugs.python.org/issue29705 and https://bugs.python.org/issue35164
         return socket.gethostbyname("localhost")  # Assume localhost defined in `hosts`
@@ -112,11 +116,20 @@ class Service:
         """
         Runs the agent as a Pyro4 object on a predetermined location in a subprocess.
         :param cloud_client_serialized: Serialized CloudClient instance
+        :raises RuntimeError: If Pyro server is already running
         :return: Pyro URI
         """
 
         if Service.is_running():
             raise RuntimeError("Running already at {uri}".format(uri=Service.URI))
+
+        if _platform_is_darwin():
+            # Temporary fix for fork safety issues in macOS
+            # https://bugs.python.org/issue33725
+            # https://github.com/ansible/ansible/issues/49207
+            # http://sealiesoftware.com/blog/archive/2017/6/5/Objective-C_and_fork_in_macOS_1013.html
+            os.putenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
+
         LOGGER.info("Starting service...")
         proc = Service.MULTIPROCESSING_CONTEXT.Process(
             target=Service.daemonize,
