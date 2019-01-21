@@ -34,11 +34,10 @@ try:
             from .core.job import IPythonJob
             from .__utils__ import _get_api
 
-            job = IPythonJob(self.shell, line)
-            job.launch_and_wait()
-            return job
-            # _get_api().submit_job(job)
-
+            job = IPythonJob(self.shell, line, inline=False)
+            # job.launch_and_wait()
+            # return job
+            _get_api().submit_job(job)
 
 
     def load_ipython_extension(ipython):

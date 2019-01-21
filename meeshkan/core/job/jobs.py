@@ -27,7 +27,7 @@ class IPythonJob(BaseJob):
         # def __init__(self, status: JobStatus, job_uuid: Optional[uuid.UUID] = None, job_number: Optional[int] = None,
         #              name: Optional[str] = None, poll_interval: Optional[float] = None):
         super().__init__(status=JobStatus.CREATED)
-        self.shell = shell
+        # self.shell = shell
         self.block = block
         self.inline = inline
         self.backup = dict()
@@ -41,7 +41,8 @@ class IPythonJob(BaseJob):
         script_path = Path(tempfile.mkdtemp())
         fname = "{fname}.py".format(fname=func_name)
         self.script_file = script_path.joinpath(fname)
-        source = inspect.getsource(self.shell.user_ns[func_name])  # Get source code for the function
+        # source = inspect.getsource(self.shell.user_ns[func_name])  # Get source code for the function
+        source = inspect.getsource(shell.user_ns[func_name])  # Get source code for the function
         if inline:  # Inline -> remove the definition statement and indentation
             source_lines = source.splitlines()[1:]
             spacing = len(source_lines[0]) - len(source_lines[0].lstrip())
@@ -57,39 +58,44 @@ class IPythonJob(BaseJob):
             if not inline:  # Not source code -> make sure the function is called
                 f.write("\n\nif __name__ == \"__main__\":\n")
                 f.write("    {func}(*{args})".format(func=func_name, args=args))
+
+        self.globs = shell.user_ns
+        self.globs['__name__'] = '__main__'
+        self.globs['__file__'] = self.script_file.name
         print(self.script_file)
 
     def terminate(self):
         pass
 
     def launch_and_wait(self):
-        import builtins as builtin_mod
+        # import builtins as builtin_mod
         # IPython state restoration is taken from the IPython code according to needed flags (-i)
         #     https://github.com/ipython/ipython/blob/master/IPython/core/magics/execution.py
         # Save state:
-        save_argv = sys.argv
-        restore_main = sys.modules['__main__']
-        name_save = self.shell.user_ns['__name__']
+        # save_argv = sys.argv
+        # restore_main = sys.modules['__main__']
+        # name_save = self.shell.user_ns['__name__']
 
         # Set up globals for script file
-        prog_ns = self.shell.user_ns
-        prog_ns['__name__'] = '__main__'
-        prog_ns['__file__'] = self.script_file.name
-        sys.modules['__main__'] = self.shell.user_module
+        # prog_ns = self.shell.user_ns
+        # prog_ns['__name__'] = '__main__'
+        # prog_ns['__file__'] = self.script_file.name
+        # sys.modules['__main__'] = self.shell.user_module
 
         if self.block:
-            self.shell.safe_execfile(self.script_file, prog_ns, prog_ns, exit_ignore=False)
+            # self.shell.safe_execfile(self.script_file, prog_ns, prog_ns, exit_ignore=False)
+            with open(self.script_file) as f:
+                exec(compile(f.read(), "some name", "exec"), self.globs)
         else:  # TODO - threading? multiprocessing?
             pass
 
         # Restore
-        self.shell.user_ns['__name__'] = name_save
-        self.shell.user_ns['__builtins__'] = builtin_mod
-        sys.argv = save_argv
-        sys.modules['__main__'] = restore_main
+        # self.shell.user_ns['__name__'] = name_save
+        # self.shell.user_ns['__builtins__'] = builtin_mod
+        # sys.argv = save_argv
+        # sys.modules['__main__'] = restore_main
 
-
-    # TODO: Add __str__ and __repr__
+    # TODO: Add __str__, __repr__, __to_dict__
 
 
 class SageMakerJob(BaseJob):
