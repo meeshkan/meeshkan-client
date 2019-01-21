@@ -73,14 +73,15 @@ class QueueProcessor:
 
 
 class Scheduler:
-    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
+    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None,
+                 event_loop: Optional[asyncio.AbstractEventLoop] = None):
         self._queue_processor = queue_processor
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
         self.external_jobs = dict()  # type: Dict[uuid.UUID, ExternalJob]
         self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
         self._job_poller = TrackingPoller(self.__query_and_report)
-        self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
+        self._event_loop = event_loop or asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
         self._notifier = notifier  # type: Optional[Notifier]
         self.active_external_job_id = None  # type: Optional[uuid.UUID]  # TODO Allow one per process ID
         self.external_job_polling_tasks = dict()  # type: Dict[uuid.UUID, asyncio.Task]

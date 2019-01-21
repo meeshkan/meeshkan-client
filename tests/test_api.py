@@ -1,4 +1,4 @@
-# pylint:disable=redefined-outer-name
+# pylint:disable=redefined-outer-name, no-self-use
 import asyncio
 from unittest.mock import create_autospec
 from pathlib import Path
@@ -8,9 +8,10 @@ import pytest
 from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
-from meeshkan.core.job import Job, JobStatus, SageMakerJob
+from meeshkan.core.job import Job, JobStatus, SageMakerJob, ExternalJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor, SageMakerHelper
 from meeshkan.core.tasks import TaskType, Task
+from meeshkan.notifications.notifiers import Notifier
 from meeshkan import exceptions
 
 from .utils import wait_for_true, MockNotifier
@@ -242,10 +243,14 @@ def mock_sagemaker_job_monitor():
 
 @pytest.fixture
 def mock_api(mock_sagemaker_job_monitor):
-    scheduler = Scheduler(QueueProcessor())
+    notifier = create_autospec(Notifier).return_value
+    mock_event_loop = create_autospec(asyncio.AbstractEventLoop).return_value
+    scheduler = Scheduler(QueueProcessor(), notifier=notifier, event_loop=mock_event_loop)
     service = create_autospec(Service).return_value
+
     yield Api(scheduler=scheduler,
               service=service,
+              notifier=notifier,
               sagemaker_job_monitor=mock_sagemaker_job_monitor)
 
 
@@ -269,3 +274,32 @@ def test_does_not_start_monitoring_finished_sagemaker_job(mock_api: Api):  # pyl
     mock_api.monitor_sagemaker(job_name=job_name)
     mock_api.sagemaker_job_monitor.create_job.assert_called_with(job_name=job_name, poll_interval=None)
     mock_api.sagemaker_job_monitor.start.assert_not_called()
+
+
+class TestExternalJobs:
+    JOB_NAME = "test-job"
+
+    def test_create_job_stores_job(self, mock_api: Api):
+        job_id = mock_api.external_jobs.create_external_job(pid=0,
+                                                            name=TestExternalJobs.JOB_NAME,
+                                                            poll_interval=10)
+        job = mock_api.scheduler.get_job_by_id(job_id)
+        assert job.name == TestExternalJobs.JOB_NAME
+        assert job.pid == 0
+        assert isinstance(job, ExternalJob)
+
+    def test_register_active_job_notifies_start_and_end(self, mock_api: Api):
+        job_id = mock_api.external_jobs.create_external_job(pid=0,
+                                                            name=TestExternalJobs.JOB_NAME,
+                                                            poll_interval=10)
+        job = mock_api.scheduler.get_job_by_id(job_id)
+        mock_api.external_jobs.register_active_external_job(job_id=job_id)
+        # TODO Wrong level of abstraction tested here as need to access
+        # the internals of Scheduler, clean this up
+        mock_api.scheduler._notifier.notify_job_start.assert_called_with(job)
+
+        # Smoke test checking that some task was created
+        mock_api.scheduler._event_loop.create_task.assert_called_once()
+
+        mock_api.external_jobs.unregister_active_external_job(job_id=job_id)
+        mock_api.scheduler._notifier.notify_job_end.assert_called_with(job)
