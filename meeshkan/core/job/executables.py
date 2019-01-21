@@ -4,8 +4,6 @@ from pathlib import Path
 import os
 import subprocess
 
-from .base import NotebookConverter
-
 LOGGER = logging.getLogger(__name__)
 
 # Expose only valid classes
@@ -45,11 +43,10 @@ class Executable:
 
     @staticmethod
     def convert_notebook(notebook_file: str, target: str):
-        # TODO: Should we use this temporary fallback, or just crash if `nbconvert` does not exist?
         try:
             from nbconvert import PythonExporter
         except ModuleNotFoundError:
-            PythonExporter = NotebookConverter
+            raise RuntimeError("Cannot convert notebook without IPython or `nbconvert`!")
         py_code, _ = PythonExporter().from_file(notebook_file)
         with open(target, "w") as script_fd:
             script_fd.write(py_code)
