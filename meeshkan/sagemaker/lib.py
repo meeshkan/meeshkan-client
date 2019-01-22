@@ -36,4 +36,3 @@ def monitor(job_name: str, poll_interval: Optional[float] = None):
         else:
             print("Started monitoring job {job_name}, "
                   "currently in phase {status}".format(job_name=sagemaker_job.name, status=sagemaker_job.status.name))
-        return
