@@ -32,8 +32,10 @@ def test_start_stop(start_stop_agent, mock_cloud_client):  # pylint:disable=rede
 def test_double_start(start_stop_agent, mock_cloud_client):  # pylint:disable=redefined-outer-name
     Service.start(Serializer.serialize(mock_cloud_client))
     assert Service.is_running()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError) as excinfo:
         Service.start(Serializer.serialize(mock_cloud_client))
+
+    assert "Running already" in str(excinfo.value)
 
 
 def test_getting_api_before_start_raises_exception():  # pylint:disable=redefined-outer-name
