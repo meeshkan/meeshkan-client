@@ -1,12 +1,14 @@
+import math
 import time
 
 import meeshkan
 
 
 def my_loop():
-    for i in range(10):
-        meeshkan.report_scalar("i", i)
-        time.sleep(2)
+    iterations = 20
+    for i in range(20):
+        meeshkan.report_scalar("y", math.sin(i * 2 * math.pi / iterations))
+        time.sleep(1)
 
 
 @meeshkan.as_blocking_job(job_name="test-job", report_interval_secs=10)
