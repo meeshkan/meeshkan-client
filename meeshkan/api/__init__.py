@@ -7,7 +7,7 @@ from .scalars import *  # pylint: disable=wildcard-import
 from . import utils
 from .utils import *  # pylint: disable=wildcard-import
 from . import external_job
-from .external_job import *
+from .external_job import *  # pylint: disable=wildcard-import
 
 __all__ = scalars.__all__
 __all__ += conditions.__all__

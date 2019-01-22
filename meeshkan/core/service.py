@@ -167,6 +167,6 @@ class Service:
             self.terminate_daemon_event.set()  # Flag for requestLoop to terminate
             with Service._pyro_proxy() as pyro_proxy:
                 # triggers checking loopCondition
-                pyro_proxy._pyroBind()  # pylint: disable=protected-acces
+                pyro_proxy._pyroBind()  # pylint: disable=protected-access
             return True
         return False
