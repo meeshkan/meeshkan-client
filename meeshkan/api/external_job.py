@@ -20,6 +20,28 @@ class ExternalJobWrapper:
 
 
 def as_blocking_job(job_name, report_interval_secs):
+    """
+    Mark a function as :meeshkan: job: notifications are sent when the function execution begins and
+    ends. If the function reports scalar values with :py:func:`meeshkan.report_scalar`, notifications are sent
+    also at the given report intervals.
+
+    The function execution blocks the calling process, i.e., execution is not scheduled to the `meeshkan` agent
+    for execution.
+
+    Example::
+
+        @meeshkan.as_blocking_job(job_name="my-job", report_interval_secs=60)
+        def train():
+            meeshkan.add_condition("loss", lambda v: v < 0.8)
+            # Enter training loop
+            for i in range(EPOCHS):
+                # Compute loss
+                meeshkan.report_scalar("loss", loss)
+
+    :param job_name: Name of the job
+    :param report_interval_secs: Notification report interval in seconds.
+    :return: Function decorator
+    """
     def job_decorator(func):
         @wraps(func)
         def func_wrapper(*args, **kwargs):
