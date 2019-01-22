@@ -39,7 +39,7 @@ def add_condition(*vals, condition, only_reported=False):
     relevant to the condition if False. Defaults to False.
     """
     if not vals:
-        raise ValueError("No arguments given for condition!")
+        raise TypeError("No arguments given for condition!")
 
     pid = os.getpid()
     with Service.api() as proxy:
