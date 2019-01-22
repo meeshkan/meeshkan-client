@@ -49,8 +49,7 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
         for nb_sess in nb_sessions:
             if nb_sess['kernel']['id'] == kernel_id:
                 path = os.path.join(srv['notebook_dir'], nb_sess['notebook']['path'])
-                Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
-                return  # Stops looping
+                return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
 
 
 def _notebook_authenticated_session_or_none(base_url: str, uses_password: bool, port: int,
