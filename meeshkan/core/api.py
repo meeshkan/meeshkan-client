@@ -21,7 +21,7 @@ __all__ = ["Api"]
 LOGGER = logging.getLogger(__name__)
 
 
-class ExternalJobs:
+class ExternalJobsApi:
     def __init__(self, scheduler: Scheduler):
         self.scheduler = scheduler
 
@@ -63,7 +63,7 @@ class Api:
         self.notifier = notifier
         self.__stop_callbacks = []  # type: List[Callable[[], None]]
         self.__was_shutdown = False
-        self._external_jobs = self.create_external_jobs_api()
+        self._external_jobs = ExternalJobsApi(scheduler=self.scheduler)
 
     def __enter__(self):
         self.scheduler.start()
@@ -79,6 +79,8 @@ class Api:
 
     def register_with_pyro(self, daemon: Pyro4.Daemon, name: str):
         daemon.register(self, name)
+        # Add `external_jobs` proxy:
+        # https://pyro4.readthedocs.io/en/stable/servercode.html#autoproxying
         daemon.register(self._external_jobs)
 
     def get_notification_status(self, job_id: uuid.UUID) -> str:
@@ -239,7 +241,3 @@ class Api:
             self.service.stop()
         for callback in self.__stop_callbacks:
             callback()
-
-    def create_external_jobs_api(self):
-        return ExternalJobs(scheduler=self.scheduler)
-
