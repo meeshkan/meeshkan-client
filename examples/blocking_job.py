@@ -16,7 +16,7 @@ def main():
 
 # Besides decoration, you can also use meeshkan jobs as context managers:
 def main_with_context_manager():
-    job = meeshkan.create_blocking_job(name="my-job", poll_interval=10)
+    job = meeshkan.create_blocking_job(name="my-job", report_interval_secs=10)
     with job:
         my_loop()
 
