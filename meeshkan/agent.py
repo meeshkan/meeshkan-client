@@ -106,10 +106,12 @@ def start() -> bool:
     config, credentials = __utils__.get_auth()
 
     cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
-    cloud_client.notify_service_start()
-    cloud_client_serialized = Serializer.serialize(cloud_client)
-    Service.start(cloud_client_serialized=cloud_client_serialized)
-    cloud_client.close()
+    try:
+        cloud_client.notify_service_start()
+        cloud_client_serialized = Serializer.serialize(cloud_client)
+        Service.start(cloud_client_serialized=cloud_client_serialized)
+    finally:
+        cloud_client.close()
 
     print('Service started.')
     return True
