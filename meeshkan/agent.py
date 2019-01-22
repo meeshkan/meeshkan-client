@@ -92,22 +92,24 @@ def restart():
     start()
 
 
-def start() -> str:
-    """Start the agent.
+def start() -> bool:
+    """
+    Start the Meeshkan agent.
 
-    :return str: Pyro server URI.
+    :return bool: True if agent was started, False if agent was already running.
     """
     __verify_version()
     if is_running():
         print("Service is already running.")
-        return Service.URI
+        return False
 
     config, credentials = __utils__.get_auth()
 
     cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
     cloud_client.notify_service_start()
     cloud_client_serialized = Serializer.serialize(cloud_client)
-    pyro_uri = Service.start(cloud_client_serialized=cloud_client_serialized)
-    print('Service started.')
+    Service.start(cloud_client_serialized=cloud_client_serialized)
     cloud_client.close()
-    return pyro_uri
+
+    print('Service started.')
+    return True
