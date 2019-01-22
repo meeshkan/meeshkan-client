@@ -15,8 +15,6 @@ Here are just a few of the things meeshkan can do:
   - Allow you to control training jobs remotely
   - Allow monitoring Amazon SageMaker jobs
 
-.. include:: quick-start.rst
-
 Usage as Python library
 =======================
 
