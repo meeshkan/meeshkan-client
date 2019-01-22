@@ -165,11 +165,8 @@ class Service:
                 raise RuntimeError("Terminate daemon event does not exist. "
                                    "The stop() method may have called from the wrong process.")
             self.terminate_daemon_event.set()  # Flag for requestLoop to terminate
-            try:
-                with Service._pyro_proxy() as pyro_proxy:
-                    # triggers checking loopCondition
-                    pyro_proxy._pyroBind()  # pylint: disable=protected-acces
-            except AgentNotAvailableException:
-                pass
+            with Service._pyro_proxy() as pyro_proxy:
+                # triggers checking loopCondition
+                pyro_proxy._pyroBind()  # pylint: disable=protected-acces
             return True
         return False
