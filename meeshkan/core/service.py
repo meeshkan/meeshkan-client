@@ -14,6 +14,7 @@ import Pyro4  # For daemon management
 from .logger import remove_non_file_handlers
 from ..__build__ import _build_api
 from .serializer import Serializer
+from ..exceptions import AgentNotAvailableException
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
@@ -55,7 +56,7 @@ class Service:
         """Checks whether the daemon is running on localhost.
         Assumes the port is either taken by Pyro or is free.
         """
-        with Pyro4.Proxy(Service.URI) as pyro_proxy:
+        with Service._pyro_proxy() as pyro_proxy:
             try:
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
                 return True
@@ -64,6 +65,23 @@ class Service:
 
     @staticmethod
     def api() -> Pyro4.Proxy:
+        """
+        Get Pyro proxy for the agent API.
+
+        :raises AgentNotAvailableException: If agent is not running.
+        :return: Pyro proxy.
+        """
+        if not Service.is_running():
+            raise AgentNotAvailableException()
+        return Service._pyro_proxy()
+
+    @staticmethod
+    def _pyro_proxy():
+        """
+        Get Pyro proxy. Does not check proxy is available.
+
+        :return: Pyro proxy.
+        """
         return Pyro4.Proxy(Service.URI)
 
     @staticmethod
@@ -147,8 +165,8 @@ class Service:
                 raise RuntimeError("Terminate daemon event does not exist. "
                                    "The stop() method may have called from the wrong process.")
             self.terminate_daemon_event.set()  # Flag for requestLoop to terminate
-            with Service.api() as pyro_proxy:
+            with Service._pyro_proxy() as pyro_proxy:
                 # triggers checking loopCondition
-                pyro_proxy._pyroBind()  # pylint: disable=protected-access
+                pyro_proxy._pyroBind()  # pylint: disable=protected-acces
             return True
         return False

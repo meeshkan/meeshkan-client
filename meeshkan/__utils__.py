@@ -29,10 +29,11 @@ def save_token(token: str):
 
 
 def _get_api() -> Api:
-    if not Service.is_running():
-        print("Start the service first.")
-        raise AgentNotAvailableException()
-    api = Service.api()  # type: Api
+    try:
+        api = Service.api()  # type: Api
+    except AgentNotAvailableException:
+        print("Start the agent first.")
+        raise
     return api
 
 
