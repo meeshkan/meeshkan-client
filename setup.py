@@ -84,16 +84,23 @@ class BuildDocumentationCommand(SetupCommand):
     description = "Builds the sphinx documentation."
 
     def run(self):
-        try:
-            self.status("Removing previous builds...")
-            rmtree(os.path.join(here, 'docs/build'))
-        except OSError:
-            pass
+
+        def rmdir_if_exists(directory):
+            self.status("Deleting {}".format(directory))
+            rmtree(directory, ignore_errors=True)
+
+        self.status("Removing previous builds...")
+
+        build_dir = os.path.join(here, 'docs/build')
+        rmdir_if_exists(build_dir)
+
+        version_dir = os.path.join(here, 'docs', 'version={version}'.format(version=about['__version__']))
+        rmdir_if_exists(version_dir)  # Need to delete this before building HTML docs
 
         self.status("Building documentation...")
         build_docs()
-        self.status("Docs were built. Now change to fresh branch, `git add docs/build`, `git commit -a` and do "
-                    "`git subtree push --prefix docs/build origin gh-pages` to push the build to `gh-pages` branch.")
+
+        self.status("Docs were built to `docs/build`.")
         sys.exit()
 
 
