@@ -16,7 +16,7 @@ from ..notifications.notifiers import Notifier
 from ..__types__ import HistoryByScalar
 from .serializer import Serializer
 
-__all__ = ["Api"]
+__all__ = []  # type: List[str]
 
 LOGGER = logging.getLogger(__name__)
 
