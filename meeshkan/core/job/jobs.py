@@ -148,6 +148,7 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
                 'status': self.status.name,
                 'args': repr(self.executable)}
 
+    # TODO - change to a factory method outside `Job` class?
     @staticmethod
     def create_job(args: Tuple[str, ...], job_number: int, cwd: str = None, name: str = None, poll_interval: int = None,
                    description: str = None, output_path: Optional[Path] = None):
@@ -173,10 +174,20 @@ class Job(BaseJob):  # TODO Change base properties to use composition instead of
 
     @staticmethod
     def __verify_python_executable(args: Tuple[str, ...]):
-        """Checks if the first argument's extension is .py, and prepends the full path to Python interpreter to args.
-        If the full path is unavailable, defaults to using 'python' alias as runtime. """
-        if len(args) > 0:    # pylint: disable=len-as-condition
-            if os.path.splitext(args[0])[1] == ".py":
-                #TODO: default executable should be in config.yaml?
-                args = (sys.executable or "python",) + args  # Full path to interpreter or "python" alias by default
+        """Checks if the first argument's extension is one of .py, .ipy or .ipynb, and prepends the matching
+        interpreter to args."""
+        if args is None:
+            return None
+        ext = os.path.splitext(args[0])[1]
+        if ext == ".py":
+            #TODO: default executable should be in config.yaml?
+            args = (sys.executable or "python",) + args  # Full path to interpreter or "python" alias by default
+        if ext in [".ipy", ".ipynb"]:
+            # Check if `ipython` is installed
+            import importlib
+            ipython_exists = importlib.util.find_spec("IPython") is not None
+            if ipython_exists:
+                args = ("ipython",) + args
+            else:  # Default being python; if IPython doesn't exist, magic commands will be eliminated
+                args = (sys.executable or "python",) + args
         return args

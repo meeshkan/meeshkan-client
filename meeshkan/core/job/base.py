@@ -1,3 +1,5 @@
+"""Contains the base classes for the Job API, as well as some other _basic functionality_ classes"""
+
 import logging
 from typing import Callable, Optional
 import uuid
@@ -10,6 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Expose only BaseJob class
 __all__ = ["BaseJob"]
+
 
 class Trackable:
     """
