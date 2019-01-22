@@ -22,9 +22,9 @@ Here are just a few of the things ``meeshkan`` can do:
 
 .. include:: ./quick-start.rst
 
-=======================
-Meeshkan Python library
-=======================
+===================
+Meeshkan Python API
+===================
 
 .. automodule:: meeshkan
    :members:
