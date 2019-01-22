@@ -6,7 +6,7 @@ import meeshkan
 
 def my_loop():
     iterations = 20
-    for i in range(20):
+    for i in range(iterations):
         meeshkan.report_scalar("y", math.sin(i * 2 * math.pi / iterations))
         time.sleep(1)
 
