@@ -24,6 +24,13 @@ def get_auth() -> Tuple[meeshkan.config.Configuration, meeshkan.config.Credentia
 
 
 def save_token(token: str):
+    """
+    Save Meeshkan API key to ``~/.meeshkan/credentials``.
+    Unlike :func:`meeshkan.init`, does not start or restart the agent.
+    Creates also the required directories if they do not exist.
+
+    :param token: Meeshkan API key
+    """
     meeshkan.config.ensure_base_dirs(verbose=False)  # type: ignore
     meeshkan.config.Credentials.to_isi(refresh_token=token)  # type: ignore
 

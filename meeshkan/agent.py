@@ -40,9 +40,13 @@ def __verify_version():
 
 
 def init(token: Optional[str] = None):
-    """Initialize the Meeshkan agent, optionally with the provided credentials.
+    """
+    Initialize the Meeshkan agent, optionally with the provided credentials.
 
-    :param token: Meeshkan service token. Only required if credentials have not been setup before.
+    * ``meeshkan.init()`` without the token is equivalent to ``meeshkan.restart()``.
+    * ``meeshkan.init(token=...)`` with the token is equivalent to ``meeshkan.save_token(token=...)`` followed by ``meeshkan.restart()``.
+
+    :param token: Meeshkan API key, optional. Only required if credentials have not been setup before.
     """
     ensure_base_dirs()
     try:
@@ -61,7 +65,9 @@ def init(token: Optional[str] = None):
 
 
 def is_running() -> bool:
-    """Returns whether or not the agent is currently running."""
+    """
+    Check if the agent is running.
+    """
     return Service.is_running()
 
 
@@ -75,7 +81,8 @@ def _stop_if_running() -> bool:
 
 
 def stop():
-    """Stop the agent.
+    """
+    Stop the agent.
     """
     was_running = _stop_if_running()
     if was_running:
@@ -85,7 +92,8 @@ def stop():
 
 
 def restart():
-    """Restart the agent.
+    """
+    Restart the agent. Also reload configuration variables such as credentials.
     """
     _stop_if_running()
     init_config(force_refresh=True)
