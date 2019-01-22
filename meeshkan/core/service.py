@@ -81,7 +81,7 @@ class Service:
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
         with _build_api(service, cloud_client=cloud_client) as api,\
                 Pyro4.Daemon(host=Service.HOST, port=Service.PORT) as daemon:
-            daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
+            api.register_with_pyro(daemon, name=Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():
                 polling_coro = api.poll()  # pylint: disable=assignment-from-no-return

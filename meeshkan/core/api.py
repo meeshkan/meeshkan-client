@@ -7,7 +7,7 @@ from fnmatch import fnmatch
 import Pyro4
 import Pyro4.errors
 
-from .job import Job, SageMakerJob
+from .job import Job, SageMakerJob, ExternalJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
@@ -19,6 +19,34 @@ from .serializer import Serializer
 __all__ = ["Api"]
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ExternalJobsApi:
+    def __init__(self, scheduler: Scheduler):
+        self.scheduler = scheduler
+
+    @Pyro4.expose
+    def create_external_job(self, pid: int, name: str,
+                            poll_interval: Optional[float] = None) -> uuid.UUID:
+        """
+        Create a new external job and set it as active so that incoming reports with the same
+        PID are registered to this job.
+        :param pid: Process ID of creating process
+        :param name: Job name
+        :param poll_interval: Report interval in seconds
+        :return: Job ID
+        """
+        external_job = ExternalJob.create(pid=pid, name=name, poll_interval=poll_interval)
+        self.scheduler.external_jobs[external_job.id] = external_job
+        return external_job.id
+
+    @Pyro4.expose
+    def register_active_external_job(self, job_id: uuid.UUID):
+        self.scheduler.register_external_job(job_id=job_id)
+
+    @Pyro4.expose
+    def unregister_active_external_job(self, job_id: uuid.UUID):
+        self.scheduler.unregister_external_job(job_id)
 
 
 @Pyro4.behavior(instance_mode="single")  # Singleton
@@ -35,6 +63,7 @@ class Api:
         self.notifier = notifier
         self.__stop_callbacks = []  # type: List[Callable[[], None]]
         self.__was_shutdown = False
+        self._external_jobs = ExternalJobsApi(scheduler=self.scheduler)
 
     def __enter__(self):
         self.scheduler.start()
@@ -42,6 +71,17 @@ class Api:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+    @Pyro4.expose  # type: ignore
+    @property
+    def external_jobs(self):
+        return self._external_jobs
+
+    def register_with_pyro(self, daemon: Pyro4.Daemon, name: str):
+        daemon.register(self, name)
+        # Add `external_jobs` proxy:
+        # https://pyro4.readthedocs.io/en/stable/servercode.html#autoproxying
+        daemon.register(self._external_jobs)
 
     def get_notification_status(self, job_id: uuid.UUID) -> str:
         """Returns last notification status for job_id

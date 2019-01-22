@@ -1,11 +1,9 @@
 """Contains the base classes for the Job API, as well as some other _basic functionality_ classes"""
 
 import logging
-from typing import Optional, Tuple
+from typing import Callable, Optional
 import uuid
 import datetime
-import json
-import re
 
 from ..tracker import TrackerBase, TrackerCondition
 from .status import JobStatus
@@ -14,6 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Expose only BaseJob class
 __all__ = ["BaseJob"]
+
 
 class Trackable:
     """
@@ -25,6 +24,9 @@ class Trackable:
 
     def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
         return self.scalar_history.add_tracked(scalar_name, scalar_value)
+
+    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
+        self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
 
     def get_updates(self, *names, plot, latest):
         """Get latest updates for tracked scalar values. If plot == True, will also plot all tracked scalars.
