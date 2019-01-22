@@ -40,11 +40,11 @@ Running jobs from the command line
 ----------------------------------
 
 Download example script called `report.py <https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py>`_
-from `meeshkan-client <https://github.com/Meeshkan/meeshkan-client/tree/dev/examples) repository to your current directory>`_::
+from meeshkan-client `examples folder <https://github.com/Meeshkan/meeshkan-client/tree/dev/examples>`_ to your current directory::
 
     $ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py
 
-The script uses :py:func:`meeshkan.report_scalar` to report scalar values to the agent. These values are included
+The script uses :func:`meeshkan.report_scalar` to report scalar values to the agent. These values are included
 in the job notifications sent at fixed intervals.
 
 Submit the example job with 10 second reporting interval::
@@ -57,7 +57,7 @@ If you setup Slack integration at `meeshkan.com <https://www.meeshkan.com>`_,
 you should receive a notification for job being started. You should get notifications every ten seconds. The script
 runs for 20 seconds, so you should get one notification containing scalar values.
 
-The script uses :py:func:`meeshkan.report_scalar` to report scalar values to the agent.
+The script uses :func:`meeshkan.report_scalar` to report scalar values to the agent.
 These scalar values are included in the job notifications sent at fixed intervals.
 
 You can list the submitted jobs with::
