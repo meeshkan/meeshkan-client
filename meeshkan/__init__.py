@@ -28,3 +28,4 @@ del core
 del api
 del agent
 del notifications
+del Api

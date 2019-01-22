@@ -163,7 +163,7 @@ class Service:
         if self.is_running():
             if self.terminate_daemon_event is None:
                 raise RuntimeError("Terminate daemon event does not exist. "
-                                   "The stop() method may have called from the wrong process.")
+                                   "The stop() method may have been called from the wrong process.")
             self.terminate_daemon_event.set()  # Flag for requestLoop to terminate
             with Service._pyro_proxy() as pyro_proxy:
                 # triggers checking loopCondition
