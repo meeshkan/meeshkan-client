@@ -10,6 +10,8 @@ from . import agent
 from .agent import *  # pylint: disable=wildcard-import
 from . import notifications
 from .notifications import *  # pylint: disable=wildcard-import
+from . import git
+from .git import *  # pylint: disable=wildcard-import
 
 from . import exceptions
 from . import sagemaker
@@ -17,7 +19,7 @@ from .__utils__ import save_token
 
 
 # Only make the following available by default
-__all__ = ["__version__", "exceptions", "config", "save_token"]
+__all__ = ["__version__", "exceptions", "config", "save_token", "sagemaker", "git"]
 __all__ += api.__all__
 __all__ += agent.__all__
 __all__ += core.__all__

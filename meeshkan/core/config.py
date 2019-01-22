@@ -78,7 +78,7 @@ class Credentials:
                            git_access_token=conf.get('github', 'token', fallback=None))
 
     @staticmethod
-    def to_isi(refresh_token: str, path: Path = CREDENTIALS_FILE):
+    def to_isi(refresh_token: str, path: Path = CREDENTIALS_FILE):  # TODO accept Git token as well?
         """Creates the credential file with given refresh token. Overrides previous token if exists.
         Does not create missing folders along `path`, instead, raises FileNotFound exception.
 
