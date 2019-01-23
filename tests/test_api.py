@@ -398,7 +398,7 @@ class TestNotebookPathDiscovery:
     def test_from_notebook_ipython_no_connection_file(self):
         with pytest.raises(RuntimeError):
             _get_notebook_path_generic(get_ipython_function=self.get_valid_shell, list_servers_function=lambda: list(),
-                                       connection_file_function=self.get_kernel_file)
+                                       connection_file_function=lambda: "")
 
     def test_from_notebook_ipython(self):
         token = None
