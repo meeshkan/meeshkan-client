@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Callable, List, Dict, Any
 import os
 import logging
 from http import HTTPStatus
@@ -19,23 +19,53 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     Can only be called from within a notebook instance.
     On password-protected notebooks, the `password` argument must be supplied.
     """
+    try:
+        path = get_notebook_path_generic(get_ipython_function=globals().get('get_ipython'),
+                                         list_servers_function=notebookapp.list_running_servers,
+                                         connection_file=ipykernel.get_connection_file(),
+                                         notebook_password=notebook_password)
+        if path is not None:
+            return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
+    except ValueError:  # Ran from ipython but not from jupyter notebook -> expected behaviour
+        return None
+    # In theory, should never get here...
+    raise RuntimeError("Something went terribly wrong; Meeshkan couldn't locate the matching notebook server! Contact"
+                       " Meeshkan development (dev@meeshkan.com) if you see this message.")
+
+
+def get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]],
+                              list_servers_function: Callable[[], List[Dict]], connection_file: str,
+                              notebook_password: Optional[str]) -> Optional[str]:
+    """Looks up the name of the current notebook (i.e. the one from which this function was called).
+
+    :param get_ipython_function: Optional callable that returns the ipython shell used. Used to verify the executing
+                                    interpreter.
+    :param list_servers_function: Callable that returns a list of dictionaries, describing the currently running
+                                    notebook servers.
+    :param connection_file: Location to file containing the IPyKernel details
+    :param notebook_password: Password for the notebook server if needed.
+
+    :return Location to the current notebook if found, otherwise None.
+    :raises RuntimeError if get_ipython_function is None
+    :raises ValueError if calling get_ipython_function returns a non-ZMQ Interactive Shell.
+    """
     try:  # Verifies this was run in an IPython with a non-terminal kernel
-        ipython = get_ipython()  # type: ignore
+        ipython = get_ipython_function()  # type: ignore
         if ipython.__class__.__name__ != "ZMQInteractiveShell":  # Used for communication with the IPyKernel
             # This is only meant to run from Jupyter Notebook; once converted by Meeshkan, it may potentially run with
             # ipython interpreter, so `get_ipython()` will exist but will be 'TerminalInteractiveShell' instead.
-            return None
-    except NameError:  # Not ran from IPython
-        raise RuntimeError("`run_notebook` can only be run from within a jupyter notebook!")
+            raise ValueError("Not run from notebook interpreter")
+    except TypeError:  # Not ran from IPython
+        raise RuntimeError("Can only get path to notebook if run from within a notebook!")
 
-    connection_file = os.path.basename(ipykernel.get_connection_file())
+    connection_file = os.path.basename(connection_file or ipykernel.get_connection_file())
     # Connection file is e.g. /run/user/1000/jupyter/kernel-c5f9d570-3c1c-4ef9-b3b9-d8de11ce4d0c.json
     # kernel id is then c5f9d570-3c1c-4ef9-b3b9-d8de11ce4d0c
     # responses from Jupyter Notebook API are described here:
     # pylint: disable=line-too-long
     #     http://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter/notebook/master/notebook/services/api/api.yaml
     kernel_id = os.path.splitext(connection_file)[0].split('-', 1)[1]
-    for srv in notebookapp.list_running_servers():
+    for srv in list_servers_function():
         sessions_url = "{url}api/sessions".format(url=srv['url'])
         sess = _notebook_authenticated_session_or_none(base_url=srv['url'], port=srv['port'],
                                                        notebook_password=notebook_password)
@@ -48,12 +78,9 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
         nb_sessions = sess.get(sessions_url).json()
         sess.close()
         for nb_sess in nb_sessions:
-            if nb_sess['kernel']['id'] == kernel_id:
-                path = os.path.join(srv['notebook_dir'], nb_sess['notebook']['path'])
-                return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
-    # In theory, should never get here...
-    raise RuntimeError("Something went terribly wrong; Meeshkan couldn't locate the matching notebook server! Contact"
-                       " Meeshkan development (dev@meeshkan.com) if you see this message.")
+            if nb_sess['kernel']['id'] == kernel_id:  # Found path!
+                return os.path.join(srv['notebook_dir'], nb_sess['notebook']['path'])
+    return None
 
 
 def _notebook_authenticated_session_or_none(base_url: str, port: int,
