@@ -11,11 +11,12 @@ from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus, SageMakerJob, ExternalJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor
 from meeshkan.core.tasks import TaskType, Task
+from meeshkan.api.utils import _notebook_authenticated_session_or_none as nb_authenticate
 
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan import config
 
-from .utils import wait_for_true, MockNotifier
+from .utils import wait_for_true, MockNotifier, NBServer
 
 
 def __get_job(sleep_duration=10):
@@ -305,3 +306,33 @@ class TestExternalJobs:
 
         mock_api.external_jobs.unregister_active_external_job(job_id=job_id)
         mock_api.scheduler._notifier.notify_job_end.assert_called_with(job)
+
+
+class TestConnectionToNotebookServer:
+    NB_PORT = 8888
+    NB_IP = "localhost"
+    NB_URL = "http://{ip}:{port}/".format(ip=NB_IP, port=NB_PORT)
+
+    def test_without_token_without_password(self):
+        with NBServer(ip=self.NB_IP, port=self.NB_PORT) as nb:
+            sess = None
+            try:
+                sess = nb_authenticate(base_url=nb.url, uses_password=False, port=nb.port)
+                assert sess is not None
+                sess.close()
+
+                sess = nb_authenticate(base_url=nb.url, uses_password=True, port=nb.port)
+                assert sess is None
+
+                sess = nb_authenticate(base_url=nb.url, uses_password=True, port=nb.port, notebook_password='bogus')
+                assert sess is not None
+            finally:
+                if sess is not None:
+                    sess.close()
+
+
+    def test_with_token_without_password(self):
+        pass
+
+    def test_without_token_with_password(self):
+        pass
