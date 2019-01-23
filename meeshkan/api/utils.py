@@ -21,6 +21,8 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     """
     try:
         try:
+            # ignoring Mypy static type checking as `get_ipython` will only be dynamically defined if the calling script
+            # was run from ipython shell (terminal or ZMQ based)
             get_ipython_func = get_ipython  # type: ignore
         except NameError:
             get_ipython_func = None
