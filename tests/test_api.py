@@ -1,8 +1,9 @@
 # pylint:disable=redefined-outer-name, no-self-use
 import asyncio
-from unittest.mock import create_autospec
+from unittest.mock import create_autospec, MagicMock, patch
 from pathlib import Path
 import uuid
+import os
 import pytest
 
 from meeshkan.core.api import Api
@@ -11,12 +12,13 @@ from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus, SageMakerJob, ExternalJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor
 from meeshkan.core.tasks import TaskType, Task
-from meeshkan.api.utils import _notebook_authenticated_session_or_none as nb_authenticate
+from meeshkan.api.utils import _notebook_authenticated_session_or_none as nb_authenticate, submit_notebook, \
+    _get_notebook_path_generic
 
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan import config
 
-from .utils import wait_for_true, MockNotifier, NBServer
+from .utils import wait_for_true, MockNotifier, NBServer, MockResponse
 
 
 def __get_job(sleep_duration=10):
@@ -309,7 +311,7 @@ class TestExternalJobs:
 
 
 class TestConnectionToNotebookServer:
-    NB_PORT = 8888
+    NB_PORT = 6666  # non 8888 port so we don't have to close running notebooks locally for tests :innocent:
     NB_IP = "localhost"
     NB_URL = "http://{ip}:{port}/".format(ip=NB_IP, port=NB_PORT)
     NB_KEY = 'abcd'  # Used as token and/or password
@@ -368,3 +370,78 @@ class TestConnectionToNotebookServer:
             finally:
                 if sess is not None:
                     sess.close()
+
+
+class TestNotebookPathDiscovery:
+    KERNEL_ID = "1234-5768-90ab-cdef"
+    KERNEL_FILE = os.path.join(os.path.split(__file__)[0], "resources/kernel-1234-5768-90ab-cdef.json")
+
+    def get_valid_shell(self):
+        ipython = MagicMock()
+        ipython.__class__.__name__ = 'ZMQInteractiveShell'
+        return ipython
+
+    def get_kernel_file(self):
+        return TestNotebookPathDiscovery.KERNEL_FILE
+
+    def test_from_non_ipython(self):
+        with pytest.raises(RuntimeError):
+            _get_notebook_path_generic(get_ipython_function=None, list_servers_function=lambda: list(),
+                                       connection_file_function=self.get_kernel_file)
+
+    def test_from_non_notebook_ipython(self):
+        ipython = MagicMock()
+        with pytest.raises(ValueError):
+            _get_notebook_path_generic(get_ipython_function=lambda: ipython, list_servers_function=lambda: list(),
+                                       connection_file_function=lambda: "")
+
+    def test_from_notebook_ipython_no_connection_file(self):
+        with pytest.raises(RuntimeError):
+            _get_notebook_path_generic(get_ipython_function=self.get_valid_shell, list_servers_function=lambda: list(),
+                                       connection_file_function=self.get_kernel_file)
+
+    def test_from_notebook_ipython(self):
+        token = None
+        valid_kernel = True
+        fake_path = 'eggs'
+        notebook_dir = 'spam'
+
+        def fake_get(_, *args, **kwargs):  # Used to override the Session.get in _get_notebook_path_generic
+            nonlocal valid_kernel, token
+            url = args[0]
+
+            if "login" in url:  # login URL and access is tested in TestConnectionToNotebookServer
+                return MockResponse()  # Return a passing response
+
+            if token is not None:  # If token-based access, verify the correct token was in use
+                assert "token={token}".format(token=token) in url
+
+            if "api/sessions" in url:  # Return matching data to describe notebook instances
+                if valid_kernel:
+                    return MockResponse(json_data=[{'kernel': {'id': self.KERNEL_ID}, 'notebook': {'path': fake_path}}])
+                return MockResponse(json_data=[{'kernel': {'id': 'boom'}}])
+
+        def fake_server():  # Returns a list of running "servers"
+            nonlocal token
+            return [{'url': 'foo', 'port': 1337, 'token': token, 'notebook_dir': notebook_dir}]
+
+        with patch("requests.Session.get", fake_get):
+            path = _get_notebook_path_generic(get_ipython_function=self.get_valid_shell,
+                                              list_servers_function=fake_server,
+                                              connection_file_function=self.get_kernel_file)
+            assert path is not None, "Valid access to notebook server and files, expecting correct path response"
+            assert path == "{nbdir}/{nbname}".format(nbdir=notebook_dir, nbname=fake_path)
+
+            token = "zot"
+            path = _get_notebook_path_generic(get_ipython_function=self.get_valid_shell,
+                                              list_servers_function=fake_server,
+                                              connection_file_function=self.get_kernel_file)
+            assert path is not None, "Valid token-based access to notebook server and files, expecting correct path" \
+                                     " response"
+            assert path == "{nbdir}/{nbname}".format(nbdir=notebook_dir, nbname=fake_path)
+
+            valid_kernel = False
+            path = _get_notebook_path_generic(get_ipython_function=self.get_valid_shell,
+                                              list_servers_function=fake_server,
+                                              connection_file_function=self.get_kernel_file)
+            assert path is None, "No valid kernel found, expecting a None response"

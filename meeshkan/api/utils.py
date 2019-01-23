@@ -20,33 +20,39 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     On password-protected notebooks, the `password` argument must be supplied.
     """
     try:
-        path = get_notebook_path_generic(get_ipython_function=globals().get('get_ipython'),
-                                         list_servers_function=notebookapp.list_running_servers,
-                                         connection_file=ipykernel.get_connection_file(),
-                                         notebook_password=notebook_password)
+        try:
+            get_ipython_func = get_ipython
+        except NameError:
+            get_ipython_func = None
+        path = _get_notebook_path_generic(get_ipython_function=get_ipython_func,
+                                          list_servers_function=notebookapp.list_running_servers,
+                                          connection_file_function=ipykernel.get_connection_file,
+                                          notebook_password=notebook_password)
         if path is not None:
             return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
     except ValueError:  # Ran from ipython but not from jupyter notebook -> expected behaviour
+        print("submit_notebook(): Not run from notebook interpreter; ignoring...")
         return None
     # In theory, should never get here...
     raise RuntimeError("Something went terribly wrong; Meeshkan couldn't locate the matching notebook server! Contact"
                        " Meeshkan development (dev@meeshkan.com) if you see this message.")
 
 
-def get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]],
-                              list_servers_function: Callable[[], List[Dict]], connection_file: str,
-                              notebook_password: Optional[str]) -> Optional[str]:
+def _get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]],
+                               list_servers_function: Callable[[], List[Dict]],
+                               connection_file_function: Callable[[], str],
+                               notebook_password: str = None) -> Optional[str]:
     """Looks up the name of the current notebook (i.e. the one from which this function was called).
 
     :param get_ipython_function: Optional callable that returns the ipython shell used. Used to verify the executing
-                                    interpreter.
+                                    interpreter
     :param list_servers_function: Callable that returns a list of dictionaries, describing the currently running
-                                    notebook servers.
-    :param connection_file: Location to file containing the IPyKernel details
+                                    notebook servers
+    :param connection_file_function: Callable that returns the location to file containing the IPyKernel details
     :param notebook_password: Password for the notebook server if needed.
 
     :return Location to the current notebook if found, otherwise None.
-    :raises RuntimeError if get_ipython_function is None
+    :raises RuntimeError if get_ipython_function is None, or if invalid connection file is given
     :raises ValueError if calling get_ipython_function returns a non-ZMQ Interactive Shell.
     """
     try:  # Verifies this was run in an IPython with a non-terminal kernel
@@ -54,11 +60,15 @@ def get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]],
         if ipython.__class__.__name__ != "ZMQInteractiveShell":  # Used for communication with the IPyKernel
             # This is only meant to run from Jupyter Notebook; once converted by Meeshkan, it may potentially run with
             # ipython interpreter, so `get_ipython()` will exist but will be 'TerminalInteractiveShell' instead.
-            raise ValueError("Not run from notebook interpreter")
+            raise ValueError
     except TypeError:  # Not ran from IPython
         raise RuntimeError("Can only get path to notebook if run from within a notebook!")
 
-    connection_file = os.path.basename(connection_file or ipykernel.get_connection_file())
+    connection_file = connection_file_function()
+    if not os.path.isfile(connection_file):
+        LOGGER.debug("Notebook connection file given but does not exist! %s", connection_file)
+        raise RuntimeError("Cannot find connection file {file}".format(file=connection_file))
+    connection_file = os.path.basename(connection_file)
     # Connection file is e.g. /run/user/1000/jupyter/kernel-c5f9d570-3c1c-4ef9-b3b9-d8de11ce4d0c.json
     # kernel id is then c5f9d570-3c1c-4ef9-b3b9-d8de11ce4d0c
     # responses from Jupyter Notebook API are described here:
@@ -73,7 +83,7 @@ def get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]],
             continue
 
         if srv['token']:
-            sessions_url += "?token={token}".format(token=srv["token"])
+            sessions_url += "?token={token}".format(token=srv['token'])
 
         nb_sessions = sess.get(sessions_url).json()
         sess.close()
