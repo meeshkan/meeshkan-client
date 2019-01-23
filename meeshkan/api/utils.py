@@ -8,6 +8,7 @@ import ipykernel
 from notebook import notebookapp
 
 from ..core.service import Service
+from ..exceptions import MismatchingIPythonKernelException
 
 __all__ = ["submit_notebook"]
 
@@ -19,52 +20,53 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     Can only be called from within a notebook instance.
     On password-protected notebooks, the `password` argument must be supplied.
     """
+    # try:
     try:
-        try:
-            # ignoring Mypy static type checking as `get_ipython` will only be dynamically defined if the calling script
-            # was run from ipython shell (terminal or ZMQ based)
-            get_ipython_func = get_ipython  # type: ignore
-        except NameError:
-            get_ipython_func = None
+        # ignoring Mypy static type checking as `get_ipython` will only be dynamically defined if the calling script
+        # was run from ipython shell (terminal or ZMQ based)
+        get_ipython_func = get_ipython  # type: ignore
+    except NameError:
+        get_ipython_func = None
+
+    try:
         path = _get_notebook_path_generic(get_ipython_function=get_ipython_func,
                                           list_servers_function=notebookapp.list_running_servers,
                                           connection_file_function=ipykernel.get_connection_file,
                                           notebook_password=notebook_password)
-        if path is not None:
-            return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
-    except ValueError:  # Ran from ipython but not from jupyter notebook -> expected behaviour
+        return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
+    except MismatchingIPythonKernelException:  # Ran from ipython but not from jupyter notebook -> expected behaviour
         print("submit_notebook(): Not run from notebook interpreter; ignoring...")
-        return None
-    # In theory, should never get here...
-    raise RuntimeError("Something went terribly wrong; Meeshkan couldn't locate the matching notebook server! Contact"
-                       " Meeshkan development (dev@meeshkan.com) if you see this message.")
+    return None  # Return None so we don't crash the notebook/caller;
+
+
+def _verify_ipython_notebook_kernel(ipython_kernel):
+    valid_type = "ZMQInteractiveShell"
+    kernel_type = ipython_kernel.__class__.__name__
+    if ipython_kernel.__class__.__name__ != valid_type:  # Used for communication with the IPyKernel
+        raise MismatchingIPythonKernelException(found_kernel_type=kernel_type, expected_kernel_type=valid_type)
 
 
 def _get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]],
                                list_servers_function: Callable[[], List[Dict]],
                                connection_file_function: Callable[[], str],
-                               notebook_password: str = None) -> Optional[str]:
+                               notebook_password: str = None) -> str:
     """Looks up the name of the current notebook (i.e. the one from which this function was called).
 
-    :param get_ipython_function: Optional callable that returns the ipython shell used. Used to verify the executing
-                                    interpreter
     :param list_servers_function: Callable that returns a list of dictionaries, describing the currently running
                                     notebook servers
     :param connection_file_function: Callable that returns the location to file containing the IPyKernel details
     :param notebook_password: Password for the notebook server if needed.
 
     :return Location to the current notebook if found, otherwise None.
-    :raises RuntimeError if get_ipython_function is None, or if invalid connection file is given
-    :raises ValueError if calling get_ipython_function returns a non-ZMQ Interactive Shell.
+    :raises RuntimeError if get_ipython_function is None, if invalid connection file is given,
+                            or if notebook path is not found
+    :raises MismatchingIPythonKernelException if calling get_ipython_function returns a non-ZMQ Interactive Shell.
     """
-    try:  # Verifies this was run in an IPython with a non-terminal kernel
-        ipython = get_ipython_function()  # type: ignore
-        if ipython.__class__.__name__ != "ZMQInteractiveShell":  # Used for communication with the IPyKernel
-            # This is only meant to run from Jupyter Notebook; once converted by Meeshkan, it may potentially run with
-            # ipython interpreter, so `get_ipython()` will exist but will be 'TerminalInteractiveShell' instead.
-            raise ValueError
-    except TypeError:  # Not ran from IPython
+    if get_ipython_function is None:  # Can't verify ipython kernel...
         raise RuntimeError("Can only get path to notebook if run from within a notebook!")
+    # This is only meant to run from Jupyter Notebook; once converted by Meeshkan, it may potentially run with
+    # ipython interpreter, so `get_ipython()` will exist but will be 'TerminalInteractiveShell' instead.
+    _verify_ipython_notebook_kernel(get_ipython_function())  # Verifies this was run with non-terminal IPython kernel
 
     connection_file = connection_file_function()
     if not os.path.isfile(connection_file):
@@ -79,9 +81,10 @@ def _get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]]
     kernel_id = os.path.splitext(connection_file)[0].split('-', 1)[1]
     for srv in list_servers_function():
         sessions_url = "{url}api/sessions".format(url=srv['url'])
-        sess = _notebook_authenticated_session_or_none(base_url=srv['url'], port=srv['port'],
-                                                       notebook_password=notebook_password)
-        if sess is None:
+        try:
+            sess = _notebook_authenticated_session(base_url=srv['url'], port=srv['port'], nb_password=notebook_password)
+        except RuntimeError as excinfo:  # Failure to authenticate
+            print(excinfo)
             continue
 
         if srv['token']:
@@ -92,11 +95,11 @@ def _get_notebook_path_generic(get_ipython_function: Optional[Callable[[], Any]]
         for nb_sess in nb_sessions:
             if nb_sess['kernel']['id'] == kernel_id:  # Found path!
                 return os.path.join(srv['notebook_dir'], nb_sess['notebook']['path'])
-    return None
+    raise RuntimeError("Something went terribly wrong; Meeshkan couldn't locate the matching notebook server! Contact "
+                       "Meeshkan development (via Github or meeshkan-community Slack channel) if you see this message.")
 
 
-def _notebook_authenticated_session_or_none(base_url: str, port: int,
-                                            notebook_password: str = None) -> Optional[requests.Session]:
+def _notebook_authenticated_session(base_url: str, port: int, nb_password: str = None) -> requests.Session:
     """Attempts to create a new requests.Session with access to the Notebook Server API:
             https://github.com/jupyter/jupyter/wiki/Jupyter-Notebook-Server-API
         This function does not handle token-based access.
@@ -105,8 +108,9 @@ def _notebook_authenticated_session_or_none(base_url: str, port: int,
 
         :param base_url: base URL to access notebook server API
         :param port: port used in the base URL; used for prints
-        :param notebook_password: the password to use in password protected servers (optional)
-        :return authenticated requests.Session with access to the API, or None if fails.
+        :param nb_password: the password to use in password protected servers (optional)
+        :return authenticated requests.Session with access to the API
+        :raises RuntimeError on failure to authenticate
     """
     login_url = "{url}login".format(url=base_url)
     sess = requests.Session()
@@ -123,18 +127,16 @@ def _notebook_authenticated_session_or_none(base_url: str, port: int,
         return sess
 
     # Requires password but no password was given
-    if notebook_password is None:
-        print("Skipping notebook server on port {port} as it's password-protected".format(port=port))
-        return None
+    if nb_password is None:
+        raise RuntimeError("Skipping notebook server on port {port} as it's password-protected".format(port=port))
 
     # Break the relevant line; it looks like this: <input type="hidden" name="_xsrf" value="..."/>
     xsrf = filtered_res[0].split("\"")[-2]
 
     # 2. attempt to authenticate
-    res = sess.post(login_url, data={"_xsrf": xsrf, "password": notebook_password})
+    res = sess.post(login_url, data={"_xsrf": xsrf, "password": nb_password})
     if res.status_code != HTTPStatus.OK:
-        print("Cannot authenticate to notebook server on port {port}! Did you provide the correct "
-              "password? Skipping...".format(port=port))
         sess.close()
-        return None
+        raise RuntimeError("Cannot authenticate to notebook server on port {port}! Did you provide the correct "
+                           "password? Skipping...".format(port=port))
     return sess

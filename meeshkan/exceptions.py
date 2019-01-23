@@ -48,3 +48,9 @@ class DeferredImportException:
 class AgentNotAvailableException(Exception):
     def __index__(self):
         super().__init__("Start the agent first.")
+
+
+class MismatchingIPythonKernelException(Exception):
+    def __init__(self, found_kernel_type, expected_kernel_type):
+        super().__init__("Found an IPython kernel, but it doesn't match the expected type (found {found},"
+                         "expected {expected}".format(found=found_kernel_type, expected=expected_kernel_type))

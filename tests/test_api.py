@@ -12,11 +12,12 @@ from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus, SageMakerJob, ExternalJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor
 from meeshkan.core.tasks import TaskType, Task
-from meeshkan.api.utils import _notebook_authenticated_session_or_none as nb_authenticate, submit_notebook, \
+from meeshkan.api.utils import _notebook_authenticated_session as nb_authenticate, submit_notebook, \
     _get_notebook_path_generic
 
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan import config
+from meeshkan.exceptions import MismatchingIPythonKernelException
 
 from .utils import wait_for_true, MockNotifier, NBServer, MockResponse
 
@@ -317,56 +318,37 @@ class TestConnectionToNotebookServer:
     NB_KEY = 'abcd'  # Used as token and/or password
 
     def test_without_token_without_password(self):
+        # Expected to run without raising any errors (authentication is trivial)
         with NBServer(ip=self.NB_IP, port=self.NB_PORT) as nb:
-            sess = None
-            try:
-                sess = nb_authenticate(base_url=nb.url, port=nb.port)
-                assert sess is not None, "Unprotected jupyter server should be accessible without a password" \
-                                         " (expected a Session object)"
-                sess.close()
+            sess = nb_authenticate(base_url=nb.url, port=nb.port)
+            sess.close()
 
-                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password='bogus')
-                assert sess is not None, "Unprotected jupyter server should be accessible regardless if password was " \
-                                         "given (expected a Session object)"
-                sess.close()
-            finally:
-                if sess is not None:
-                    sess.close()
+            sess = nb_authenticate(base_url=nb.url, port=nb.port, nb_password='bogus')
+            sess.close()
 
 
     def test_with_token_without_password(self):
+        # Expected to run without raising any errors (authentication is token-based)
         with NBServer(ip=self.NB_IP, port=self.NB_PORT, key=self.NB_KEY) as nb:
-            sess = None
-            try:
-                sess = nb_authenticate(base_url=nb.url, port=nb.port)
-                assert sess is not None, "Token-protected jupyter server should be accessible without a password" \
-                                         " (expected a Session object)"
-                sess.close()
+            sess = nb_authenticate(base_url=nb.url, port=nb.port)
+            sess.close()
 
-                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password='bogus')
-                assert sess is not None, "Token-protected jupyter server should be accessible regardless if password " \
-                                         "was given (expected a Session object)"
-                sess.close()
-            finally:
-                if sess is not None:
-                    sess.close()
+            sess = nb_authenticate(base_url=nb.url, port=nb.port, nb_password='bogus')
+            sess.close()
 
     def test_without_token_with_password(self):
+        # Expected to raise for wrong/missing password
         with NBServer(ip=self.NB_IP, port=self.NB_PORT, key=self.NB_KEY, use_password=True) as nb:
             sess = None
             try:
-                sess = nb_authenticate(base_url=nb.url, port=nb.port)
-                assert sess is None, "Password-protected jupyter server should not be accessible without a password " \
-                                     "(expected a None response)"
+                with pytest.raises(RuntimeError):
+                    sess = nb_authenticate(base_url=nb.url, port=nb.port)
 
-                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password=self.NB_KEY)
-                assert sess is not None, "Password-protected jupyter server should be accessible with the correct " \
-                                         "password (expected a Session object)"
+                sess = nb_authenticate(base_url=nb.url, port=nb.port, nb_password=self.NB_KEY)
                 sess.close()
 
-                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password='bogus')
-                assert sess is None, "Password-protected jupyter server should not be accessible with the wrong " \
-                                     "password (expected a None response)"
+                with pytest.raises(RuntimeError):
+                    sess = nb_authenticate(base_url=nb.url, port=nb.port, nb_password='bogus')
             finally:
                 if sess is not None:
                     sess.close()
@@ -391,7 +373,7 @@ class TestNotebookPathDiscovery:
 
     def test_from_non_notebook_ipython(self):
         ipython = MagicMock()
-        with pytest.raises(ValueError):
+        with pytest.raises(MismatchingIPythonKernelException):
             _get_notebook_path_generic(get_ipython_function=lambda: ipython, list_servers_function=lambda: list(),
                                        connection_file_function=lambda: "")
 
@@ -429,19 +411,15 @@ class TestNotebookPathDiscovery:
             path = _get_notebook_path_generic(get_ipython_function=self.get_valid_shell,
                                               list_servers_function=fake_server,
                                               connection_file_function=self.get_kernel_file)
-            assert path is not None, "Valid access to notebook server and files, expecting correct path response"
             assert path == "{nbdir}/{nbname}".format(nbdir=notebook_dir, nbname=fake_path)
 
             token = "zot"
             path = _get_notebook_path_generic(get_ipython_function=self.get_valid_shell,
                                               list_servers_function=fake_server,
                                               connection_file_function=self.get_kernel_file)
-            assert path is not None, "Valid token-based access to notebook server and files, expecting correct path" \
-                                     " response"
             assert path == "{nbdir}/{nbname}".format(nbdir=notebook_dir, nbname=fake_path)
 
             valid_kernel = False
-            path = _get_notebook_path_generic(get_ipython_function=self.get_valid_shell,
-                                              list_servers_function=fake_server,
-                                              connection_file_function=self.get_kernel_file)
-            assert path is None, "No valid kernel found, expecting a None response"
+            with pytest.raises(RuntimeError):
+                _get_notebook_path_generic(get_ipython_function=self.get_valid_shell, list_servers_function=fake_server,
+                                           connection_file_function=self.get_kernel_file)
