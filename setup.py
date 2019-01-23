@@ -16,7 +16,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 # Required packages.
 # Older version of requests because >= 2.21 conflicts with sagemaker.
 REQUIRED = ['boto3', 'dill', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib',
-            'nbconvert']
+            'nbconvert', 'ipykernel', 'notebook']
 
 DEV = ['jupyter', 'nbdime', 'pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker', 'sphinx',
        'sphinx-click', 'sphinx_rtd_theme']

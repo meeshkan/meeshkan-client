@@ -171,8 +171,7 @@ class Scheduler:
         active_jobs = [job for job in jobs if self.active_external_job_id == job.id]
         if not active_jobs:
             return jobs[0].id
-        else:
-            return active_jobs[0].id
+        return active_jobs[0].id
 
     def add_condition(self, pid: int, *vals: str, condition: Callable[[float], bool], only_relevant: bool):
         """Adds a new condition for a job that matches the given process id.
