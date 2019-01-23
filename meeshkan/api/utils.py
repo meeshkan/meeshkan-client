@@ -17,14 +17,14 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     """
     Submits the current notebook to the Meeshkan agent. Requires the agent to be running.
     Can only be called from within a notebook instance.
-    On password-protected notebooks, the `password` argument must be supplied a-priori.
+    On password-protected notebooks, the `password` argument must be supplied.
     """
     try:  # Verifies this was run in an IPython with a non-terminal kernel
         ipython = get_ipython()  # type: ignore
         if ipython.__class__.__name__ != "ZMQInteractiveShell":  # Used for communication with the IPyKernel
             # This is only meant to run from Jupyter Notebook; once converted by Meeshkan, it may potentially run with
             # ipython interpreter, so `get_ipython()` will exist but will be 'TerminalInteractiveShell' instead.
-            return
+            return None
     except NameError:  # Not ran from IPython
         raise RuntimeError("`run_notebook` can only be run from within a jupyter notebook!")
 
@@ -37,8 +37,8 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     kernel_id = os.path.splitext(connection_file)[0].split('-', 1)[1]
     for srv in notebookapp.list_running_servers():
         sessions_url = "{url}api/sessions".format(url=srv['url'])
-        sess = _notebook_authenticated_session_or_none(base_url=srv['url'], uses_password=srv['password'],
-                                                       port=srv['port'], notebook_password=notebook_password)
+        sess = _notebook_authenticated_session_or_none(base_url=srv['url'], port=srv['port'],
+                                                       notebook_password=notebook_password)
         if sess is None:
             continue
 
@@ -51,9 +51,12 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
             if nb_sess['kernel']['id'] == kernel_id:
                 path = os.path.join(srv['notebook_dir'], nb_sess['notebook']['path'])
                 return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
+    # In theory, should never get here...
+    raise RuntimeError("Something went terribly wrong; Meeshkan couldn't locate the matching notebook server! Contact"
+                       " Meeshkan development (dev@meeshkan.com) if you see this message.")
 
 
-def _notebook_authenticated_session_or_none(base_url: str, uses_password: bool, port: int,
+def _notebook_authenticated_session_or_none(base_url: str, port: int,
                                             notebook_password: str = None) -> Optional[requests.Session]:
     """Attempts to create a new requests.Session with access to the Notebook Server API:
             https://github.com/jupyter/jupyter/wiki/Jupyter-Notebook-Server-API
@@ -62,19 +65,12 @@ def _notebook_authenticated_session_or_none(base_url: str, uses_password: bool, 
         This function does not raise; instead, it prints any errors and returns None, failing silently.
 
         :param base_url: base URL to access notebook server API
-        :param uses_password: whether the notebook server uses password protection
         :param port: port used in the base URL; used for prints
         :param notebook_password: the password to use in password protected servers (optional)
         :return authenticated requests.Session with access to the API, or None if fails.
     """
     login_url = "{url}login".format(url=base_url)
     sess = requests.Session()
-    if not uses_password:
-        return sess
-
-    if notebook_password is None:
-        print("Skipping notebook server on port {port} as it's password-protected".format(port=port))
-        return None
 
     # Cookie authorization
 
@@ -82,9 +78,16 @@ def _notebook_authenticated_session_or_none(base_url: str, uses_password: bool, 
     res = sess.get(login_url)
     filtered_res = [line for line in res.text.splitlines() if "_xsrf" in line]
     if len(filtered_res) != 1:
-        sess.close()
-        logging.warning("Multiple xsrf cookie fields found in notebook loging page!")
+        # No _xsrf reference -> no password is needed
+        # Multiple _xsrf reference -> requires a token
+        # --> either way, no password.
+        return sess
+
+    # Requires password but no password was given
+    if notebook_password is None:
+        print("Skipping notebook server on port {port} as it's password-protected".format(port=port))
         return None
+
     # Break the relevant line; it looks like this: <input type="hidden" name="_xsrf" value="..."/>
     xsrf = filtered_res[0].split("\"")[-2]
 

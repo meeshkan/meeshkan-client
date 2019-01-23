@@ -312,27 +312,59 @@ class TestConnectionToNotebookServer:
     NB_PORT = 8888
     NB_IP = "localhost"
     NB_URL = "http://{ip}:{port}/".format(ip=NB_IP, port=NB_PORT)
+    NB_KEY = 'abcd'  # Used as token and/or password
 
     def test_without_token_without_password(self):
         with NBServer(ip=self.NB_IP, port=self.NB_PORT) as nb:
             sess = None
             try:
-                sess = nb_authenticate(base_url=nb.url, uses_password=False, port=nb.port)
-                assert sess is not None
+                sess = nb_authenticate(base_url=nb.url, port=nb.port)
+                assert sess is not None, "Unprotected jupyter server should be accessible without a password" \
+                                         " (expected a Session object)"
                 sess.close()
 
-                sess = nb_authenticate(base_url=nb.url, uses_password=True, port=nb.port)
-                assert sess is None
-
-                sess = nb_authenticate(base_url=nb.url, uses_password=True, port=nb.port, notebook_password='bogus')
-                assert sess is not None
+                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password='bogus')
+                assert sess is not None, "Unprotected jupyter server should be accessible regardless if password was " \
+                                         "given (expected a Session object)"
+                sess.close()
             finally:
                 if sess is not None:
                     sess.close()
 
 
     def test_with_token_without_password(self):
-        pass
+        with NBServer(ip=self.NB_IP, port=self.NB_PORT, key=self.NB_KEY) as nb:
+            sess = None
+            try:
+                sess = nb_authenticate(base_url=nb.url, port=nb.port)
+                assert sess is not None, "Token-protected jupyter server should be accessible without a password" \
+                                         " (expected a Session object)"
+                sess.close()
+
+                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password='bogus')
+                assert sess is not None, "Token-protected jupyter server should be accessible regardless if password " \
+                                         "was given (expected a Session object)"
+                sess.close()
+            finally:
+                if sess is not None:
+                    sess.close()
 
     def test_without_token_with_password(self):
-        pass
+        with NBServer(ip=self.NB_IP, port=self.NB_PORT, key=self.NB_KEY, use_password=True) as nb:
+            sess = None
+            try:
+                sess = nb_authenticate(base_url=nb.url, port=nb.port)
+                assert sess is None, "Password-protected jupyter server should not be accessible without a password " \
+                                     "(expected a None response)"
+
+                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password=self.NB_KEY)
+                assert sess is not None, "Password-protected jupyter server should be accessible with the correct " \
+                                         "password (expected a Session object)"
+                sess.close()
+
+                sess = nb_authenticate(base_url=nb.url, port=nb.port, notebook_password='bogus')
+                assert sess is None, "Password-protected jupyter server should not be accessible with the wrong " \
+                                     "password (expected a None response)"
+            finally:
+                if sess is not None:
+                    sess.close()

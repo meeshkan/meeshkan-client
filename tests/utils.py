@@ -137,9 +137,10 @@ class NBServer:
                                                          "import sys;"
                                                          "sys.argv = ['jupyter', 'notebook', "
                                                                      "'--IPKernelApp.pylab=inline', "
-                                                                     "'--NotebookApp.open_browser=False', {security},"
+                                                                     "'--NotebookApp.open_browser=False', {security}, "
                                                                      "'--NotebookApp.port={port}', "
-                                                                     "'--NotebookApp.ip={ip}'];"
+                                                                     "'--NotebookApp.ip={ip}', "
+                                                                     "'--NotebookApp.log_level=CRITICAL'];"
                                                          "launch_new_instance()".format(ip=self.ip, port=self.port,
                                                                                         security=notebook_security)],
                                        stdout=subprocess.PIPE)
