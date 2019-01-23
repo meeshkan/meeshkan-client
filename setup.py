@@ -56,17 +56,19 @@ class SetupCommand(Command):
         """Prints things in bold."""
         print('\033[1m{0}\033[0m'.format(s))
 
+    def rmdir_if_exists(self, directory):
+        self.status("Deleting {}".format(directory))
+        rmtree(directory, ignore_errors=True)
+
 
 class BuildDistCommand(SetupCommand):
     """Support setup.py upload."""
     description = "Build the package."
 
     def run(self):
-        try:
-            self.status("Removing previous builds...")
-            rmtree(os.path.join(here, 'dist'))
-        except OSError:
-            pass
+
+        self.status("Removing previous builds...")
+        self.rmdir_if_exists(os.path.join(here, 'dist'))
 
         self.status("Building Source and Wheel (universal) distribution...")
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
@@ -84,18 +86,13 @@ class BuildDocumentationCommand(SetupCommand):
     description = "Builds the sphinx documentation."
 
     def run(self):
-
-        def rmdir_if_exists(directory):
-            self.status("Deleting {}".format(directory))
-            rmtree(directory, ignore_errors=True)
-
         self.status("Removing previous builds...")
 
         build_dir = os.path.join(here, 'docs/build')
-        rmdir_if_exists(build_dir)
+        self.rmdir_if_exists(build_dir)
 
         version_dir = os.path.join(here, 'docs', 'version={version}'.format(version=about['__version__']))
-        rmdir_if_exists(version_dir)  # Need to delete this before building HTML docs
+        self.rmdir_if_exists(version_dir)  # Need to delete this before building HTML docs
 
         self.status("Building documentation...")
         build_docs()
@@ -109,11 +106,9 @@ class UploadCommand(SetupCommand):
     description = "Build and publish the package."
 
     def run(self):
-        try:
-            self.status("Removing previous builds...")
-            rmtree(os.path.join(here, 'dist'))
-        except OSError:
-            pass
+
+        self.status("Removing previous builds...")
+        self.rmdir_if_exists(os.path.join(here, 'dist'))
 
         self.status("Building Source and Wheel (universal) distribution...")
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
