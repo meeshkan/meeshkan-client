@@ -46,6 +46,7 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
             sessions_url += "?token={token}".format(token=srv["token"])
 
         nb_sessions = sess.get(sessions_url).json()
+        sess.close()
         for nb_sess in nb_sessions:
             if nb_sess['kernel']['id'] == kernel_id:
                 path = os.path.join(srv['notebook_dir'], nb_sess['notebook']['path'])
@@ -77,10 +78,11 @@ def _notebook_authenticated_session_or_none(base_url: str, uses_password: bool, 
 
     # Cookie authorization
 
-    # 1. get the cookie xsrf from the login page
+    # 1. get the cookie xsrf (cross-site-request-forgery) from the login page
     res = sess.get(login_url)
     filtered_res = [line for line in res.text.splitlines() if "_xsrf" in line]
     if len(filtered_res) != 1:
+        sess.close()
         logging.warning("Multiple xsrf cookie fields found in notebook loging page!")
         return None
     # Break the relevant line; it looks like this: <input type="hidden" name="_xsrf" value="..."/>
@@ -91,5 +93,6 @@ def _notebook_authenticated_session_or_none(base_url: str, uses_password: bool, 
     if res.status_code != HTTPStatus.OK:
         print("Cannot authenticate to notebook server on port {port}! Did you provide the correct "
               "password? Skipping...".format(port=port))
+        sess.close()
         return None
     return sess
