@@ -21,7 +21,7 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
     """
     try:
         try:
-            get_ipython_func = get_ipython
+            get_ipython_func = get_ipython  # type: ignore
         except NameError:
             get_ipython_func = None
         path = _get_notebook_path_generic(get_ipython_function=get_ipython_func,
