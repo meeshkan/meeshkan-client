@@ -83,6 +83,11 @@ Submit the example job with 10 second reporting interval:
 ```bash
 $ meeshkan submit --name report-example --report-interval 10 report.py
 ```
+For ease of use, we also offer the shorthand:
+```bash
+$ meeshkan --name report-example --report-interval 10 report.py
+```
+**Notice**: this shorthand only works if the file (in this case, `report.py`) actually exists.  
 If you setup Slack integration in [meeshkan.com](https://www.meeshkan.com),
 you should receive a notification for job being started. You should get notifications every ten seconds. The script
 runs for 20 seconds, so you should get one notification containing scalar values.
