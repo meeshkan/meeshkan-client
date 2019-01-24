@@ -34,12 +34,32 @@ LOGGER = None
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-@click.group(context_settings=CONTEXT_SETTINGS)
+class DefGroup(click.Group):
+    """Overriden Group class, so we can implement some logic before resolving commands."""
+    DEF_CMD = ["submit"]
+
+    def parse_args(self, ctx, args):  # For cases where the flags are given (i.e. `meeshkan --name ... <file>`)
+        try:
+            return super().parse_args(ctx, args)
+        except click.ClickException:
+            return super().parse_args(ctx, DefGroup.DEF_CMD + args)
+
+    def resolve_command(self, ctx, args):  # For cases where the file is given (i.e. `meeshkan <file> ...`)
+        try:
+            return super().resolve_command(ctx, args)
+        except click.ClickException:
+            return super().resolve_command(ctx, DefGroup.DEF_CMD + args)
+
+
+@click.group(context_settings=CONTEXT_SETTINGS, cls=DefGroup)
 @click.version_option(version=meeshkan.__version__)
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
 def cli(debug, silent):
-    """Command-line interface for working with the Meeshkan agent."""
+    """
+    Command-line interface for working with the Meeshkan agent.
+    If no COMMAND is given, it is assumed to be `submit`.
+    """
     if not debug:
         sys.tracebacklimit = 0
 

@@ -226,7 +226,7 @@ def test_start_submit(pre_post_tests):  # pylint: disable=unused-argument,redefi
     assert start_result.exit_code == 0, "`start` should run smoothly"
     assert Service.is_running(), "Service should be running after `start`"
 
-    submit_result = run_cli(args='submit echo Hello')
+    submit_result = run_cli(args='echo Hello')  # if it works without the `submit`, it will work with it
     assert submit_result.exit_code == 0, "`submit` is expected to succeed"
 
     stdout_pattern = r"Job\s(\d+)\ssubmitted\ssuccessfully\swith\sID\s([\w-]+)"
