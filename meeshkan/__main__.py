@@ -34,7 +34,16 @@ LOGGER = None
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-@click.group(context_settings=CONTEXT_SETTINGS)
+class DefGroup(click.Group):
+    DEF_CMD = ["submit"]
+
+    def resolve_command(self, ctx, args):
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError:
+            return super().resolve_command(ctx, DefGroup.DEF_CMD + args)
+
+@click.group(context_settings=CONTEXT_SETTINGS, cls=DefGroup)
 @click.version_option(version=meeshkan.__version__)
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
