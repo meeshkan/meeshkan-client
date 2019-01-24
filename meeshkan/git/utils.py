@@ -5,7 +5,7 @@ import shutil
 import os
 from subprocess import Popen, PIPE
 
-from ..core.config import Credentials
+from ..core import config
 from ..core.service import Service
 
 __all__ = ["submit"]
@@ -49,10 +49,9 @@ def pull_repo(repo: str, branch: str = None, commit_sha: str = None) -> str:
 
 
 def _get_git_access_token() -> str:
-    creds = Credentials.from_isi()  # Basic setup and lookup
-    if creds.git_access_token is None:
+    if config.CREDENTIALS.git_access_token is None:
         raise RuntimeError("Git access token was not found! Please verify ~/.meeshkan/credentials")
-    return creds.git_access_token
+    return config.CREDENTIALS.git_access_token
 
 
 def _verify_git_exists():
