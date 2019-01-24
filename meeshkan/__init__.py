@@ -11,7 +11,7 @@ from .agent import *  # pylint: disable=wildcard-import
 from . import notifications
 from .notifications import *  # pylint: disable=wildcard-import
 from . import git
-from .git import *  # pylint: disable=wildcard-import
+# from .git import *  # pylint: disable=wildcard-import
 
 from . import exceptions
 from . import sagemaker
