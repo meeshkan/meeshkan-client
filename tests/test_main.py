@@ -54,12 +54,14 @@ def pre_post_tests():
 
 
 def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
-    """Tests `meeshkan setup` if the credentials file exists"""
+    """Tests `meeshkan setup` if the credentials file exists
+    Does not test wrt to Git access token; that's tested separately in test_config"""
     # Mock credentials writing (tested in test_config.py)
     temp_token = "abc"
 
-    def to_isi(refresh_token, *args):
+    def to_isi(refresh_token, git_token, *args):
         assert refresh_token == temp_token, "Refresh token token used is '{}'!".format(temp_token)
+        assert git_token == "", "No git access token is given!"
 
     with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
         with mock.patch("os.path.isfile") as mock_isfile:
@@ -67,39 +69,41 @@ def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,rede
             mock_to_isi.side_effect = to_isi
 
             # Test with proper interaction
-            run_cli(args=['setup'], inputs="y\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            run_cli(args=['setup'], inputs="y\n{token}\n\n".format(token=temp_token), catch_exceptions=False)
             assert mock_to_isi.call_count == 1, "`to_isi` should only be called once (proper response)"
 
             # Test with empty response
-            run_cli(args=['setup'], inputs="\n{token}\n".format(token=temp_token), catch_exceptions=False)
+            run_cli(args=['setup'], inputs="\n{token}\n\n".format(token=temp_token), catch_exceptions=False)
             assert mock_to_isi.call_count == 2, "`to_isi` should be called twice here (default response)"
 
             # Test with non-positive answer
-            config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n".format(token=temp_token),
+            config_result = run_cli(args=['setup'], inputs="asdasdas\n{token}\n\n".format(token=temp_token),
                                     catch_exceptions=False)
             assert mock_to_isi.call_count == 2, "`to_isi` should still be called only twice (negative answer)"
             assert config_result.exit_code == 2, "Exit code should be non-zero (2 - cancelled by user)"
 
 
 def test_setup_if_doesnt_exists(pre_post_tests):  # pylint:disable=unused-argument,redefined-outer-name
-    """Tests `meeshkan setup` if the credentials file does not exist"""
+    """Tests `meeshkan setup` if the credentials file does not exist
+    Does not test wrt to Git access token; that's tested separately in test_config"""
     # Mock credentials writing (tested in test_config.py)
     temp_token = "abc"
 
-    def to_isi(refresh_token, *args):
+    def to_isi(refresh_token, git_token, *args):
         assert refresh_token == temp_token, "Refresh token token used is '{}'!".format(temp_token)
+        assert git_token == "", "No git access token is given!"
 
     with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
         with mock.patch("os.path.isfile") as mock_isfile:
             mock_isfile.return_value = False
             mock_to_isi.side_effect = to_isi
             # Test with proper interaction
-            run_cli(args=['setup'], inputs="{token}\n".format(token=temp_token), catch_exceptions=False)
+            run_cli(args=['setup'], inputs="{token}\n\n".format(token=temp_token), catch_exceptions=False)
             assert mock_to_isi.call_count == 1, "`to_isi` should only be called once (token given)"
 
             # Test with empty response
             temp_token = ''
-            run_cli(args=['setup'], inputs="\n", catch_exceptions=False)
+            run_cli(args=['setup'], inputs="\n\n", catch_exceptions=False)
             assert mock_to_isi.call_count == 2, "`to_isi` should be called twice here (empty token)"
 
 
