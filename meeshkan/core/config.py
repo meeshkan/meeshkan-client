@@ -79,17 +79,17 @@ class Credentials:
 
     @staticmethod
     def to_isi(refresh_token: str = None, git_token: str = None, path: Path = CREDENTIALS_FILE):
-        """Creates the credential file with given refresh token. Overrides previous token if exists.
+        """Creates the credential file with given refresh token, git_token or both. Overrides previous token if exists.
         Does not create missing folders along `path`, instead, raises FileNotFound exception.
         """
-        git_token = git_token or Credentials.from_isi(path).git_access_token
-        refresh_token = refresh_token or Credentials.from_isi(path).refresh_token
+        prev_creds = Credentials.from_isi(path)  # Restore from previous if not some arguments are not supplied
+        git_token = git_token or prev_creds.git_access_token
+        refresh_token = refresh_token or prev_creds.refresh_token
         if git_token is None and refresh_token is None:
             raise ValueError("Nothing to write to ISI file.")
 
         with path.open("w") as credential_file:
             credential_file.write("[meeshkan]\ntoken={token}\n".format(token=refresh_token))
-            # Restore Git token (even if None...)
             credential_file.write("\n[github]\ntoken={token}\n".format(token=git_token))
             credential_file.flush()
 

@@ -37,7 +37,7 @@ def pull_branch(repo, branch) -> str:
 
 def _get_git_access_token() -> str:
     creds = Credentials.from_isi()  # Basic setup and lookup
-    if creds.git_access_token is None:  # TODO should git token setup also be made available with CLI?
+    if creds.git_access_token is None:
         raise RuntimeError("Git access token was not found! Please verify ~/.meeshkan/credentials")
     return creds.git_access_token
 
