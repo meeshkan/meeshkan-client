@@ -74,20 +74,23 @@ class Credentials:
             raise FileNotFoundError("Create file {path} first.".format(path=path))
         conf = configparser.ConfigParser()
         conf.read(str(path))
-        return Credentials(refresh_token=conf['meeshkan']['token'],
+        return Credentials(refresh_token=conf.get('meeshkan', 'token', fallback=None),
                            git_access_token=conf.get('github', 'token', fallback=None))
 
     @staticmethod
-    def to_isi(refresh_token: str, path: Path = CREDENTIALS_FILE):  # TODO accept Git token as well?
+    def to_isi(refresh_token: str = None, git_token: str = None, path: Path = CREDENTIALS_FILE):
         """Creates the credential file with given refresh token. Overrides previous token if exists.
         Does not create missing folders along `path`, instead, raises FileNotFound exception.
-
         """
-        prev_credentials = Credentials.from_isi(path)
+        git_token = git_token or Credentials.from_isi(path).git_access_token
+        refresh_token = refresh_token or Credentials.from_isi(path).refresh_token
+        if git_token is None and refresh_token is None:
+            raise ValueError("Nothing to write to ISI file.")
+
         with path.open("w") as credential_file:
             credential_file.write("[meeshkan]\ntoken={token}\n".format(token=refresh_token))
             # Restore Git token (even if None...)
-            credential_file.write("\n[github]\ntoken={token}\n".format(token=prev_credentials.git_access_token))
+            credential_file.write("\n[github]\ntoken={token}\n".format(token=git_token))
             credential_file.flush()
 
 
