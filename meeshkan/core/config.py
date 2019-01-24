@@ -24,12 +24,6 @@ CREDENTIALS = None  # type: Optional[Credentials]
 __all__ = []  # type: List[str]
 
 
-del logging  # Clean-up (only leaves Path available in this module)
-del os
-del List
-del Optional
-
-
 def ensure_base_dirs(verbose=True):
 
     def create_dir_if_not_exist(path: Path):
@@ -49,9 +43,10 @@ class Configuration:
         self.cloud_url = cloud_url
 
     @staticmethod
-    def from_yaml(path: Path = CONFIG_PATH):
+    def from_yaml(path: Optional[Path] = None):
         import yaml
 
+        path = path or CONFIG_PATH
         LOGGER.debug("Reading configuration from %s", path)
         if not path.is_file():
             raise FileNotFoundError("File {path} not found".format(path=path))
@@ -61,37 +56,54 @@ class Configuration:
 
 
 class Credentials:
-
-    def __init__(self, refresh_token):
+    def __init__(self, refresh_token, git_access_token):
         self.refresh_token = refresh_token
+        self.git_access_token = git_access_token
 
     @staticmethod
-    def from_isi(path: Path = CREDENTIALS_FILE):
+    def from_isi(path: Optional[Path] = None):
         import configparser
 
+        path = path or CREDENTIALS_FILE
         LOGGER.debug("Reading credentials from %s", path)
         if not path.is_file():
             raise FileNotFoundError("Create file {path} first.".format(path=path))
         conf = configparser.ConfigParser()
         conf.read(str(path))
-        return Credentials(refresh_token=conf['meeshkan']['token'])
+        return Credentials(refresh_token=conf.get('meeshkan', 'token', fallback=None),  # type: ignore
+                           git_access_token=conf.get('github', 'token', fallback=None))  # type: ignore
 
     @staticmethod
-    def to_isi(refresh_token: str, path: Path = CREDENTIALS_FILE):
-        """Creates the credential file with given refresh token. Overrides previous token if exists.
+    def to_isi(refresh_token: str = None, git_token: str = None, path: Optional[Path] = None):
+        """Creates the credential file with given refresh token, git_token or both. Overrides previous token if exists.
         Does not create missing folders along `path`, instead, raises FileNotFound exception.
-
         """
+        path = path or CREDENTIALS_FILE
+        prev_creds = Credentials.from_isi(path)  # Restore from previous if not some arguments are not supplied
+        git_token = git_token or prev_creds.git_access_token
+        refresh_token = refresh_token or prev_creds.refresh_token
+        if git_token is None and refresh_token is None:
+            raise ValueError("Nothing to write to ISI file.")
+
         with path.open("w") as credential_file:
             credential_file.write("[meeshkan]\ntoken={token}\n".format(token=refresh_token))
+            credential_file.write("\n[github]\ntoken={token}\n".format(token=git_token))
             credential_file.flush()
 
 
-def init_config(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDENTIALS_FILE, force_refresh=False):
+def init_config(config_path: Optional[Path] = None, credentials_path: Optional[Path] = None, force_refresh=False):
     """Allows a one-time initialization of CONFIG and CREDENTIALS."""
     global CONFIG, CREDENTIALS  # pylint:disable=global-statement
+    config_path = config_path or CONFIG_PATH
+    credentials_path = credentials_path or CREDENTIALS_FILE
     if CONFIG is None or force_refresh:
         CONFIG = Configuration.from_yaml(config_path)
     if CREDENTIALS is None or force_refresh:
         CREDENTIALS = Credentials.from_isi(credentials_path)
     return CONFIG, CREDENTIALS
+
+del Optional  # Clean-up
+del Path
+del logging
+del os
+del List
