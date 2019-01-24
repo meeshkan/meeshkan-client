@@ -31,24 +31,28 @@ from .agent import start as start_agent
 
 LOGGER = None
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'], ignore_unknown_options=True)
 
 
 class DefGroup(click.Group):
-    DEF_CMD = ["submit"]
+    DEF_CMD = "submit"
 
     def resolve_command(self, ctx, args):
-        try:
-            return super().resolve_command(ctx, args)
-        except click.UsageError:
-            return super().resolve_command(ctx, DefGroup.DEF_CMD + args)
+        for arg in args:
+            if os.path.isfile(arg):
+                args.insert(0, DefGroup.DEF_CMD)
+                break
+        return super().resolve_command(ctx, args)
 
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefGroup)
 @click.version_option(version=meeshkan.__version__)
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
 def cli(debug, silent):
-    """Command-line interface for working with the Meeshkan agent."""
+    """
+    Command-line interface for working with the Meeshkan agent.
+    If no COMMAND is given, it is assumed to be `submit`.
+    """
     if not debug:
         sys.tracebacklimit = 0
 
