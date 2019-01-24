@@ -74,8 +74,8 @@ class Credentials:
             raise FileNotFoundError("Create file {path} first.".format(path=path))
         conf = configparser.ConfigParser()
         conf.read(str(path))
-        return Credentials(refresh_token=conf.get('meeshkan', 'token', fallback=None),
-                           git_access_token=conf.get('github', 'token', fallback=None))
+        return Credentials(refresh_token=conf.get('meeshkan', 'token', fallback=None),  # type: ignore
+                           git_access_token=conf.get('github', 'token', fallback=None))  # type: ignore
 
     @staticmethod
     def to_isi(refresh_token: str = None, git_token: str = None, path: Path = CREDENTIALS_FILE):
