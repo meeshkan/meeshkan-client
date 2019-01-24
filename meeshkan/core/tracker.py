@@ -115,7 +115,7 @@ class TrackerBase:
                     return condition
         return None
 
-    def add_condition(self, *vals, condition: Callable[[float], bool], title: str = "", default_value=1,
+    def add_condition(self, *vals: str, condition: Callable[[float], bool], title: str = "", default_value=1,
                       only_relevant: bool):
         """Adds a condition for this tracker. Once a condition is met, it is reported immediately.
         If a variable listed in vals does not exist, the given default value (or 1 by default) will be sent instead. """

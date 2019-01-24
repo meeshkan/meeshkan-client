@@ -219,9 +219,10 @@ class Api:
         self.scheduler.report_scalar(pid, name, val)
 
     @Pyro4.expose
-    def add_condition(self, pid, condition, only_relevant, *vals):
+    def add_condition(self, pid: int, serialized_condition: str, only_relevant: bool, *vals: str):
         """Sets a condition for notifications"""
-        self.scheduler.add_condition(pid, *vals, condition=Serializer.serialize(condition), only_relevant=only_relevant)
+        self.scheduler.add_condition(pid, *vals, condition=Serializer.deserialize(serialized_condition),
+                                     only_relevant=only_relevant)
 
     @Pyro4.expose
     def get_updates(self, job_id: uuid.UUID) -> HistoryByScalar:

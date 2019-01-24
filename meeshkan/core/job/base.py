@@ -25,7 +25,7 @@ class Trackable:
     def add_scalar_to_history(self, scalar_name, scalar_value) -> Optional[TrackerCondition]:
         return self.scalar_history.add_tracked(scalar_name, scalar_value)
 
-    def add_condition(self, *val_names, condition: Callable[[float], bool], only_relevant: bool):
+    def add_condition(self, *val_names: str, condition: Callable[[float], bool], only_relevant: bool):
         self.scalar_history.add_condition(*val_names, condition=condition, only_relevant=only_relevant)
 
     def get_updates(self, *names, plot, latest):
