@@ -31,18 +31,25 @@ from .agent import start as start_agent
 
 LOGGER = None
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'], ignore_unknown_options=True)
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 class DefGroup(click.Group):
-    DEF_CMD = "submit"
+    """Overriden Group class, so we can implement some logic before resolving commands."""
+    DEF_CMD = ["submit"]
 
-    def resolve_command(self, ctx, args):
-        for arg in args:
-            if os.path.isfile(arg):
-                args.insert(0, DefGroup.DEF_CMD)
-                break
-        return super().resolve_command(ctx, args)
+    def parse_args(self, ctx, args):  # For cases where the flags are given (i.e. `meeshkan --name ... <file>`)
+        try:
+            return super().parse_args(ctx, args)
+        except click.ClickException:
+            return super().parse_args(ctx, DefGroup.DEF_CMD + args)
+
+    def resolve_command(self, ctx, args):  # For cases where the file is given (i.e. `meeshkan <file> ...`)
+        try:
+            return super().resolve_command(ctx, args)
+        except click.ClickException:
+            return super().resolve_command(ctx, DefGroup.DEF_CMD + args)
+
 
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefGroup)
 @click.version_option(version=meeshkan.__version__)
