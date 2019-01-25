@@ -91,22 +91,23 @@ class GitRunner:
     def _git_access_token(credentials: Optional[Union[Path, str]] = None) -> str:
         if config.CREDENTIALS is None:
             config.init_config()
-        # Defaults automatically to the global CREDENTIALS
-        credentials = config.Credentials.from_isi(Path(credentials)) or config.CREDENTIALS  # type: config.Credentials
-        token = credentials.git_access_token
+        if credentials is not None:
+            token = config.Credentials.from_isi(Path(credentials)).git_access_token
+        else:  # Defaults automatically to the global CREDENTIALS
+            token = config.CREDENTIALS.git_access_token  # type: ignore
         if token is None:
-            raise GitRunner.Exception("Git access token was not found! Run 'meeshkan setup' to configure it properly.")
+            raise GitRunner.GitException("Git access token was not found! Run 'meeshkan setup' to configure it properly.")
         return token
 
     @staticmethod
     def _verify_git_exists():
         if shutil.which("git") is None:
-            raise GitRunner.Exception("'git' is not installed!")
+            raise GitRunner.GitException("'git' is not installed!")
 
     @staticmethod
     def _wait_and_raise_on_error(proc):
         if proc.wait() != 0:
             raise RuntimeError(proc.stderr.read())
 
-    class Exception(Exception):
+    class GitException(Exception):
         pass
