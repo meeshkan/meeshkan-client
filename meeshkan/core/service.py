@@ -9,11 +9,12 @@ import socket  # To verify daemon
 import time
 import sys
 
-import dill
 import Pyro4  # For daemon management
 
 from .logger import remove_non_file_handlers
 from ..__build__ import _build_api
+from .serializer import Serializer
+from ..exceptions import AgentNotAvailableException
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
@@ -23,60 +24,82 @@ DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 __all__ = []  # type: List[str]
 
 
+def _platform_is_darwin() -> bool:
+    return sys.platform.startswith('darwin')
+
+
+def _get_localhost():
+    if _platform_is_darwin():
+        # Mac OS has issues with `socket.gethostname()`
+        # See https://bugs.python.org/issue29705 and https://bugs.python.org/issue35164
+        return socket.gethostbyname("localhost")  # Assume localhost defined in `hosts`
+    return socket.gethostname()
+
+
 class Service:
     """
     Service for running the Python daemon
     """
     OBJ_NAME = "Meeshkan.scheduler"
+    PORT = 7779
+    HOST = _get_localhost()
+    MULTIPROCESSING_CONTEXT = multiprocessing.get_context("spawn")
+    URI = "PYRO:{obj_name}@{host}:{port}".format(obj_name=OBJ_NAME,
+                                                 host=HOST,
+                                                 port=PORT)
 
-    def __init__(self, port: int = 7779):
-        self.port = port
-        self.host = Service._get_localhost()
-        self.terminate_daemon = None  # Set at start time
+    def __init__(self, terminate_daemon_event: asyncio.Event):
+        self.terminate_daemon_event = terminate_daemon_event
 
     @staticmethod
-    def _get_localhost():
-        if sys.platform.startswith('darwin'):
-            # Mac OS has issues with `socket.gethostname()`
-            # See https://bugs.python.org/issue29705 and https://bugs.python.org/issue35164
-            return socket.gethostbyname("localhost")  # Assume localhost defined in `hosts`
-        return socket.gethostname()
-
-    def is_running(self) -> bool:
+    def is_running() -> bool:
         """Checks whether the daemon is running on localhost.
         Assumes the port is either taken by Pyro or is free.
-        Offered as an alternative as `is_running2` requires `sudo` on MacOS systems.
         """
-        with Pyro4.Proxy(self.uri) as pyro_proxy:
+        with Service._pyro_proxy() as pyro_proxy:
             try:
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
                 return True
             except Pyro4.errors.CommunicationError:
                 return False
 
-    @property
-    def api(self) -> Pyro4.Proxy:
-        return Pyro4.Proxy(self.uri)
+    @staticmethod
+    def api() -> Pyro4.Proxy:
+        """
+        Get Pyro proxy for the agent API.
 
-    @property
-    def uri(self):
-        return "PYRO:{obj_name}@{host}:{port}".format(obj_name=Service.OBJ_NAME, host=self.host, port=self.port)
+        :raises AgentNotAvailableException: If agent is not running.
+        :return: Pyro proxy.
+        """
+        if not Service.is_running():
+            raise AgentNotAvailableException()
+        return Service._pyro_proxy()
 
-    def daemonize(self, serialized):
-        """Makes sure the daemon runs even if the process that called `start_scheduler` terminates"""
+    @staticmethod
+    def _pyro_proxy():
+        """
+        Get Pyro proxy. Does not check proxy is available.
+
+        :return: Pyro proxy.
+        """
+        return Pyro4.Proxy(Service.URI)
+
+    @staticmethod
+    def daemonize(cloud_client_serialized):
+        """Makes sure the daemon runs even if the process that called `start` terminates"""
         pid = os.fork()
         if pid > 0:  # Close parent process
             return
-        if not self.terminate_daemon:
-            self.terminate_daemon = multiprocessing.get_context("spawn").Event()
+        service = Service(terminate_daemon_event=asyncio.Event())
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
-        cloud_client = dill.loads(serialized.encode('cp437'))
-        Pyro4.config.SERIALIZER = 'dill'
-        Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+        cloud_client = Serializer.deserialize(cloud_client_serialized)
+        Pyro4.config.SERIALIZER = Serializer.NAME
+        Pyro4.config.SERIALIZERS_ACCEPTED.add(Serializer.NAME)
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-        with _build_api(self, cloud_client=cloud_client) as api, Pyro4.Daemon(host=self.host, port=self.port) as daemon:
-            daemon.register(api, Service.OBJ_NAME)  # Register the API with the daemon
+        with _build_api(service, cloud_client=cloud_client) as api,\
+                Pyro4.Daemon(host=Service.HOST, port=Service.PORT) as daemon:
+            api.register_with_pyro(daemon, name=Service.OBJ_NAME)  # Register the API with the daemon
 
             async def start_daemon_and_polling_loops():
                 polling_coro = api.poll()  # pylint: disable=assignment-from-no-return
@@ -89,7 +112,7 @@ class Service:
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     try:
                         loop_daemon_until_event_set = partial(daemon.requestLoop,
-                                                              lambda: not self.terminate_daemon.is_set())
+                                                              lambda: not service.terminate_daemon_event.is_set())
                         await loop.run_in_executor(pool, loop_daemon_until_event_set)
                     finally:
                         LOGGER.debug("Canceling polling task.")
@@ -106,32 +129,43 @@ class Service:
 
         return
 
-    def start(self, mp_ctx, cloud_client_serialized: str) -> str:
+    @staticmethod
+    def start(cloud_client_serialized: str) -> str:
         """
-        Runs the scheduler as a Pyro4 object on a predetermined location in a subprocess.
-        :param mp_ctx: Multiprocessing context, e.g. `multiprocessing.get_context("spawn")`
-        :param cloud_client_serialized: Dill-serialized CloudClient instance
+        Runs the agent as a Pyro4 object on a predetermined location in a subprocess.
+        :param cloud_client_serialized: Serialized CloudClient instance
+        :raises RuntimeError: If Pyro server is already running
         :return: Pyro URI
         """
 
-        if self.is_running():
-            raise RuntimeError("Running already at {uri}".format(uri=self.uri))
+        if Service.is_running():
+            raise RuntimeError("Running already at {uri}".format(uri=Service.URI))
+
+        if _platform_is_darwin():
+            # Temporary fix for fork safety issues in macOS
+            # https://bugs.python.org/issue33725
+            # https://github.com/ansible/ansible/issues/49207
+            # http://sealiesoftware.com/blog/archive/2017/6/5/Objective-C_and_fork_in_macOS_1013.html
+            os.putenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
+
         LOGGER.info("Starting service...")
-        proc = mp_ctx.Process(target=self.daemonize, args=[cloud_client_serialized])
+        proc = Service.MULTIPROCESSING_CONTEXT.Process(
+            target=Service.daemonize,
+            args=[cloud_client_serialized])
         proc.daemon = True
         proc.start()
         proc.join()
         time.sleep(DAEMON_BOOT_WAIT_TIME)  # Allow Pyro to boot up
         LOGGER.info("Service started.")
-        return self.uri
+        return Service.URI
 
     def stop(self) -> bool:
         if self.is_running():
-            if not self.terminate_daemon:
+            if self.terminate_daemon_event is None:
                 raise RuntimeError("Terminate daemon event does not exist. "
-                                   "The stop() method may have called from the wrong process.")
-            self.terminate_daemon.set()  # Flag for requestLoop to terminate
-            with Pyro4.Proxy(self.uri) as pyro_proxy:
+                                   "The stop() method may have been called from the wrong process.")
+            self.terminate_daemon_event.set()  # Flag for requestLoop to terminate
+            with Service._pyro_proxy() as pyro_proxy:
                 # triggers checking loopCondition
                 pyro_proxy._pyroBind()  # pylint: disable=protected-access
             return True

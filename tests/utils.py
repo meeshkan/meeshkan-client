@@ -2,7 +2,12 @@ import time
 from http import HTTPStatus
 from typing import Callable
 from unittest import mock
+from typing import Optional
+import sys
+import subprocess
 
+from IPython.terminal.ipapp import launch_new_instance
+from notebook.auth import passwd
 import requests
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan.core.job import Job
@@ -98,3 +103,55 @@ def wait_for_true(func, timeout=FUTURE_TIMEOUT):
         if slept > timeout:
             raise Exception("Wait timeout for func {func}".format(func=func))
 
+
+class NBServer:
+    def __init__(self, ip: str, port: int, key: str = "", use_password: bool = False):
+        self.ip = ip
+        self.port = port
+        self.key = key
+        self.use_password = use_password
+        self.server = None  # type: Optional[subprocess.Popen]
+
+    @property
+    def url(self):
+        return "http://{ip}:{port}/".format(ip=self.ip, port=self.port)
+
+    def __enter__(self):
+        self._start_local_jupyter_server()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.server is not None:
+            self.server.terminate()
+            self.server = None
+
+    def _start_local_jupyter_server(self):
+        """Starts a local instance of a jupyter notebook server with given key as token or password.
+        It is up to the calling method to terminate the process.
+        """
+        if self.use_password:
+            notebook_security = "'--NotebookApp.password={password}'".format(password=passwd(self.key))
+        else:
+            notebook_security = "'--NotebookApp.token={token}'".format(token=self.key)
+        self.server = subprocess.Popen(["python", "-c", "from IPython.terminal.ipapp import launch_new_instance; "
+                                                         "import sys;"
+                                                         "sys.argv = ['jupyter', 'notebook', "
+                                                                     "'--IPKernelApp.pylab=inline', "
+                                                                     "'--NotebookApp.open_browser=False', {security}, "
+                                                                     "'--NotebookApp.port={port}', "
+                                                                     "'--NotebookApp.ip={ip}', "
+                                                                     "'--NotebookApp.log_level=CRITICAL'];"
+                                                         "launch_new_instance()".format(ip=self.ip, port=self.port,
+                                                                                        security=notebook_security)],
+                                       stdout=subprocess.PIPE)
+        if self.server.poll() is not None:
+            raise RuntimeError("Could not start jupyter notebook!")
+
+        # Wait until server is up:
+        server_is_up = False
+        sleep_time = 0.1  # seconds between polling for process to finish
+        while not server_is_up:
+            check_server_proc = subprocess.Popen(["jupyter", "notebook", "list"], stdout=subprocess.PIPE)
+            while check_server_proc.poll() is None:  # Process is still ongoing
+                time.sleep(sleep_time)
+            server_is_up = self.url in check_server_proc.stdout.read().decode()

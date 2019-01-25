@@ -13,6 +13,8 @@ from .tasks import *  # pylint: disable=wildcard-import
 from . import api
 from .api import *  # pylint: disable=wildcard-import
 from . import config
+from .serializer import *  # pylint: disable=wildcard-import
+from . import serializer
 
 
 # Only expose whatever is listed in modules' __all__ to top level.
@@ -24,3 +26,4 @@ __all__ += scheduler.__all__
 __all__ += service.__all__
 __all__ += tasks.__all__
 __all__ += api.__all__
+__all__ += serializer.__all__

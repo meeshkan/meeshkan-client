@@ -1,15 +1,13 @@
 import logging
 import queue
 import threading
-from typing import Any, Dict, List, Tuple, Callable, Optional, Union  # For self-documenting typing
-from pathlib import Path
+from typing import Dict, List, Tuple, Callable, Optional, Union  # For self-documenting typing
 import uuid
 import os
 import asyncio
 
 from .tracker import TrackingPoller, TrackerBase
-from .job import ProcessExecutable, JobStatus, Job, SageMakerJob
-from .config import JOBS_DIR
+from .job import JobStatus, Job, ExternalJob
 from ..exceptions import JobNotFoundException
 from ..notifications.notifiers import Notifier
 
@@ -75,20 +73,24 @@ class QueueProcessor:
 
 
 class Scheduler:
-    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None):
+    def __init__(self, queue_processor: QueueProcessor, notifier: Notifier = None,
+                 event_loop: Optional[asyncio.AbstractEventLoop] = None):
         self._queue_processor = queue_processor
         self.submitted_jobs = dict()  # type: Dict[uuid.UUID, Job]
+        self.external_jobs = dict()  # type: Dict[uuid.UUID, ExternalJob]
         self._job_queue = queue.Queue()  # type: queue.Queue
         self._running_job = None  # type: Optional[Job]
         self._job_poller = TrackingPoller(self.__query_and_report)
-        self._event_loop = asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
+        self._event_loop = event_loop or asyncio.get_event_loop()  # Save the event loop for out-of-thread operations
         self._notifier = notifier  # type: Optional[Notifier]
+        self.active_external_job_id = None  # type: Optional[uuid.UUID]  # TODO Allow one per process ID
+        self.external_job_polling_tasks = dict()  # type: Dict[uuid.UUID, asyncio.Task]
 
     # Properties and Python magic
 
     @property
     def jobs(self):  # Needed to access internal list of jobs as object parameters are unexposable, only methods
-        return list(self.submitted_jobs.values())
+        return list(self.submitted_jobs.values()) + list(self.external_jobs.values())
 
     @property
     def is_running(self):
@@ -139,13 +141,37 @@ class Scheduler:
             return
         self.submitted_jobs[job_id].cancel()
 
-    # Tracking methods
+    def register_external_job(self, job_id: uuid.UUID):
+        self.active_external_job_id = job_id
+        job = self.external_jobs[job_id]  # type: ExternalJob
+        LOGGER.debug("Handling job: %s", job)
 
-    def __get_job_by_pid(self, pid):
-        job_id = [job.id for job in self.jobs if job.pid == pid]
-        if not job_id:
+        if job.poll_time:
+            task = self._event_loop.create_task(self._job_poller.poll(job.id, job.poll_time))
+            self.external_job_polling_tasks[job_id] = task
+        if self._notifier:
+            self._notifier.notify_job_start(job)
+
+    def unregister_external_job(self, job_id: uuid.UUID):
+        job = self.external_jobs[job_id]  # type: ExternalJob
+        self.active_external_job_id = None
+        if self._notifier:
+            self._notifier.notify_job_end(job)
+        task = self.external_job_polling_tasks.pop(job.id, None)  # type: Optional[asyncio.Task]
+        if task is not None:
+            task.cancel()
+
+    def __get_job_by_pid(self, pid) -> uuid.UUID:
+        jobs = [job for job in self.jobs if job.pid == pid]
+        if not jobs:
             raise JobNotFoundException(job_id=str(pid))
-        return job_id[0]
+        if len(jobs) == 1:
+            return jobs[0].id
+        # Check if one of them is active
+        active_jobs = [job for job in jobs if self.active_external_job_id == job.id]
+        if not active_jobs:
+            return jobs[0].id
+        return active_jobs[0].id
 
     def add_condition(self, pid: int, *vals: str, condition: Callable[[float], bool], only_relevant: bool):
         """Adds a new condition for a job that matches the given process id.
@@ -162,27 +188,33 @@ class Scheduler:
     def report_scalar(self, pid, name, val):
         # Find the right job id
         job_id = self.__get_job_by_pid(pid)
-        condition = self.submitted_jobs[job_id].add_scalar_to_history(scalar_name=name, scalar_value=val)
+        job = self.get_job_by_id(job_id)
+        condition = job.add_scalar_to_history(scalar_name=name, scalar_value=val)
         if condition and self._notifier:
             # TODO - we can add the condition that triggered the notification...
             names = condition.names if condition.only_relevant else list()
-            vals, imgpath = self.query_scalars(*names, job_id=job_id, latest_only=False, plot=True)
-            self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+            vals, imgpath = self.query_scalars(*names, job_id=job.id, latest_only=False, plot=True)
+            self._notifier.notify(job, imgpath, n_iterations=-1)
             if imgpath is not None:
                 os.remove(imgpath)
 
-    def query_scalars(self, *names: Tuple[str, ...], job_id, latest_only: bool = True, plot: bool = False):
-        job = self.submitted_jobs.get(job_id)
+    def get_job_by_id(self, job_id: uuid.UUID):
+        job = self.submitted_jobs.get(job_id) or self.external_jobs.get(job_id)
         if not job:
             raise JobNotFoundException(job_id=str(job_id))
+        return job
+
+    def query_scalars(self, *names: Tuple[str, ...], job_id, latest_only: bool = True, plot: bool = False):
+        job = self.get_job_by_id(job_id=job_id)
         return job.get_updates(*names, plot=plot, latest=latest_only)
 
     def __query_and_report(self, job_id: uuid.UUID):
         if self._notifier:
+            job = self.get_job_by_id(job_id)
             # Get updates; TODO - vals should be reported once we update schema...
             vals, imgpath = self.query_scalars(job_id=job_id, latest_only=True, plot=True)
             if vals:  # Only send updates if there exists any updates
-                self._notifier.notify(self.submitted_jobs[job_id], imgpath, n_iterations=-1)
+                self._notifier.notify(job, imgpath, n_iterations=-1)
             if imgpath is not None:
                 os.remove(imgpath)
 

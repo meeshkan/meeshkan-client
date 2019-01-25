@@ -1,24 +1,22 @@
 from distutils.version import StrictVersion
-import multiprocessing as mp
 import logging
 from typing import Optional
 
-import dill
 import requests
 import Pyro4
 
 from . import __utils__
 from .core.config import init_config, ensure_base_dirs
 from .core.service import Service
+from .core.serializer import Serializer
 from .__version__ import __version__
 
 LOGGER = logging.getLogger(__name__)
 
-Pyro4.config.SERIALIZER = 'dill'
-Pyro4.config.SERIALIZERS_ACCEPTED.add('dill')
+Pyro4.config.SERIALIZER = Serializer.NAME
+Pyro4.config.SERIALIZERS_ACCEPTED.add(Serializer.NAME)
 Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
-
-__all__ = ["start", "init", "stop", "restart"]
+__all__ = ["start", "init", "stop", "restart", "is_running"]
 
 
 def __verify_version():
@@ -42,9 +40,13 @@ def __verify_version():
 
 
 def init(token: Optional[str] = None):
-    """Initialize the Meeshkan agent, optionally with the provided credentials.
+    """
+    Initialize the Meeshkan agent, optionally with the provided credentials.
 
-    :param token: Meeshkan service token. Only required if credentials have not been setup before.
+    * ``meeshkan.init()`` without the token is equivalent to ``meeshkan.restart()``.
+    * ``meeshkan.init(token=...)`` with the token is equivalent to ``meeshkan.save_token(token=...)`` followed by ``meeshkan.restart()``.
+
+    :param token: Meeshkan API key, optional. Only required if credentials have not been setup before.
     """
     ensure_base_dirs()
     try:
@@ -62,8 +64,15 @@ def init(token: Optional[str] = None):
     restart()
 
 
+def is_running() -> bool:
+    """
+    Check if the agent is running.
+    """
+    return Service.is_running()
+
+
 def _stop_if_running() -> bool:
-    if Service().is_running():
+    if is_running():
         print("Stopping service...")
         api = __utils__._get_api()  # pylint: disable=protected-access
         api.stop()
@@ -72,7 +81,8 @@ def _stop_if_running() -> bool:
 
 
 def stop():
-    """Stop the agent.
+    """
+    Stop the agent.
     """
     was_running = _stop_if_running()
     if was_running:
@@ -82,30 +92,34 @@ def stop():
 
 
 def restart():
-    """Restart the agent.
+    """
+    Restart the agent. Also reload configuration variables such as credentials.
     """
     _stop_if_running()
     init_config(force_refresh=True)
     start()
 
 
-def start() -> str:
-    """Start the agent.
+def start() -> bool:
+    """
+    Start the Meeshkan agent.
 
-    :return str: Pyro server URI.
+    :return bool: True if agent was started, False if agent was already running.
     """
     __verify_version()
-    service = Service()
-    if service.is_running():
+    if is_running():
         print("Service is already running.")
-        return service.uri
+        return False
 
     config, credentials = __utils__.get_auth()
 
     cloud_client = __utils__._build_cloud_client(config, credentials)  # pylint: disable=protected-access
-    cloud_client.notify_service_start()
-    cloud_client_serialized = dill.dumps(cloud_client, recurse=True).decode('cp437')
-    pyro_uri = service.start(mp.get_context("spawn"), cloud_client_serialized=cloud_client_serialized)
+    try:
+        cloud_client.notify_service_start()
+        cloud_client_serialized = Serializer.serialize(cloud_client)
+        Service.start(cloud_client_serialized=cloud_client_serialized)
+    finally:
+        cloud_client.close()
+
     print('Service started.')
-    cloud_client.close()
-    return pyro_uri
+    return True

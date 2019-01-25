@@ -1,44 +1,44 @@
-import multiprocessing as mp
-from unittest.mock import create_autospec
-
-import dill
 import pytest
+from meeshkan.exceptions import AgentNotAvailableException
 from meeshkan.core.service import Service
+from meeshkan.core.serializer import Serializer
 from .utils import PicklableMock
-
-MP_CTX = mp.get_context("spawn")
-
 
 @pytest.fixture
 def mock_cloud_client():
     return PicklableMock()
 
 
-def stop_if_running(service_):
-    if service_.is_running():
-        with service_.api as api:
+def stop_if_running():
+    if Service.is_running():
+        with Service.api() as api:
             api.stop()
 
 
 @pytest.fixture
-def service():
-    service_ = Service()
-    stop_if_running(service_)
-    yield service_
-    stop_if_running(service_)
+def start_stop_agent():
+    stop_if_running()
+    assert not Service.is_running()
+    yield
+    stop_if_running()
+    assert not Service.is_running()
 
 
-def test_start_stop(service, mock_cloud_client):  # pylint:disable=redefined-outer-name
-    service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
-    assert service.is_running()
-    stop_if_running(service_=service)
-    assert not service.is_running()
+def test_start_stop(start_stop_agent, mock_cloud_client):  # pylint:disable=redefined-outer-name
+    Service.start(Serializer.serialize(mock_cloud_client))
+    assert Service.is_running()
 
 
-def test_double_start(service, mock_cloud_client):  # pylint:disable=redefined-outer-name
-    service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
-    assert service.is_running()
-    with pytest.raises(RuntimeError):
-        service.start(MP_CTX, dill.dumps(mock_cloud_client, recurse=True).decode('cp437'))
-    stop_if_running(service_=service)
-    assert not service.is_running()
+def test_double_start(start_stop_agent, mock_cloud_client):  # pylint:disable=redefined-outer-name
+    Service.start(Serializer.serialize(mock_cloud_client))
+    assert Service.is_running()
+    with pytest.raises(RuntimeError) as excinfo:
+        Service.start(Serializer.serialize(mock_cloud_client))
+
+    assert "Running already" in str(excinfo.value)
+
+
+def test_getting_api_before_start_raises_exception():  # pylint:disable=redefined-outer-name
+    assert not Service.is_running()
+    with pytest.raises(AgentNotAvailableException):
+        Service.api()

@@ -83,6 +83,10 @@ Submit the example job with 10 second reporting interval:
 ```bash
 $ meeshkan submit --name report-example --report-interval 10 report.py
 ```
+For ease of use, we also offer the shorthand:
+```bash
+$ meeshkan --name report-example --report-interval 10 report.py
+```  
 If you setup Slack integration in [meeshkan.com](https://www.meeshkan.com),
 you should receive a notification for job being started. You should get notifications every ten seconds. The script
 runs for 20 seconds, so you should get one notification containing scalar values.
@@ -285,18 +289,23 @@ pip install -e .[dev]
 
 ### Running tests
 ```bash
-pytest
+pytest [-s]
 ```
 
 ### Running lint
 ```bash
 pylint -f msvs meeshkan
 ```
+To check for required coverage:
+```bash
+python run_pylint.py --fail-under=9.75 -f msvs meeshkan
+```
 
 ### Running static type checks
 ```bash
-mypy --ignore-missing-imports meeshkan
+mypy meeshkan
 ```
+The configuration for `mypy` can be found in [mypy.ini](./mypy.ini).
 
 ### Building the documentation
 ```bash

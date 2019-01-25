@@ -34,12 +34,32 @@ LOGGER = None
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-@click.group(context_settings=CONTEXT_SETTINGS)
+class DefGroup(click.Group):
+    """Overriden Group class, so we can implement some logic before resolving commands."""
+    DEF_CMD = ["submit"]
+
+    def parse_args(self, ctx, args):  # For cases where the flags are given (i.e. `meeshkan --name ... <file>`)
+        try:
+            return super().parse_args(ctx, args)
+        except click.ClickException:
+            return super().parse_args(ctx, DefGroup.DEF_CMD + args)
+
+    def resolve_command(self, ctx, args):  # For cases where the file is given (i.e. `meeshkan <file> ...`)
+        try:
+            return super().resolve_command(ctx, args)
+        except click.ClickException:
+            return super().resolve_command(ctx, DefGroup.DEF_CMD + args)
+
+
+@click.group(context_settings=CONTEXT_SETTINGS, cls=DefGroup)
 @click.version_option(version=meeshkan.__version__)
 @click.option("--debug", is_flag=True)
 @click.option("--silent", is_flag=True)
 def cli(debug, silent):
-    """Command-line interface for working with the Meeshkan agent."""
+    """
+    Command-line interface for working with the Meeshkan agent.
+    If no COMMAND is given, it is assumed to be `submit`.
+    """
     if not debug:
         sys.tracebacklimit = 0
 
@@ -79,21 +99,23 @@ def start():
         print(ex.message)
         sys.exit(1)
     except Exception as ex:  # pylint: disable=broad-except
-        print("Starting service failed.")
+        print("Starting the Meeshkan agent failed :'( Please try again.")
+        print("If the problem persists, "
+              "please let us know in the meeshkan-community Slack channel or create an issue in GitHub: "
+              "https://github.com/Meeshkan/meeshkan-client/issues")
         LOGGER.exception("Starting service failed.")
-        # sys.exit(1)
         raise
 
 
 @cli.command(name='status')
 def daemon_status():
     """Checks and returns the service daemon status."""
-    service = Service()
-    is_running = service.is_running()
+    is_running = Service.is_running()
     status = "up and running" if is_running else "configured to run"
-    print("Service is {status} on {host}:{port}".format(status=status, host=service.host, port=service.port))
+    print("Service is {status} on {host}:{port}".format(status=status, host=Service.HOST,
+                                                        port=Service.PORT))
     if is_running:
-        print("URI for Daemon is {uri}".format(uri=service.uri))
+        print("URI for Daemon is {uri}".format(uri=Service.URI))
 
 
 @cli.command()

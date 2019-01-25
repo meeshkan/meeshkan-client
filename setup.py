@@ -15,7 +15,8 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 
 # Required packages.
 # Older version of requests because >= 2.21 conflicts with sagemaker.
-REQUIRED = ['boto3', 'dill', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib']
+REQUIRED = ['boto3', 'dill', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib',
+            'nbconvert', 'ipykernel', 'notebook']
 
 DEV = ['jupyter', 'nbdime', 'pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker', 'sphinx',
        'sphinx-click', 'sphinx_rtd_theme']
@@ -55,17 +56,19 @@ class SetupCommand(Command):
         """Prints things in bold."""
         print('\033[1m{0}\033[0m'.format(s))
 
+    def rmdir_if_exists(self, directory):
+        self.status("Deleting {}".format(directory))
+        rmtree(directory, ignore_errors=True)
+
 
 class BuildDistCommand(SetupCommand):
     """Support setup.py upload."""
     description = "Build the package."
 
     def run(self):
-        try:
-            self.status("Removing previous builds...")
-            rmtree(os.path.join(here, 'dist'))
-        except OSError:
-            pass
+
+        self.status("Removing previous builds...")
+        self.rmdir_if_exists(os.path.join(here, 'dist'))
 
         self.status("Building Source and Wheel (universal) distribution...")
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
@@ -83,16 +86,18 @@ class BuildDocumentationCommand(SetupCommand):
     description = "Builds the sphinx documentation."
 
     def run(self):
-        try:
-            self.status("Removing previous builds...")
-            rmtree(os.path.join(here, 'docs/build'))
-        except OSError:
-            pass
+        self.status("Removing previous builds...")
+
+        build_dir = os.path.join(here, 'docs/build')
+        self.rmdir_if_exists(build_dir)
+
+        version_dir = os.path.join(here, 'docs', 'version={version}'.format(version=about['__version__']))
+        self.rmdir_if_exists(version_dir)  # Need to delete this before building HTML docs
 
         self.status("Building documentation...")
         build_docs()
-        self.status("Docs were built. Now change to fresh branch, `git add docs/build`, `git commit -a` and do "
-                    "`git subtree push --prefix docs/build origin gh-pages` to push the build to `gh-pages` branch.")
+
+        self.status("Docs were built to `docs/build`.")
         sys.exit()
 
 
@@ -101,11 +106,9 @@ class UploadCommand(SetupCommand):
     description = "Build and publish the package."
 
     def run(self):
-        try:
-            self.status("Removing previous builds...")
-            rmtree(os.path.join(here, 'dist'))
-        except OSError:
-            pass
+
+        self.status("Removing previous builds...")
+        self.rmdir_if_exists(os.path.join(here, 'dist'))
 
         self.status("Building Source and Wheel (universal) distribution...")
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
