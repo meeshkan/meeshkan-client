@@ -9,7 +9,7 @@ from .utils import TempCredentialsFile
 def test_config_init():
     assert meeshkan.config.CONFIG.cloud_url == "http://foo.bar", "Configuration should match yaml file contents"
     assert meeshkan.config.CREDENTIALS.refresh_token == 'asdf', "Credentials should match yaml file contents"
-    assert meeshkan.config.CREDENTIALS.git_access_token is None, "By default no git access token is supplied"
+    assert meeshkan.config.CREDENTIALS.git_access_token == 'ghjk', "Credentials should match yaml file contents"
 
 
 def test_credentials_change_with_error():

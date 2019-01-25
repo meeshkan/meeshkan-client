@@ -41,11 +41,12 @@ def submit_git(repo: str, entry_point: str, branch: str = None, commit_sha: str 
     :param commit_sha: Optional string, a commit reference to reset to
     :param job_name: Optional name to give to the job
     :param report_interval_secs: Optional float, notification report interval in seconds.
+    :returns Job object
     """
     api = Service.api()  # Raise if agent is not running
     gitrunner = GitRunner(repo)
     source_dir = gitrunner.pull_repo(branch=branch, commit_sha=commit_sha)
-    api.submit((os.path.join(source_dir, entry_point),), name=job_name, poll_interval=report_interval_secs)
+    return api.submit((os.path.join(source_dir, entry_point),), name=job_name, poll_interval=report_interval_secs)
 
 
 class GitRunner:
@@ -69,7 +70,7 @@ class GitRunner:
         :return The temporary folder with relevant pulled content
         """
         args = ["git", "clone"]
-        if branch is not None:  # Checkout the relevant branch
+        if branch is not None and commit_sha is None:  # Checkout the relevant branch (if commit not given)
             args += ["--depth", "1", "--branch", branch]
         args += [self.url, self.target_dir]
 
@@ -96,7 +97,7 @@ class GitRunner:
         else:  # Defaults automatically to the global CREDENTIALS
             token = config.CREDENTIALS.git_access_token  # type: ignore
         if token is None:
-            raise GitRunner.GitException("Git access token was not found! Run 'meeshkan setup' to configure it properly.")
+            raise GitRunner.GitException("Git access token was not found! Try running 'meeshkan setup'.")
         return token
 
     @staticmethod

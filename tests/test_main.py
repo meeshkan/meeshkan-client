@@ -59,9 +59,9 @@ def test_setup_if_exists(pre_post_tests):  # pylint:disable=unused-argument,rede
     # Mock credentials writing (tested in test_config.py)
     temp_token = "abc"
 
-    def to_isi(refresh_token, git_token, *args):
+    def to_isi(refresh_token, git_access_token, *args):
         assert refresh_token == temp_token, "Refresh token token used is '{}'!".format(temp_token)
-        assert git_token == "", "No git access token is given!"
+        assert git_access_token == "", "No git access token is given!"
 
     with mock.patch("meeshkan.config.Credentials.to_isi") as mock_to_isi:
         with mock.patch("os.path.isfile") as mock_isfile:
