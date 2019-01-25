@@ -1,81 +1,112 @@
 """Provides utilities for pulling and parsing Git commits"""
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 import tempfile
 import shutil
 import os
 from subprocess import Popen, PIPE
+from pathlib import Path
 
 from ..core import config
 from ..core.service import Service
 
-__all__ = ["submit"]
+__all__ = ["submit_git"]
 
-def submit(repo: str, entry_point: str, branch: str = None, commit_sha: str = None,
-           job_name: Optional[str] = None, poll_interval: Optional[float] = None):
-    """Submits a git repository as a job to the agent.
+def submit_git(repo: str, entry_point: str, branch: str = None, commit_sha: str = None,
+               job_name: Optional[str] = None, report_interval_secs: Optional[float] = None):
+    """Submits a git repository as a job to the agent. The agent must already be running.
+
+    Example::
+        # A basic call would pull the repository at it's current state (default branch) and run the entry point file.
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
+                            job_name="example #1", report_interval_secs=60)
+
+        # A call with branch name would run the given branch from it's most updated commit.
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
+                            branch="dev", job_name="example #2", report_interval_secs=10)
+
+        # A call with a given commit will locally reset the repository to the state for that commit
+        # Commit_sha can be either short SHA or the full one
+        # In this case, either "61657d7" or "1657d79bfd92fda7c19d6ec273b09068f96a777" would be fine.
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
+                            commit_sha="61657d7", job_name="example #3", report_interval_secs=30)
+
+        # Branch and commit_sha may be used together, but commit SHA has precedence, so the following is identical to
+        # example #3:
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
+                            branch="release-0.1.0", commit_sha="61657d7", job_name="identical to example #3")
+
     :param repo: A string describing a **GitHub** repository in plain <user or organization>/<repo name> format
     :param entry_point: A path (relevant to the repository) for the entry point (or file to run)
     :param branch: Optional string, describing the branch on which to work (checkout the branch when cloning locally)
     :param commit_sha: Optional string, a commit reference to reset to
     :param job_name: Optional name to give to the job
-    :param poll_interval: Optional float, how often to poll for changes from job
+    :param report_interval_secs: Optional float, notification report interval in seconds.
     """
     api = Service.api()  # Raise if agent is not running
-    source_dir = pull_repo(repo, branch=branch, commit_sha=commit_sha)
-    api.submit((os.path.join(source_dir, entry_point),), name=job_name, poll_interval=poll_interval)
+    gitrunner = GitRunner(repo)
+    source_dir = gitrunner.pull_repo(branch=branch, commit_sha=commit_sha)
+    api.submit((os.path.join(source_dir, entry_point),), name=job_name, poll_interval=report_interval_secs)
 
 
-def pull_repo(repo: str, branch: str = None, commit_sha: str = None) -> str:
-    """Pulls a git repository to a temporary folder.
+class GitRunner:
+    def __init__(self, repo):
+        """Initializes a GitRunner by running the first steps in accessing a github repository:
+            - Verifies local `git` is indeed installed
+            - Creates a temporary folder to store the git contents
+        :param repo: The GitHub repository to pull, in a plain <user/organization>/<repo name> format
+            # TODO: When we add more support, this should be parsed to include also full URLs etc
+        :return A tuple consisting of the access URL and the temporary folder path
+        """
+        GitRunner._verify_git_exists()
+        self.repo = repo
+        self.target_dir = tempfile.mkdtemp()
 
-    :param repo: The GitHub repository to pull, in a plain <user/organization>/<repo name> format
-        # TODO: When we add more support, this should be parsed to include also full URLs etc
-    :param branch: An optional branch to download; pulls the repo and checkouts the given branch
-    :param commit_sha: An optional commit to revert to; pulls the repo/branch and hard resets to given commit
-    :return The temporary folder with relevant pulled content
-    """
-    url, target_dir = _init_git(repo)
-    args = ["git", "clone"]
-    if branch is not None:  # Checkout the relevant branch
-        args += ["--single-branch", "--branch", branch]
-    args += [url, target_dir]
+    def pull_repo(self, branch: str = None, commit_sha: str = None) -> str:
+        """Pulls a git repository to a temporary folder.
 
-    proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)  # TODO: Use async in case it's a large pull?
-    _wait_and_raise_on_error(proc)
-    if commit_sha is not None:  # Revert to relevant commit SHA
-        proc = Popen(["git", "reset", "--hard", commit_sha], stdout=PIPE, stderr=PIPE, cwd=target_dir,
-                     universal_newlines=True)
-        _wait_and_raise_on_error(proc)
-    return target_dir
+        :param branch: An optional branch to download; pulls the repo and checkouts the given branch
+        :param commit_sha: An optional commit to revert to; pulls the repo/branch and hard resets to given commit
+        :return The temporary folder with relevant pulled content
+        """
+        args = ["git", "clone"]
+        if branch is not None:  # Checkout the relevant branch
+            args += ["--depth", "1", "--branch", branch]
+        args += [self.url, self.target_dir]
 
+        # TODO: Use async Popen in case it's a large pull?
+        proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        GitRunner._wait_and_raise_on_error(proc)
+        if commit_sha is not None:  # Revert to relevant commit SHA
+            proc = Popen(["git", "reset", "--hard", commit_sha], stdout=PIPE, stderr=PIPE, cwd=self.target_dir,
+                         universal_newlines=True)
+            GitRunner._wait_and_raise_on_error(proc)
+        return self.target_dir
 
-def _get_git_access_token() -> str:
-    if config.CREDENTIALS is None:
-        config.init_config()
-    token = config.CREDENTIALS.git_access_token  # type: ignore
-    if token is None:
-        raise RuntimeError("Git access token was not found! Please verify ~/.meeshkan/credentials")
-    return token
+    @property
+    def url(self):
+        return "https://{token}:x-oauth-basic@github.com/{repo}".format(token=GitRunner._git_access_token(),
+                                                                        repo=self.repo)
 
+    @staticmethod
+    def _git_access_token(credentials: Optional[Union[Path, str]] = None) -> str:
+        if config.CREDENTIALS is None:
+            config.init_config()
+        # Defaults automatically to the global CREDENTIALS
+        credentials = config.Credentials.from_isi(Path(credentials)) or config.CREDENTIALS  # type: config.Credentials
+        token = credentials.git_access_token
+        if token is None:
+            raise GitRunner.Exception("Git access token was not found! Run 'meeshkan setup' to configure it properly.")
+        return token
 
-def _verify_git_exists():
-    if shutil.which("git") is None:
-        raise RuntimeError("'git' is not installed!")
+    @staticmethod
+    def _verify_git_exists():
+        if shutil.which("git") is None:
+            raise GitRunner.Exception("'git' is not installed!")
 
+    @staticmethod
+    def _wait_and_raise_on_error(proc):
+        if proc.wait() != 0:
+            raise RuntimeError(proc.stderr.read())
 
-def _init_git(repo) -> Tuple[str, str]:
-    """First steps in accessing a github repository:
-    - Verifies local `git` is indeed installed
-    - Creates a temporary folder to store the git contents
-    - Constructs the OAuth based url to the given repository
-
-    :return A tuple consisting of the access URL and the temporary folder path
-    """
-    _verify_git_exists()
-    token = _get_git_access_token()
-    return "https://{token}:x-oauth-basic@github.com/{repo}".format(token=token, repo=repo), tempfile.mkdtemp()
-
-
-def _wait_and_raise_on_error(proc):
-    if proc.wait() != 0:
-        raise RuntimeError(proc.stderr.read())
+    class Exception(Exception):
+        pass

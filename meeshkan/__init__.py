@@ -12,16 +12,17 @@ from . import agent
 from .agent import *  # pylint: disable=wildcard-import
 from . import notifications
 from .notifications import *  # pylint: disable=wildcard-import
+from . import git
+from .git import *  # pylint: disable=wildcard-import
 
 # The following are available as is; written explicitly also in __all__
-from . import git
 from . import exceptions
 from . import sagemaker
 from .__utils__ import save_token
 
 
 # Only make the following available by default
-__all__ = ["__version__", "exceptions", "config", "save_token", "sagemaker", "git"]
+__all__ = ["__version__", "exceptions", "config", "save_token", "sagemaker", "submit_git"]
 __all__ += api.__all__
 __all__ += agent.__all__
 __all__ += core.__all__
@@ -32,3 +33,4 @@ del core
 del api
 del agent
 del notifications
+del git

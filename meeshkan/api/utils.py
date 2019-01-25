@@ -14,7 +14,7 @@ __all__ = ["submit_notebook"]
 
 LOGGER = logging.getLogger(__file__)
 
-def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None, notebook_password: str = None):
+def submit_notebook(job_name: str = None, report_interval: Optional[float] = None, notebook_password: str = None):
     """
     Submits the current notebook to the Meeshkan agent. Requires the agent to be running.
     Can only be called from within a notebook instance.
@@ -29,11 +29,12 @@ def submit_notebook(job_name: str = None, poll_interval: Optional[float] = None,
         get_ipython_func = None
 
     try:
+        api = Service.api()  # Raise if agent is not running
         path = _get_notebook_path_generic(get_ipython_function=get_ipython_func,
                                           list_servers_function=notebookapp.list_running_servers,
                                           connection_file_function=ipykernel.get_connection_file,
                                           notebook_password=notebook_password)
-        return Service.api().submit((path,), name=job_name, poll_interval=poll_interval)  # Submit notebook
+        return api.submit((path,), name=job_name, poll_interval=report_interval)  # Submit notebook
     except MismatchingIPythonKernelException:  # Ran from ipython but not from jupyter notebook -> expected behaviour
         print("submit_notebook(): Not run from notebook interpreter; ignoring...")
     return None  # Return None so we don't crash the notebook/caller;
