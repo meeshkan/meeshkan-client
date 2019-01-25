@@ -5,6 +5,8 @@ from unittest import mock
 from typing import Optional
 import sys
 import subprocess
+import tempfile
+from pathlib import Path
 
 from IPython.terminal.ipapp import launch_new_instance
 from notebook.auth import passwd
@@ -13,6 +15,7 @@ from meeshkan.notifications.notifiers import Notifier
 from meeshkan.core.job import Job
 from meeshkan.core.oauth import TokenStore
 from meeshkan.__types__ import Token
+from meeshkan import config
 
 FUTURE_TIMEOUT = 10  # In seconds
 
@@ -155,3 +158,23 @@ class NBServer:
             while check_server_proc.poll() is None:  # Process is still ongoing
                 time.sleep(sleep_time)
             server_is_up = self.url in check_server_proc.stdout.read().decode()
+
+class TempCredentialsFile:
+    """Provides a shortcut to creating a temporary credential files and updating it as needed"""
+    def __init__(self, refresh_token=None, git_token=None):
+        _, tmp = tempfile.mkstemp()
+        self.refresh_token = refresh_token
+        self.git_token = git_token
+        self.file = Path(tmp)
+
+    def update(self, refresh_token=None, git_token=None):
+        self.refresh_token = refresh_token or self.refresh_token
+        self.git_token = git_token or self.git_token
+        config.Credentials.to_isi(refresh_token=self.refresh_token, git_access_token=self.git_token, path=self.file)
+
+    def __enter__(self):
+        self.update()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.file.unlink()
