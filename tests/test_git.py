@@ -10,16 +10,16 @@ import meeshkan
 from meeshkan.core.service import Service
 from meeshkan.git.utils import submit_git, GitRunner
 
-# CLIENT_REPO = "Meeshkan/meeshkan-client"
-# FIRST_VERSION_COMMIT = "cee35e9"  # v0.0.1 psuedo-release
-# FIRST_OFFICIAL_RELEASE_BRANCH = "release-v-0.1.0"  # first official release
+CLIENT_REPO = "Meeshkan/meeshkan-client"
+FIRST_VERSION_COMMIT = "cee35e9"  # v0.0.1 psuedo-release
+FIRST_OFFICIAL_RELEASE_BRANCH = "release-v-0.1.0"  # first official release
 
 
-# @pytest.fixture
-# def clean():
-#     def remove_tempdir_from_gitrunner(gitrunner: GitRunner):
-#         shutil.rmtree(gitrunner.target_dir)
-#     return remove_tempdir_from_gitrunner
+@pytest.fixture
+def clean():
+    def remove_tempdir_from_gitrunner(gitrunner: GitRunner):
+        shutil.rmtree(gitrunner.target_dir)
+    return remove_tempdir_from_gitrunner
 
 
 def test_git_verify():
@@ -42,28 +42,28 @@ def test_git_access_token():
         assert GitRunner._git_access_token(tmpfile.file) == "abc"
 
 
-# def test_gitrunner_init(clean):
-#     repo = "foobar"
-#     gitrunner = GitRunner(repo=repo)
-#     git_token = meeshkan.config.CREDENTIALS.git_access_token
-#     try:
-#         assert gitrunner.url == "https://{token}:x-oauth-basic@github.com/{repo}".format(token=git_token, repo=repo)
-#     finally:
-#         clean(gitrunner)
+def test_gitrunner_init(clean):
+    repo = "foobar"
+    gitrunner = GitRunner(repo=repo)
+    git_token = meeshkan.config.CREDENTIALS.git_access_token
+    try:
+        assert gitrunner.url == "https://{token}:x-oauth-basic@github.com/{repo}".format(token=git_token, repo=repo)
+    finally:
+        clean(gitrunner)
 
 
-# def test_gitrunner_pull_branch(clean):
-#     gitrunner = GitRunner(repo=CLIENT_REPO)
-#     gitrunner.pull_repo(branch=FIRST_OFFICIAL_RELEASE_BRANCH)
-#     version_fname = os.path.join(gitrunner.target_dir, "meeshkan/__version__.py")
-#     try:
-#         assert os.path.isfile(version_fname)
-#         with open(version_fname) as version_fd:
-#             assert version_fd.read() == "__version__ = '0.1.0'\n"
-#     finally:
-#         clean(gitrunner)
-#
-#
+def test_gitrunner_pull_branch(clean):
+    gitrunner = GitRunner(repo=CLIENT_REPO)
+    gitrunner.pull_repo(branch=FIRST_OFFICIAL_RELEASE_BRANCH)
+    version_fname = os.path.join(gitrunner.target_dir, "meeshkan/__version__.py")
+    try:
+        assert os.path.isfile(version_fname)
+        with open(version_fname) as version_fd:
+            assert version_fd.read() == "__version__ = '0.1.0'\n"
+    finally:
+        clean(gitrunner)
+
+
 # def test_gitrunner_pull_commit(clean):
 #     gitrunner = GitRunner(repo=CLIENT_REPO)
 #     gitrunner.pull_repo(commit_sha=FIRST_VERSION_COMMIT)
