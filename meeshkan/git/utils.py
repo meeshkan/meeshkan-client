@@ -49,6 +49,8 @@ def pull_repo(repo: str, branch: str = None, commit_sha: str = None) -> str:
 
 
 def _get_git_access_token() -> str:
+    if config.CREDENTIALS is None:
+        config.init_config()
     if config.CREDENTIALS.git_access_token is None:
         raise RuntimeError("Git access token was not found! Please verify ~/.meeshkan/credentials")
     return config.CREDENTIALS.git_access_token
