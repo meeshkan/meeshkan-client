@@ -20,8 +20,9 @@ def submit(repo: str, entry_point: str, branch: str = None, commit_sha: str = No
     :param job_name: Optional name to give to the job
     :param poll_interval: Optional float, how often to poll for changes from job
     """
+    api = Service.api()  # Raise if agent is not running
     source_dir = pull_repo(repo, branch=branch, commit_sha=commit_sha)
-    Service.api().submit((os.path.join(source_dir, entry_point),), name=job_name, poll_interval=poll_interval)
+    api.submit((os.path.join(source_dir, entry_point),), name=job_name, poll_interval=poll_interval)
 
 
 def pull_repo(repo: str, branch: str = None, commit_sha: str = None) -> str:
@@ -51,9 +52,10 @@ def pull_repo(repo: str, branch: str = None, commit_sha: str = None) -> str:
 def _get_git_access_token() -> str:
     if config.CREDENTIALS is None:
         config.init_config()
-    if config.CREDENTIALS.git_access_token is None:
+    token = config.CREDENTIALS.git_access_token  # type: ignore
+    if token is None:
         raise RuntimeError("Git access token was not found! Please verify ~/.meeshkan/credentials")
-    return config.CREDENTIALS.git_access_token
+    return token
 
 
 def _verify_git_exists():
