@@ -87,7 +87,9 @@ def setup():
             print("Aborting")
             sys.exit(2)
     token = input("Please enter your client secret: ")
-    save_token(token)
+    git_token = input("[Optional] Please enter a Github personal access token (or enter to skip): ")
+    meeshkan.config.ensure_base_dirs(verbose=False)
+    meeshkan.config.Credentials.to_isi(refresh_token=token, git_access_token=git_token)
     print("You're all set up! Now run \"meeshkan start\" to start the service.")
 
 
