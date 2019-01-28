@@ -6,7 +6,7 @@
   "kernel_type": "notebook",
   "is_private": "true",
   "enable_gpu": "false",
-  "enable_internet": "false",
+  "enable_internet": "true",
   "dataset_sources": [],
   "competition_sources": ["petfinder-adoption-prediction"],
   "kernel_sources": []
