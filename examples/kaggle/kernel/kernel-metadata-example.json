@@ -1,6 +1,6 @@
 {
-  "id": "YOUR_USERNAME_HERE/meeshkan-example",
-  "title": "Example of using Meeshkan in Kaggle kernel",
+  "id": "YOUR_USERNAME_HERE/using-meeshkan-in-kaggle-kernel",
+  "title": "Using Meeshkan in Kaggle kernel",
   "code_file": "meeshkan-kaggle.ipynb",
   "language": "python",
   "kernel_type": "notebook",
