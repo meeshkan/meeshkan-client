@@ -50,7 +50,7 @@ def as_blocking_job(job_name, report_interval_secs):
         def func_wrapper(*args, **kwargs):
             job = create_blocking_job(name=job_name, report_interval_secs=report_interval_secs)
             with job:
-                func(*args, *kwargs)
+                return func(*args, **kwargs)
         return func_wrapper
     return job_decorator
 
