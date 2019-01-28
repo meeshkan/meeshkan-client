@@ -5,8 +5,10 @@ from http import HTTPStatus
 from pathlib import Path
 import tempfile
 import inspect
-from dill.detect import globalvars
+from random import choice
+import string
 
+from dill.detect import globalvars
 import requests
 import ipykernel
 from notebook import notebookapp
@@ -60,36 +62,48 @@ def submit_function(function_name, *args, **kwargs):
     script_path = Path(tempfile.mkdtemp())
     fname = "{fname}.ipy".format(fname=function_name)  # ipy suffix to trigger ipython as interpreter
     script_file = script_path.joinpath(fname)
-    source = inspect.getsource(func)  # Source code for the function
 
     # Get globals & serialize stuff
     globs = globalvars(func)  # Globals that are relevant for the function to run
     globs.update({'__name__': '__main__'})  # Include the entry point for the script
-    globs = repr(Serializer.serialize(globs))  # Serialize and escape any special characters
-    # TODO
-    # args = repr(Serializer.serialize(args))
-    # kwargs = repr(Serializer.serialize(kwargs))
+    globs = Serializer.serialize(globs)  # Serialize and escape any special characters
+    globs_file = script_path.joinpath("globs.msk")
+    with globs_file.open('w') as globs_fd:
+        globs_fd.write(globs)
 
+    load_globs_func_name = _generate_random_function_name()
+    deserialize_func_name = _generate_random_function_name()
+    # TODO
+    args = repr(Serializer.serialize(args))
+    kwargs = repr(Serializer.serialize(kwargs))
+    #
     # Write the actual code  (contains a logical entry point and the function code)
     with script_file.open('w') as script_fd:
-        script_fd.write(Serializer.deserialize_func_as_str())
-        script_fd.write(source)
-        script_fd.write("\n\nif __name__ == \"__main__\":\n")
-        script_fd.write("    {func}()\n".format(func=function_name))
+        script_fd.write(Serializer.deserialize_func_as_str(deserialize_func_name))
+        script_fd.write("def {load_globs_func_name}():\n"
+                        "    import os\n"
+                        "    with open('{globs_file}', 'rb') as globs_fd:\n"
+                        "        globs = {deserialize_func_name}(globs_fd.read().decode())\n"
+                        "    globals().update(globs)\n"
+                        "    os.unlink('{globs_file}')\n".format(globs_file=str(globs_file),
+                                                                 load_globs_func_name=load_globs_func_name,
+                                                                 deserialize_func_name=deserialize_func_name))
+        script_fd.write(inspect.getsource(func))
+        script_fd.write("\n\nif __name__ == \"__main__\":\n"
+                        "    {load_globals}()\n"
+                        "    {func}(*{deserialize}({args}), **{deserialize}({kwargs}))\n".format(
+            load_globals=load_globs_func_name, func=function_name, args=args, kwargs=kwargs,
+            deserialize=deserialize_func_name))
         script_fd.flush()
 
-    # Write runfile, responsible for injecting the globals as needed (allows running in detached Popen/subprocess)
-    run_file = script_path.joinpath("run.ipy")
-    with run_file.open('w') as run_fd:
-        script_fd.write(Serializer.deserialize_func_as_str())
-        run_fd.write("if __name__ == \"__main__\":\n")
-        run_fd.write("    with open('{script_file}', 'r') as code_fd:\n".format(script_file=str(script_file)))
-        run_fd.write("        exec(compile(code_fd.read(), '<string>', 'exec'), deserialize({globs}))\n".format(
-            func_name=function_name, globs=globs))
-        run_fd.flush()
 
     # Create a job
-    return api.submit((str(run_file), ))
+    return api.submit((str(script_file), ))
+
+
+def _generate_random_function_name(length=16):
+    characters = string.ascii_letters + '_'
+    return "".join(choice(characters) for _ in range(length))
 
 
 def _verify_ipython_notebook_kernel(ipython_kernel):
