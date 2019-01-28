@@ -2,3 +2,4 @@ meeshkan
 keras
 tensorflow
 kaggle
+jupyter
