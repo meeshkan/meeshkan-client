@@ -1,5 +1,3 @@
-meeshkan
-keras
-tensorflow
+# Dependencies required by the notebook are listed in `kernel/requirements.txt`
 kaggle
 jupyter
