@@ -52,9 +52,8 @@ def submit_function(function_name, *args, **kwargs):
     try:
         shell = get_ipython()
     except NameError:
-        raise  # TODO
+        raise  # TODO - do we want to raise here? print a custom error?
         # return None
-
     api = Service.api()  # Raise if agent is not running
 
     # Write temporary file and all that
@@ -63,42 +62,79 @@ def submit_function(function_name, *args, **kwargs):
     fname = "{fname}.ipy".format(fname=function_name)  # ipy suffix to trigger ipython as interpreter
     script_file = script_path.joinpath(fname)
 
-    # Get globals & serialize stuff
-    globs = globalvars(func)  # Globals that are relevant for the function to run
-    globs.update({'__name__': '__main__'})  # Include the entry point for the script
-    globs = Serializer.serialize(globs)  # Serialize and escape any special characters
     globs_file = script_path.joinpath("globs.msk")
-    with globs_file.open('w') as globs_fd:
-        globs_fd.write(globs)
+    _write_globals(func, globs_file)
 
     load_globs_func_name = _generate_random_function_name()
     deserialize_func_name = _generate_random_function_name()
-    # TODO
-    args = repr(Serializer.serialize(args))
+    args = repr(Serializer.serialize(args))  # `repr` to escape any special characters
     kwargs = repr(Serializer.serialize(kwargs))
-    #
+
     # Write the actual code  (contains a logical entry point and the function code)
-    with script_file.open('w') as script_fd:
-        script_fd.write(Serializer.deserialize_func_as_str(deserialize_func_name))
-        script_fd.write("def {load_globs_func_name}():\n"
-                        "    import os\n"
-                        "    with open('{globs_file}', 'rb') as globs_fd:\n"
-                        "        globs = {deserialize_func_name}(globs_fd.read().decode())\n"
-                        "    globals().update(globs)\n"
-                        "    os.unlink('{globs_file}')\n".format(globs_file=str(globs_file),
-                                                                 load_globs_func_name=load_globs_func_name,
-                                                                 deserialize_func_name=deserialize_func_name))
+    _write_function_script_file(script_file, globs_file, function_name, deserialize_func_name,
+                                load_globs_func_name, args, kwargs)
+
+    return api.submit((str(script_file), ))  # Create a job
+
+
+def _write_function_script_file(path: Path, globs_file: Path, entry_point_function, deserializing_function,
+                                globals_loading_function, serialized_args, serialized_kwargs):
+    """Writes a .py file with basic functionality: an entry point, a deserializer, and a globals-loading function.
+
+    :param path: The path to write in (absolute path)
+    :param globs_file: Absolute path to global file
+    :param entry_point_function: Name of entry point function
+    :param deserializing_function: Name of deserializing function
+    :param globals_loading_function: Name of global-loading function
+    :param serialized_args: Serialized *args argument for entry point function
+    :param serialized_kwargs: Serialized **kwargs argument for entry point function
+    """
+    with path.open('w') as script_fd:
+        script_fd.write(Serializer.deserialize_func_as_str(deserializing_function))
+        script_fd.write("\n\n")
+        script_fd.write(_global_loading_function(globals_loading_function, globs_file, deserializing_function))
         script_fd.write(inspect.getsource(func))
-        script_fd.write("\n\nif __name__ == \"__main__\":\n"
-                        "    {load_globals}()\n"
-                        "    {func}(*{deserialize}({args}), **{deserialize}({kwargs}))\n".format(
-            load_globals=load_globs_func_name, func=function_name, args=args, kwargs=kwargs,
-            deserialize=deserialize_func_name))
+        script_fd.write("\n\n")
+        script_fd.write(_entry_point_for_custom_script(entry_point_function, globals_loading_function,
+                                                       deserializing_function, serialized_args, serialized_kwargs))
         script_fd.flush()
 
 
-    # Create a job
-    return api.submit((str(script_file), ))
+
+def _write_globals(func, path: Path):
+    """Fetches, serialized and writes current globals required for `func` to `path`.
+
+    :param func: A callable that may or may not use global variables
+    :param path: Where to write the serialized globals
+    """
+    globs = globalvars(func)  # Globals that are relevant for the function to run
+    globs.update({'__name__': '__main__'})  # Include the entry point for the script
+    globs_serialized = Serializer.serialize(globs)
+    with path.open('w') as globs_fd:
+        globs_fd.write(globs_serialized)
+        globs_fd.flush()
+
+
+def _entry_point_for_custom_script(func_name, load_globals_func_name, deserialize_func_name, args, kwargs):
+    """Writes an entry point to `func_name` by first calling the globals-loading function."""
+    return "if __name__ == \"__main__\":\n" \
+           "    {load_globals}()\n" \
+           "    {func}(*{deserialize}({args}), **{deserialize}({kwargs}))\n".format(load_globals=load_globals_func_name,
+                                                                                    func=func_name, args=args,
+                                                                                    deserialize=deserialize_func_name,
+                                                                                    kwargs=kwargs)
+
+
+def _global_loading_function(func_name, globals_file, deserialize_func_name):
+    """Writes a globals-loading function: reads from a given file and loads to `globals`, after which it deletes the
+       globals source file."""
+    return "def {func_name}():\n" \
+           "    import os\n" \
+           "    with open('{globs_file}', 'rb') as globs_fd:\n" \
+           "        globs = {deserialize_func_name}(globs_fd.read().decode())\n" \
+           "    globals().update(globs)\n" \
+           "    os.unlink('{globs_file}')\n".format(globs_file=str(globals_file), func_name=func_name,
+                                                    deserialize_func_name=deserialize_func_name)
 
 
 def _generate_random_function_name(length=16):
