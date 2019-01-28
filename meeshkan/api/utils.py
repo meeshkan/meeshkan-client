@@ -71,8 +71,8 @@ def submit_function(function_name, *args, **kwargs):
     kwargs = repr(Serializer.serialize(kwargs))
 
     # Write the actual code  (contains a logical entry point and the function code)
-    _write_function_script_file(script_file, globs_file, function_name, deserialize_func_name,
-                                load_globs_func_name, args, kwargs)
+    _write_function_script_file(script_file, globs_file, func, deserialize_func_name, load_globs_func_name, args,
+                                kwargs)
 
     return api.submit((str(script_file), ))  # Create a job
 
@@ -83,7 +83,7 @@ def _write_function_script_file(path: Path, globs_file: Path, entry_point_functi
 
     :param path: The path to write in (absolute path)
     :param globs_file: Absolute path to global file
-    :param entry_point_function: Name of entry point function
+    :param entry_point_function: Callable - entry point function
     :param deserializing_function: Name of deserializing function
     :param globals_loading_function: Name of global-loading function
     :param serialized_args: Serialized *args argument for entry point function
@@ -93,9 +93,9 @@ def _write_function_script_file(path: Path, globs_file: Path, entry_point_functi
         script_fd.write(Serializer.deserialize_func_as_str(deserializing_function))
         script_fd.write("\n\n")
         script_fd.write(_global_loading_function(globals_loading_function, globs_file, deserializing_function))
-        script_fd.write(inspect.getsource(func))
+        script_fd.write(inspect.getsource(entry_point_function))
         script_fd.write("\n\n")
-        script_fd.write(_entry_point_for_custom_script(entry_point_function, globals_loading_function,
+        script_fd.write(_entry_point_for_custom_script(entry_point_function.__name__, globals_loading_function,
                                                        deserializing_function, serialized_args, serialized_kwargs))
         script_fd.flush()
 
