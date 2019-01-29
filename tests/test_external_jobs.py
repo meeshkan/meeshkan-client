@@ -21,7 +21,7 @@ def test_as_blocking_job_calls_function_with_correct_arguments():
 
         assert kwargs == function_kwargs
 
-    with mock.patch('meeshkan.Service'):
+    with mock.patch('meeshkan.__utils__._get_api'):
         func(*function_args, **function_kwargs)
 
     assert function_called
@@ -33,6 +33,6 @@ def test_as_blocking_job_calls_service_api():
     def func():
         return
 
-    with mock.patch('meeshkan.Service') as mock_service:
+    with mock.patch('meeshkan.__utils__._get_api') as mock_get_api:
         func()
-        assert mock_service.api.call_count == 3, "Expected Service.api to have been called thrice"
+        assert mock_get_api.call_count == 3, "Expected Service.api to have been called thrice"
