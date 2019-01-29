@@ -21,7 +21,7 @@ DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
 
 
 # Do not expose anything by default (internal module)
-__all__ = ["Service"]  # type: List[str]
+__all__ = []  # type: List[str]
 
 
 def _platform_is_darwin() -> bool:
