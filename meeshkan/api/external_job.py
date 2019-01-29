@@ -3,7 +3,7 @@ import os
 from typing import Optional
 import uuid
 
-import meeshkan
+from ..core.service import Service
 from ..core.api import Api
 
 __all__ = ["create_blocking_job", "as_blocking_job"]
@@ -81,16 +81,16 @@ def create_blocking_job(name: str, report_interval_secs: Optional[float] = None)
     :return: Meeshkan blocking job
     """
     pid = os.getpid()
-    with meeshkan.__utils__._get_api() as proxy:  # type: Api
+    with Service.api() as proxy:  # type: Api
         job_id = proxy.external_jobs.create_external_job(pid=pid, name=name, poll_interval=report_interval_secs)
         return ExternalJobWrapper(job_id=job_id)
 
 
 def register_external_job(job_id: uuid.UUID):
-    with meeshkan.__utils__._get_api() as proxy:  # type: Api
+    with Service.api() as proxy:  # type: Api
         proxy.external_jobs.register_active_external_job(job_id=job_id)
 
 
 def unregister_external_job(job_id: uuid.UUID):
-    with meeshkan.__utils__._get_api() as proxy:  # type: Api
+    with Service.api() as proxy:  # type: Api
         proxy.external_jobs.unregister_active_external_job(job_id=job_id)
