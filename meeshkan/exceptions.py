@@ -57,5 +57,5 @@ class MismatchingIPythonKernelException(Exception):
 
 
 class InvalidTypeForFunctionSubmission(Exception):
-    def __init__(self, type):
-        super().__init__("Encountered a non-function '{type}' when submitting a function.".format(type=type))
+    def __init__(self, typename):
+        super().__init__("Encountered non-function '{typename}' when submitting a function.".format(typename=typename))
