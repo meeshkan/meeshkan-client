@@ -62,7 +62,9 @@ Setup your credentials:
 ```bash
 $ meeshkan setup
 ```
-You are prompted for your __client secret__ that you should have received when signing up, so fill that in.
+You are prompted for your __client secret__ that you should have received when signing up, so fill that in.  
+You will further be prompted for a GitHub access token. This is *strictly optional* and you do not need to fill that in.
+It's used for remotely running git repositories, branches, and commits.  
 The command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, agent logs
 and outputs from your submitted jobs.
 
@@ -224,6 +226,12 @@ Python scripts through `meeshkan` library.
 
 To begin, `import meeshkan`.
 
+### Starting, stopping and restarting the agent
+As alternatives for the CLI interface, you may use `meeshkan.init(token=...)` to start the agent with a new token.  
+If the agent is already set up via the CLI (`meeshkan setup`), you may simply call `meeshkan.init()` or 
+`meeshkan.start()`.  
+You may further restart the agent with `meeshkan.restart()` and stop the agent completely with `meeshkan.stop()`
+
 ### Reporting scalars
 You can report scalars from within a given script using `meeshkan.report_scalar(name1, value1, name2, value2, ...)`.
 The command allows reporting multiple values at once, and giving them self-documenting names (you may use anything, as
@@ -252,6 +260,34 @@ Consider the following examples:
 meeshkan.add_condition("train loss", "evaluation loss", lambda train_loss, eval_loss: abs(train_loss - eval_loss) > 0.2)
 # Notify when the F1 score is suspiciously low
 meeshkan.add_condition("F1", lambda f1: f1 < 0.1)
+```
+
+### Submitting notebooks and/or functions
+When working with Jupyter notebooks, one may want to test the entire notebook as a long running task, or test individual
+long running functions. With Meeshkan, you can easily achieve both of these!  
+From a notebook instance, you may submit the entire notebook with:
+```python
+meeshkan.submit_notebook()  # Default job name, report interval, for a password-free notebook
+# If your notebook server is password protected, you may need to supply the password:
+meeshkan.submit_notebook(notebook_password=...)
+# Finally, you can customize the job's name and report interval as well! The full argument list is:
+meeshkan.submit_notebook(job_name=..., report_interval=..., notebook_password=...)
+```
+
+Sometimes, we only need to test out an individual function, or perhaps you would like to skip the time it took to 
+download, parse and process a dataset. Meeshkan also offers a solution for that via `meeshkan.submit_function`.
+Consider:
+```python
+def test(optional_args=DEFAULT_VALUES):
+    # some training process with global dataset, model, optimizer, etc...
+    ...
+
+
+meeshkan.submit_function(test)
+meeshkan.submit_function('test')  # Identical to above - you can use both the function name or the function itself
+meeshkan.submit_function(test, args=[50])  # Sends 50 to optional_args
+meeshkan.submit_function('test', args=[[50]])  # Sends [50] to optional_args
+meeshkan.submit_function('test', kwargs={'optional_args': [50]})  # Sends [50] to optional_args via kwargs
 ```
 
 ## Working with Amazon SageMaker
