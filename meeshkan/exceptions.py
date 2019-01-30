@@ -54,3 +54,8 @@ class MismatchingIPythonKernelException(Exception):
     def __init__(self, found_kernel_type, expected_kernel_type):
         super().__init__("Found an IPython kernel, but it doesn't match the expected type (found {found},"
                          "expected {expected}".format(found=found_kernel_type, expected=expected_kernel_type))
+
+
+class InvalidTypeForFunctionSubmission(Exception):
+    def __init__(self, type):
+        super().__init__("Encountered a non-function '{type}' when submitting a function.".format(type=type))

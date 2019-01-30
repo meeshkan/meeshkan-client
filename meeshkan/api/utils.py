@@ -16,7 +16,7 @@ from notebook import notebookapp
 
 from ..core.service import Service
 from ..core.job.jobs import Job
-from ..exceptions import MismatchingIPythonKernelException
+from ..exceptions import MismatchingIPythonKernelException, InvalidTypeForFunctionSubmission
 from ..core.serializer import Serializer
 
 __all__ = ["submit_notebook", "submit_function"]
@@ -96,9 +96,9 @@ def submit_function(func, job_name: str = None, report_interval: Optional[float]
 
 def _verify_valid_callable(func):
     if not isinstance(func, FunctionType):
-        raise RuntimeError("Can't submit a non-function!")  # TODO specific exceptions
+        raise InvalidTypeForFunctionSubmission(type(func))
     if getattr(func, '__name__', '') == '<lambda>':
-        raise RuntimeError("Can't submit a lambda function!")
+        raise InvalidTypeForFunctionSubmission('<lambda>')
 
 
 def _write_function_script_file(path: Path, entry_point_function, args, kwargs) -> Path:
