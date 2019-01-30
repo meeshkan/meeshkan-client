@@ -279,15 +279,15 @@ Sometimes, we only need to test out an individual function, or perhaps you would
 download, parse and process a dataset. Meeshkan also offers a solution for that via `meeshkan.submit_function`.
 Consider:
 ```python
-def test(optional_args=DEFAULT_VALUES):
+def train(optional_args=DEFAULT_VALUES):
     # some training process with global dataset, model, optimizer, etc...
     ...
 
 
-meeshkan.submit_function(test)
-meeshkan.submit_function(test, args=[50])  # Sends 50 to optional_args
-meeshkan.submit_function(test, args=[[50]])  # Sends [50] to optional_args
-meeshkan.submit_function(test, kwargs={'optional_args': [50]})  # Sends [50] to optional_args via kwargs
+meeshkan.submit_function(train)
+meeshkan.submit_function(train, args=[50])  # Sends 50 to optional_args
+meeshkan.submit_function(train, args=[[50]])  # Sends [50] to optional_args
+meeshkan.submit_function(train, kwargs={'optional_args': [50]})  # Sends [50] to optional_args via kwargs
 ```
 
 ## Working with Amazon SageMaker

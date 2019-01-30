@@ -83,7 +83,7 @@ def submit_function(func, job_name: str = None, report_interval: Optional[float]
     :param args: An optional list of arguments to send to the function.
     :param kwargs: An optional dictionary of keyword arguments to send to the function
 
-    :raises InvalidTypeForFunctionSubmission
+    :raises InvalidTypeForFunctionSubmission if `func` is not a well defined function.
     """
     _verify_valid_callable(func)
 
