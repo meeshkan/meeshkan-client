@@ -96,7 +96,7 @@ def _verify_valid_callable(func):
     if not isinstance(func, FunctionType):
         raise InvalidTypeForFunctionSubmission(type(func))
     if getattr(func, '__name__', '') == '<lambda>':
-        raise InvalidTypeForFunctionSubmission('<lambda>')
+        raise InvalidTypeForFunctionSubmission(func.__name__)
 
 
 def _write_function_script_file(path: Path, entry_point_function, args, kwargs) -> Path:
