@@ -59,21 +59,20 @@ def submit_function(function_or_name, *args, **kwargs):
         func = function_or_name
     else:
         func = globs[function_or_name]  # Attempt to get Callable from global scope
-    function_name = func.__name__
+
     script_path = Path(tempfile.mkdtemp())  # Create a temporary folder for the script and all that
     globs_file = _write_globals(func, script_path)  # Serialize and write the globals relevant for the function
     # Write the actual code  (contains a logical entry point and the function code)
-    script_file = _write_function_script_file(script_path, globs_file, function_name, func, args, kwargs)
+    script_file = _write_function_script_file(script_path, globs_file, func, args, kwargs)
 
     return api.submit((str(script_file), ))  # Create a job
 
 
-def _write_function_script_file(path: Path, globs_file: Path, func_name, entry_point_function, args, kwargs) -> Path:
+def _write_function_script_file(path: Path, globs_file: Path, entry_point_function, args, kwargs) -> Path:
     """Writes a .py file with basic functionality: an entry point, a deserializer, and a globals-loading function.
 
     :param path: The path to write in (absolute path)
     :param globs_file: Absolute path to global file
-    :param func_name: Name of entry point function
     :param entry_point_function: Callable - entry point function
     :param args: Serialized *args argument for entry point function
     :param kwargs: Serialized **kwargs argument for entry point function
@@ -84,7 +83,8 @@ def _write_function_script_file(path: Path, globs_file: Path, func_name, entry_p
     deserialize_func_name = _generate_random_function_name()
     serialized_args = repr(Serializer.serialize(args))  # `repr` to escape any special characters
     serialized_kwargs = repr(Serializer.serialize(kwargs))
-    script_file = path.joinpath("{fname}.ipy".format(fname=func_name))
+    script_file = path.joinpath("{fname}.ipy".format(fname=entry_point_function.__name__))
+
     with script_file.open('w') as script_fd:
         script_fd.write(Serializer.deserialize_func_as_str(deserialize_func_name))
         script_fd.write("\n\n")
