@@ -122,12 +122,21 @@ def _write_function_script_file(path: Path, entry_point_function, args, kwargs) 
         script_fd.write(Serializer.deserialize_func_as_str(deserialize_func_name))
         script_fd.write("\n\n")
         script_fd.write(_global_loading_function(load_globs_func_name, globs_file, deserialize_func_name))
-        script_fd.write(inspect.getsource(entry_point_function))
+        script_fd.write(_unindent(inspect.getsource(entry_point_function)))
         script_fd.write("\n\n")
         script_fd.write(_entry_point_for_custom_script(name, load_globs_func_name, deserialize_func_name,
                                                        serialized_args, serialized_kwargs))
         script_fd.flush()
     return script_file
+
+
+def _unindent(content: str) -> str:
+    """Given some contents, unindents the contents so that all lines begins with indentation relevant to the first line.
+    """
+    content_lines = content.splitlines()
+    indentation = len(content_lines[0]) - len(content_lines[0].lstrip())
+    unindented_content_lines = [line[indentation:] for line in content_lines]
+    return "\n".join(unindented_content_lines)
 
 
 def _write_globals(func, path: Path) -> Path:
