@@ -49,7 +49,8 @@ def submit_notebook(job_name: str = None, report_interval: Optional[float] = Non
     return None  # Return None so we don't crash the notebook/caller;
 
 
-def submit_function(function_or_name, job_name: str = None, report_interval: Optional[float] = None, *args, **kwargs):
+def submit_function(function_or_name, job_name: str = None, report_interval: Optional[float] = None,
+                    args: List[Any] = None, kwargs: Dict[str, Any] = None):
     """
     Submits a given function for separate execution.
     Relevant global variables are serialized in the process and are not updated when the job is done.
@@ -79,7 +80,7 @@ def submit_function(function_or_name, job_name: str = None, report_interval: Opt
     :param job_name: An optional name for the job.
     :param report_interval: An optional report interval for the job.
     :param args: An optional list of arguments to send to the function.
-    :param kwargs: An optional list of keyword arguments to send to the function
+    :param kwargs: An optional dictionary of keyword arguments to send to the function
     """
     api = Service.api()  # Raise if agent is not running
     try:
@@ -114,8 +115,8 @@ def _write_function_script_file(path: Path, globs_file: Path, entry_point_functi
     # Get random function names and serialize args and kwargs
     load_globs_func_name = _generate_random_function_name()
     deserialize_func_name = _generate_random_function_name()
-    serialized_args = repr(Serializer.serialize(args))  # `repr` to escape any special characters
-    serialized_kwargs = repr(Serializer.serialize(kwargs))
+    serialized_args = repr(Serializer.serialize(args or []))  # `repr` to escape any special characters
+    serialized_kwargs = repr(Serializer.serialize(kwargs or {}))
     script_file = path.joinpath("{fname}.ipy".format(fname=entry_point_function.__name__))
 
     with script_file.open('w') as script_fd:
