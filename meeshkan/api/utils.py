@@ -42,13 +42,45 @@ def submit_notebook(job_name: str = None, report_interval: Optional[float] = Non
                                           list_servers_function=notebookapp.list_running_servers,
                                           connection_file_function=ipykernel.get_connection_file,
                                           notebook_password=notebook_password)
-        return api.submit((path,), name=job_name, poll_interval=report_interval)  # Submit notebook
+        with api:  # Close Pyro proxy automatically
+            return api.submit((path,), name=job_name, poll_interval=report_interval)  # Submit notebook
     except MismatchingIPythonKernelException:  # Ran from ipython but not from jupyter notebook -> expected behaviour
         print("submit_notebook(): Not run from notebook interpreter; ignoring...")
     return None  # Return None so we don't crash the notebook/caller;
 
 
-def submit_function(function_or_name, *args, **kwargs):
+def submit_function(function_or_name, job_name: str = None, report_interval: Optional[float] = None, *args, **kwargs):
+    """
+    Submits a given function for separate execution.
+    Relevant global variables are serialized in the process and are not updated when the job is done.
+    Requires the agent to be running.
+    This can be invoked from a script, IPython terminal, or Jupyter Notebook, allowing fast prototyping.
+
+    Example::
+
+        >>> def train():
+            ... # Does stuff with globally-defined `model`, `train_set`, `optimizer`, etc...
+            ... # Send notification when "loss" is less than 0.8
+            ... meeshkan.add_condition("loss", lambda v: v < 0.8)
+            ... # Enter training loop
+            ... for i in range(EPOCHS):
+            ...     # Compute loss
+            ...    loss = ...
+            ...    # Report loss to the Meeshkan agent
+            ...    meeshkan.report_scalar("loss", loss)
+
+        >>> meeshkan.submit_function(train)  # Submit default training
+        >>> optimizer.learning_rate = 0.001
+        >>> meeshkan.submit_function(train, job_name="lr=0.001")  # Submit with lower learning rate
+        >>> EPOCHS = 1
+        >>> meeshkan.submit_function('train', job_name="run for one epoch")  # Can also use the function name...
+
+    :param function_or_name: A callable or a name of a callable, that resides within the global scope.
+    :param job_name: An optional name for the job.
+    :param report_interval: An optional report interval for the job.
+    :param args: An optional list of arguments to send to the function.
+    :param kwargs: An optional list of keyword arguments to send to the function
+    """
     api = Service.api()  # Raise if agent is not running
     try:
         globs = get_ipython().user_ns
@@ -65,7 +97,8 @@ def submit_function(function_or_name, *args, **kwargs):
     # Write the actual code  (contains a logical entry point and the function code)
     script_file = _write_function_script_file(script_path, globs_file, func, args, kwargs)
 
-    return api.submit((str(script_file), ))  # Create a job
+    with api:  # Close Pyro proxy automatically
+        return api.submit((str(script_file), ), name=job_name, poll_interval=report_interval)  # Create a job
 
 
 def _write_function_script_file(path: Path, globs_file: Path, entry_point_function, args, kwargs) -> Path:
