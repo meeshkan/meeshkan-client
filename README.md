@@ -63,7 +63,8 @@ Setup your credentials:
 $ meeshkan setup
 ```
 You are prompted for your __client secret__ that you should have received when signing up, so fill that in.  
-You will further be prompted for a GitHub access token. This is *strictly optional* and you do not need to fill that in.
+You will further be prompted for a GitHub access token. This is *strictly optional* and you only need to fill that in
+if you want to run jobs from GitHub.
 It's used for remotely running git repositories, branches, and commits.  
 The command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, agent logs
 and outputs from your submitted jobs.
