@@ -48,71 +48,70 @@ def submit_notebook(job_name: str = None, report_interval: Optional[float] = Non
     return None  # Return None so we don't crash the notebook/caller;
 
 
-def submit_function(function_name, *args, **kwargs):
-    try:
-        shell = get_ipython()
-    except NameError:
-        raise  # TODO - do we want to raise here? print a custom error?
-        # return None
+def submit_function(function_or_name, *args, **kwargs):
     api = Service.api()  # Raise if agent is not running
+    try:
+        globs = get_ipython().user_ns
+    except NameError:
+        globs = globals()
 
-    # Write temporary file and all that
-    func = shell.user_ns[function_name]
-    script_path = Path(tempfile.mkdtemp())
-    fname = "{fname}.ipy".format(fname=function_name)  # ipy suffix to trigger ipython as interpreter
-    script_file = script_path.joinpath(fname)
-
-    globs_file = script_path.joinpath("globs.msk")
-    _write_globals(func, globs_file)
-
-    load_globs_func_name = _generate_random_function_name()
-    deserialize_func_name = _generate_random_function_name()
-    args = repr(Serializer.serialize(args))  # `repr` to escape any special characters
-    kwargs = repr(Serializer.serialize(kwargs))
-
+    if callable(function_or_name):
+        func = function_or_name
+    else:
+        func = globs[function_or_name]  # Attempt to get Callable from global scope
+    function_name = func.__name__
+    script_path = Path(tempfile.mkdtemp())  # Create a temporary folder for the script and all that
+    globs_file = _write_globals(func, script_path)  # Serialize and write the globals relevant for the function
     # Write the actual code  (contains a logical entry point and the function code)
-    _write_function_script_file(script_file, globs_file, func, deserialize_func_name, load_globs_func_name, args,
-                                kwargs)
+    script_file = _write_function_script_file(script_path, globs_file, function_name, func, args, kwargs)
 
     return api.submit((str(script_file), ))  # Create a job
 
 
-def _write_function_script_file(path: Path, globs_file: Path, entry_point_function, deserializing_function,
-                                globals_loading_function, serialized_args, serialized_kwargs):
+def _write_function_script_file(path: Path, globs_file: Path, func_name, entry_point_function, args, kwargs) -> Path:
     """Writes a .py file with basic functionality: an entry point, a deserializer, and a globals-loading function.
 
     :param path: The path to write in (absolute path)
     :param globs_file: Absolute path to global file
+    :param func_name: Name of entry point function
     :param entry_point_function: Callable - entry point function
-    :param deserializing_function: Name of deserializing function
-    :param globals_loading_function: Name of global-loading function
-    :param serialized_args: Serialized *args argument for entry point function
-    :param serialized_kwargs: Serialized **kwargs argument for entry point function
+    :param args: Serialized *args argument for entry point function
+    :param kwargs: Serialized **kwargs argument for entry point function
+    :return Path to generated script file
     """
-    with path.open('w') as script_fd:
-        script_fd.write(Serializer.deserialize_func_as_str(deserializing_function))
+    # Get random function names and serialize args and kwargs
+    load_globs_func_name = _generate_random_function_name()
+    deserialize_func_name = _generate_random_function_name()
+    serialized_args = repr(Serializer.serialize(args))  # `repr` to escape any special characters
+    serialized_kwargs = repr(Serializer.serialize(kwargs))
+    script_file = path.joinpath("{fname}.ipy".format(fname=func_name))
+    with script_file.open('w') as script_fd:
+        script_fd.write(Serializer.deserialize_func_as_str(deserialize_func_name))
         script_fd.write("\n\n")
-        script_fd.write(_global_loading_function(globals_loading_function, globs_file, deserializing_function))
+        script_fd.write(_global_loading_function(load_globs_func_name, globs_file, deserialize_func_name))
         script_fd.write(inspect.getsource(entry_point_function))
         script_fd.write("\n\n")
-        script_fd.write(_entry_point_for_custom_script(entry_point_function.__name__, globals_loading_function,
-                                                       deserializing_function, serialized_args, serialized_kwargs))
+        script_fd.write(_entry_point_for_custom_script(entry_point_function.__name__, load_globs_func_name,
+                                                       deserialize_func_name, serialized_args, serialized_kwargs))
         script_fd.flush()
+    return script_file
 
 
-
-def _write_globals(func, path: Path):
+def _write_globals(func, path: Path) -> Path:
     """Fetches, serialized and writes current globals required for `func` to `path`.
 
     :param func: A callable that may or may not use global variables
     :param path: Where to write the serialized globals
+    :return Path object to the serialized globals file
     """
     globs = globalvars(func)  # Globals that are relevant for the function to run
     globs.update({'__name__': '__main__'})  # Include the entry point for the script
     globs_serialized = Serializer.serialize(globs)
-    with path.open('w') as globs_fd:
+    globs_file = path.joinpath("globs.msk")
+    with globs_file.open('w') as globs_fd:
         globs_fd.write(globs_serialized)
         globs_fd.flush()
+    return globs_file
 
 
 def _entry_point_for_custom_script(func_name, load_globals_func_name, deserialize_func_name, args, kwargs):
