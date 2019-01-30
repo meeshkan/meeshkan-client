@@ -7,6 +7,7 @@ import tempfile
 import inspect
 from random import choice
 import string
+from types import FunctionType
 
 from dill.detect import globalvars
 import requests
@@ -21,6 +22,7 @@ from ..core.serializer import Serializer
 __all__ = ["submit_notebook", "submit_function"]
 
 LOGGER = logging.getLogger(__file__)
+VALID_CHARACTERS = string.ascii_letters + '_'
 
 def submit_notebook(job_name: str = None, report_interval: Optional[float] = None, notebook_password: str = None):
     """
@@ -49,7 +51,7 @@ def submit_notebook(job_name: str = None, report_interval: Optional[float] = Non
     return None  # Return None so we don't crash the notebook/caller;
 
 
-def submit_function(function_or_name, job_name: str = None, report_interval: Optional[float] = None,
+def submit_function(func, job_name: str = None, report_interval: Optional[float] = None,
                     args: List[Any] = None, kwargs: Dict[str, Any] = None):
     """
     Submits a given function for separate execution.
@@ -74,50 +76,49 @@ def submit_function(function_or_name, job_name: str = None, report_interval: Opt
         >>> optimizer.learning_rate = 0.001
         >>> meeshkan.submit_function(train, job_name="lr=0.001")  # Submit with lower learning rate
         >>> EPOCHS = 1
-        >>> meeshkan.submit_function('train', job_name="run for one epoch")  # Can also use the function name...
+        >>> meeshkan.submit_function(train, job_name="run for one epoch")  # etc...
 
-    :param function_or_name: A callable or a name of a callable, that resides within the global scope.
+    :param func: A function to run
     :param job_name: An optional name for the job.
     :param report_interval: An optional report interval for the job.
     :param args: An optional list of arguments to send to the function.
     :param kwargs: An optional dictionary of keyword arguments to send to the function
     """
     api = Service.api()  # Raise if agent is not running
-    try:
-        globs = get_ipython().user_ns
-    except NameError:
-        globs = globals()
 
-    if callable(function_or_name):
-        func = function_or_name
-    else:
-        func = globs[function_or_name]  # Attempt to get Callable from global scope
-
-    script_path = Path(tempfile.mkdtemp())  # Create a temporary folder for the script and all that
-    globs_file = _write_globals(func, script_path)  # Serialize and write the globals relevant for the function
-    # Write the actual code  (contains a logical entry point and the function code)
-    script_file = _write_function_script_file(script_path, globs_file, func, args, kwargs)
+    _verify_valid_callable(func)
+    script_path = Path(tempfile.mkdtemp())  # Create a temporary folder for the script
+    script_file = _write_function_script_file(script_path, func, args, kwargs)  # Write the actual code
 
     with api:  # Close Pyro proxy automatically
         return api.submit((str(script_file), ), name=job_name, poll_interval=report_interval)  # Create a job
 
 
-def _write_function_script_file(path: Path, globs_file: Path, entry_point_function, args, kwargs) -> Path:
+def _verify_valid_callable(func):
+    if not isinstance(func, FunctionType):
+        raise RuntimeError("Can't submit a non-function!")  # TODO specific exceptions
+    if getattr(func, '__name__', '') == '<lambda>':
+        raise RuntimeError("Can't submit a lambda function!")
+
+
+def _write_function_script_file(path: Path, entry_point_function, args, kwargs) -> Path:
     """Writes a .py file with basic functionality: an entry point, a deserializer, and a globals-loading function.
 
     :param path: The path to write in (absolute path)
-    :param globs_file: Absolute path to global file
     :param entry_point_function: Callable - entry point function
     :param args: Serialized *args argument for entry point function
     :param kwargs: Serialized **kwargs argument for entry point function
     :return Path to generated script file
     """
-    # Get random function names and serialize args and kwargs
+    # Get random function names, serialize args and kwargs, write globals file, etc
     load_globs_func_name = _generate_random_function_name()
     deserialize_func_name = _generate_random_function_name()
     serialized_args = repr(Serializer.serialize(args or []))  # `repr` to escape any special characters
     serialized_kwargs = repr(Serializer.serialize(kwargs or {}))
-    script_file = path.joinpath("{fname}.ipy".format(fname=entry_point_function.__name__))
+    # Get function name or default value and strip any non-valid characters from name
+    name = ''.join([x for x in getattr(entry_point_function, '__name__', 'my_function') if x in VALID_CHARACTERS])
+    script_file = path.joinpath("{fname}.ipy".format(fname=name))
+    globs_file = _write_globals(entry_point_function, path)  # Serialize & write relevant globals for entry point
 
     with script_file.open('w') as script_fd:
         script_fd.write(Serializer.deserialize_func_as_str(deserialize_func_name))
@@ -125,8 +126,8 @@ def _write_function_script_file(path: Path, globs_file: Path, entry_point_functi
         script_fd.write(_global_loading_function(load_globs_func_name, globs_file, deserialize_func_name))
         script_fd.write(inspect.getsource(entry_point_function))
         script_fd.write("\n\n")
-        script_fd.write(_entry_point_for_custom_script(entry_point_function.__name__, load_globs_func_name,
-                                                       deserialize_func_name, serialized_args, serialized_kwargs))
+        script_fd.write(_entry_point_for_custom_script(name, load_globs_func_name, deserialize_func_name,
+                                                       serialized_args, serialized_kwargs))
         script_fd.flush()
     return script_file
 
@@ -171,8 +172,7 @@ def _global_loading_function(func_name, globals_file, deserialize_func_name):
 
 
 def _generate_random_function_name(length=16):
-    characters = string.ascii_letters + '_'
-    return "".join(choice(characters) for _ in range(length))
+    return "".join(choice(VALID_CHARACTERS) for _ in range(length))
 
 
 def _verify_ipython_notebook_kernel(ipython_kernel):

@@ -284,10 +284,9 @@ def test(optional_args=DEFAULT_VALUES):
 
 
 meeshkan.submit_function(test)
-meeshkan.submit_function('test')  # Identical to above - you can use both the function name or the function itself
 meeshkan.submit_function(test, args=[50])  # Sends 50 to optional_args
-meeshkan.submit_function('test', args=[[50]])  # Sends [50] to optional_args
-meeshkan.submit_function('test', kwargs={'optional_args': [50]})  # Sends [50] to optional_args via kwargs
+meeshkan.submit_function(test, args=[[50]])  # Sends [50] to optional_args
+meeshkan.submit_function(test, kwargs={'optional_args': [50]})  # Sends [50] to optional_args via kwargs
 ```
 
 ## Working with Amazon SageMaker
