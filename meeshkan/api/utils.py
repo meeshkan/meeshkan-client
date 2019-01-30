@@ -39,12 +39,11 @@ def submit_notebook(job_name: str = None, report_interval: Optional[float] = Non
         get_ipython_func = None
 
     try:
-        api = Service.api()  # Raise if agent is not running
         path = _get_notebook_path_generic(get_ipython_function=get_ipython_func,
                                           list_servers_function=notebookapp.list_running_servers,
                                           connection_file_function=ipykernel.get_connection_file,
                                           notebook_password=notebook_password)
-        with api:  # Close Pyro proxy automatically
+        with Service.api() as api:  # Close Pyro proxy automatically, raise if agent is not running
             return api.submit((path,), name=job_name, poll_interval=report_interval)  # Submit notebook
     except MismatchingIPythonKernelException:  # Ran from ipython but not from jupyter notebook -> expected behaviour
         print("submit_notebook(): Not run from notebook interpreter; ignoring...")
@@ -84,13 +83,12 @@ def submit_function(func, job_name: str = None, report_interval: Optional[float]
     :param args: An optional list of arguments to send to the function.
     :param kwargs: An optional dictionary of keyword arguments to send to the function
     """
-    api = Service.api()  # Raise if agent is not running
-
     _verify_valid_callable(func)
+
     script_path = Path(tempfile.mkdtemp())  # Create a temporary folder for the script
     script_file = _write_function_script_file(script_path, func, args, kwargs)  # Write the actual code
 
-    with api:  # Close Pyro proxy automatically
+    with Service.api() as api:  # Close Pyro proxy automatically, raise if agent is not running
         return api.submit((str(script_file), ), name=job_name, poll_interval=report_interval)  # Create a job
 
 
