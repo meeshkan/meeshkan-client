@@ -139,7 +139,7 @@ def report(job_identifier):
     """
     Print the latest scalars reported for a job.
 
-    ``JOB_IDENTIFIER`` is either the job's ID, name, or pattern to match against the job's name.
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
@@ -156,7 +156,7 @@ def report(job_identifier):
 
 @cli.command()
 @click.argument('args', nargs=-1)
-@click.option("--name", type=str, help="Job name")
+@click.option("--name", "-n", type=str, help="Job name")
 @click.option("--report-interval", "-r", type=int, help="Number of seconds between each report for this job.",
               default=Job.DEF_POLLING_INTERVAL, show_default=True)
 def submit(args, name, report_interval):
@@ -186,7 +186,7 @@ def cancel_job(job_identifier):
     """
     Cancel a queued/running job.
 
-    ``JOB_IDENTIFIER`` is either the job's ID, name, or pattern to match against the job's name.
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
@@ -239,7 +239,7 @@ def logs(job_identifier):
     """
     Retrieve the logs for a given job.
 
-    ``JOB_IDENTIFIER`` is either the job's ID, name, or pattern to match against the job's name.
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
@@ -264,7 +264,7 @@ def notifications(job_identifier):
     """
     Retrieve notification history for a given job.
 
-    ``JOB_IDENTIFIER`` is either the job's ID, name, or pattern to match against the job's name.
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
