@@ -163,7 +163,7 @@ def submit(args, name, report_interval):
     """
     Submit a new job to the agent.
 
-    ``ARGS`` can be either a single file (extension ``.py``, ``.ipynb``, or ``.sh``
+    ``ARGS`` can be either a single file (extension ``.py``, ``.ipynb``, or ``.sh``)
     or a shell command such as ``echo Hello``.
     """
     if not args:
