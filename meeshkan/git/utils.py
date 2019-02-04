@@ -13,27 +13,40 @@ __all__ = ["submit_git"]
 
 def submit_git(repo: str, entry_point: str, branch: str = None, commit_sha: str = None,
                job_name: Optional[str] = None, report_interval_secs: Optional[float] = None):
-    """Submits a git repository as a job to the agent. The agent must already be running.
+    """Submits a GitHub repository as a job to the agent. The agent must be running.
 
     Example::
-        # A basic call would pull the repository at it's current state (default branch) and run the entry point file.
-        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
+
+        # A basic call would pull the repository at it's current state (default branch) and
+        # run the entry point file.
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client",
+                            entry_point="examples/pytorch_mnist.py",
                             job_name="example #1", report_interval_secs=60)
 
         # A call with branch name would run the given branch from it's most updated commit.
-        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
-                            branch="dev", job_name="example #2", report_interval_secs=10)
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client",
+                            entry_point="examples/pytorch_mnist.py",
+                            branch="dev",
+                            job_name="example #2",
+                            report_interval_secs=10)
 
-        # A call with a given commit will locally reset the repository to the state for that commit
-        # Commit_sha can be either short SHA or the full one
-        # In this case, either "61657d7" or "1657d79bfd92fda7c19d6ec273b09068f96a777" would be fine.
-        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
-                            commit_sha="61657d7", job_name="example #3", report_interval_secs=30)
+        # A call with a given commit will locally reset the repository to the state for
+        # that commit. Commit_sha can be either short SHA or the full one.
+        # In this case, either "61657d7" or "1657d79bfd92fda7c19d6ec273b09068f96a777"
+        # would be fine.
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client",
+                            entry_point="examples/pytorch_mnist.py",
+                            commit_sha="61657d7",
+                            job_name="example #3",
+                            report_interval_secs=30)
 
-        # Branch and commit_sha may be used together, but commit SHA has precedence, so the following is identical to
-        # example #3:
-        meeshkan.git.submit(repo="Meeshkan/meeshkan-client", entry_point="examples/pytorch_mnist.py",
-                            branch="release-0.1.0", commit_sha="61657d7", job_name="identical to example #3")
+        # Branch and commit_sha may be used together, but commit SHA has precedence,
+        # so the following is identical to example #3:
+        meeshkan.git.submit(repo="Meeshkan/meeshkan-client",
+                            entry_point="examples/pytorch_mnist.py",
+                            branch="release-0.1.0",
+                            commit_sha="61657d7",
+                            job_name="identical to example #3")
 
     :param repo: A string describing a **GitHub** repository in plain <user or organization>/<repo name> format
     :param entry_point: A path (relevant to the repository) for the entry point (or file to run)
