@@ -183,7 +183,7 @@ class Scheduler:
             this condition is met
         """
         job_id = self.__get_job_by_pid(pid)
-        job = self.get_job_by_id(job_id=job_id):
+        job = self.get_job_by_id(job_id=job_id)
         job.add_condition(*vals, condition=condition, only_relevant=only_relevant)
 
     def report_scalar(self, pid, name, val):
