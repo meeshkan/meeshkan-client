@@ -1,5 +1,5 @@
 """Provides utilities for pulling and parsing Git commits"""
-from typing import Tuple, Optional, Union
+from typing import Optional, Union
 import tempfile
 import shutil
 import os
@@ -11,19 +11,20 @@ from ..core.service import Service
 
 __all__ = ["submit_git"]
 
+
 def submit_git(repo: str, entry_point: str, branch: str = None, commit_sha: str = None,
                job_name: Optional[str] = None, report_interval_secs: Optional[float] = None):
     """Submits a GitHub repository as a job to the agent. The agent must be running.
 
     Example::
 
-        # A basic call would pull the repository at it's current state (default branch) and
+        # A basic call would pull the repository at its current state (default branch) and
         # run the entry point file.
         meeshkan.git.submit(repo="Meeshkan/meeshkan-client",
                             entry_point="examples/pytorch_mnist.py",
                             job_name="example #1", report_interval_secs=60)
 
-        # A call with branch name would run the given branch from it's most updated commit.
+        # A call with branch name would run the given branch from its most updated commit.
         meeshkan.git.submit(repo="Meeshkan/meeshkan-client",
                             entry_point="examples/pytorch_mnist.py",
                             branch="dev",
@@ -54,7 +55,7 @@ def submit_git(repo: str, entry_point: str, branch: str = None, commit_sha: str 
     :param commit_sha: Optional string, a commit reference to reset to
     :param job_name: Optional name to give to the job
     :param report_interval_secs: Optional float, notification report interval in seconds.
-    :returns Job object
+    :returns: :py:class:`Job` object
     """
     api = Service.api()  # Raise if agent is not running
     gitrunner = GitRunner(repo)
