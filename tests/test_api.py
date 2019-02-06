@@ -5,6 +5,8 @@ from pathlib import Path
 import uuid
 import os
 import pytest
+import subprocess
+import sys
 
 from meeshkan.core.api import Api
 from meeshkan.core.scheduler import Scheduler, QueueProcessor
@@ -13,11 +15,11 @@ from meeshkan.core.job import Job, JobStatus, SageMakerJob, ExternalJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor
 from meeshkan.core.tasks import TaskType, Task
 from meeshkan.api.utils import _notebook_authenticated_session as nb_authenticate, submit_notebook, \
-    _get_notebook_path_generic
+    _get_notebook_path_generic, submit_function
 
 from meeshkan.notifications.notifiers import Notifier
 from meeshkan import config
-from meeshkan.exceptions import MismatchingIPythonKernelException
+from meeshkan.exceptions import MismatchingIPythonKernelException, InvalidTypeForFunctionSubmission
 
 from .utils import wait_for_true, MockNotifier, NBServer, MockResponse
 
@@ -423,3 +425,79 @@ class TestNotebookPathDiscovery:
             with pytest.raises(RuntimeError):
                 _get_notebook_path_generic(get_ipython_function=self.get_valid_shell, list_servers_function=fake_server,
                                            connection_file_function=self.get_kernel_file)
+
+class TestFunctionSubmission:
+    def test_fail_verify(self):
+        test_cases = [lambda: None, "", []]
+        with patch.object(Service, 'api') as mock_api:
+            for test_case in test_cases:
+                with pytest.raises(InvalidTypeForFunctionSubmission) as excinfo:
+                    submit_function(test_case)
+                assert mock_api.call_count == 0, "Expected to crash before call to API"
+                assert getattr(test_case, '__name__', str(type(test_case))) in str(excinfo), "Expected object type to" \
+                                                                                             " appear in exception"
+
+    def test_successful_submission_with_vars_and_args_or_kwargs(self):
+        global some_random_global_variable_with_long_name  # Defined for serializing globals
+        some_random_global_variable_with_long_name = 5
+        fname = None  # For capturing from calls to api.submit
+        args = [1]
+        kwargs = {'a': 2}
+
+        def empty_test_function(a):
+            print(some_random_global_variable_with_long_name + a)
+
+        def fake_submit(args, name, poll_interval):
+            nonlocal fname
+            fname = args[0]
+
+        def verify_content(expected_result):
+            proc = subprocess.run([sys.executable, fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            assert proc.returncode == 0
+            assert proc.stdout.decode() == "{expected}\n".format(expected=expected_result)
+            assert proc.stderr.decode() == "", "Expected empty stderr"
+
+        with patch.object(Service, 'api') as mock_api:
+            # redirect api.submit(...) in context manager
+            mock_api.return_value.__enter__.return_value.submit = fake_submit
+            submit_function(empty_test_function, args=args)
+            verify_content(some_random_global_variable_with_long_name + args[0])
+
+            submit_function(empty_test_function, kwargs=kwargs)
+            verify_content(some_random_global_variable_with_long_name + kwargs['a'])
+
+            assert mock_api.call_count == 2, "Expected Api object to be called twice: once for each test Api " \
+                                             "initialization"
+            assert mock_api.return_value.__enter__.call_count == 2, "Expected Api to be called once more for each " \
+                                                                    "object - in __enter__"
+            assert mock_api.return_value.__exit__.call_count == 2, "Expected Api to be called once more for each " \
+                                                                    "object - in __exit__"
+
+        del some_random_global_variable_with_long_name
+
+    def test_failing_submission_with_invalid_args_or_kwargs(self):
+        fname = None  # For capturing from calls to api.submit
+        args = []  # Not enough arguments
+        kwargs = {'a': 2, 'b': 3}  # Too many arguments
+
+        def empty_test_function(a):
+            print(a)
+
+        def fake_submit(args, name, poll_interval):
+            nonlocal fname
+            fname = args[0]
+
+        def verify_content(error_msg):
+            proc = subprocess.run([sys.executable, fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            assert proc.returncode == 1
+            assert proc.stdout.decode() == "", "Expected empty stdout"
+            assert error_msg in proc.stderr.decode()
+
+        with patch.object(Service, 'api') as mock_api:
+            # redirect api.submit(...) in context manager
+            mock_api.return_value.__enter__.return_value.submit = fake_submit
+            submit_function(empty_test_function, args=args)
+            verify_content("missing 1 required positional argument: 'a'")
+
+            submit_function(empty_test_function, kwargs=kwargs)
+            verify_content("got an unexpected keyword argument 'b'")

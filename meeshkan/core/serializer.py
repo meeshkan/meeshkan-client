@@ -18,3 +18,10 @@ class Serializer:
     @staticmethod
     def deserialize(content):
         return Serializer.LIB.loads(content.encode(Serializer.ENCODING))
+
+    @staticmethod
+    def deserialize_func_as_str(func_name):
+        return "import {lib}\ndef {func_name}(content):\n" \
+               "    return {lib}.loads(content.encode('{encoding}'))\n\n".format(func_name=func_name,
+                                                                                 lib=Serializer.NAME,
+                                                                                 encoding=Serializer.ENCODING)

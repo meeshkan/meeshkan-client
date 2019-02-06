@@ -61,9 +61,11 @@ class Configuration:
 
 
 class Credentials:
-
-    def __init__(self, refresh_token):
+    def __init__(self, refresh_token, git_access_token):
         self.refresh_token = refresh_token
+        if not git_access_token:
+            git_access_token = None  # Make sure we write None on values such as "", False, None, etc
+        self.git_access_token = git_access_token
 
     @staticmethod
     def from_isi(path: Path = CREDENTIALS_FILE):
@@ -74,16 +76,25 @@ class Credentials:
             raise FileNotFoundError("Create file {path} first.".format(path=path))
         conf = configparser.ConfigParser()
         conf.read(str(path))
-        return Credentials(refresh_token=conf['meeshkan']['token'])
+        return Credentials(refresh_token=conf.get('meeshkan', 'token', fallback=""),  # type: ignore
+                           git_access_token=conf.get('github', 'token', fallback=""))  # type: ignore
 
     @staticmethod
-    def to_isi(refresh_token: str, path: Path = CREDENTIALS_FILE):
-        """Creates the credential file with given refresh token. Overrides previous token if exists.
+    def to_isi(refresh_token: str = None, git_access_token: str = None, path: Path = CREDENTIALS_FILE):
+        """Creates the credential file with given refresh token, git_token or both. Overrides previous token if exists.
         Does not create missing folders along `path`, instead, raises FileNotFound exception.
-
         """
+        prev_creds = Credentials.from_isi(path)  # Restore from previous if not some arguments are not supplied
+        git_access_token = git_access_token or prev_creds.git_access_token
+        refresh_token = refresh_token or prev_creds.refresh_token
+        if not git_access_token:
+            if refresh_token is None:
+                raise ValueError("Nothing to write to ISI file.")
+            git_access_token = ""  # Make sure we write an empty string if no git_token is given
+
         with path.open("w") as credential_file:
             credential_file.write("[meeshkan]\ntoken={token}\n".format(token=refresh_token))
+            credential_file.write("\n[github]\ntoken={token}\n".format(token=git_access_token))
             credential_file.flush()
 
 

@@ -26,7 +26,7 @@ from .core.api import Api
 from .core.service import Service
 from .core.logger import setup_logging, remove_non_file_handlers
 from .core.job import Job
-from .__utils__ import save_token, get_auth, _get_api, _build_cloud_client
+from .__utils__ import get_auth, _get_api, _build_cloud_client
 from .agent import start as start_agent
 
 LOGGER = None
@@ -35,7 +35,9 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 class DefGroup(click.Group):
-    """Overriden Group class, so we can implement some logic before resolving commands."""
+    """
+    Overridden Group class, so we can implement some logic before resolving commands.
+    """
     DEF_CMD = ["submit"]
 
     def parse_args(self, ctx, args):  # For cases where the flags are given (i.e. `meeshkan --name ... <file>`)
@@ -58,7 +60,9 @@ class DefGroup(click.Group):
 def cli(debug, silent):
     """
     Command-line interface for working with the Meeshkan agent.
-    If no COMMAND is given, it is assumed to be `submit`.
+    If no ``COMMAND`` is given, it is assumed to be ``submit``.
+
+    Use ``meeshkan COMMAND -h`` to get help for given ``COMMAND``.
     """
     if not debug:
         sys.tracebacklimit = 0
@@ -73,13 +77,17 @@ def cli(debug, silent):
 @cli.command(name='help')
 @click.pass_context
 def help_cmd(ctx):
-    """Show this message and exit."""
+    """
+    Show this message and exit.
+    """
     print(ctx.parent.get_help())
 
 
 @cli.command()
 def setup():
-    """Configures the Meeshkan client."""
+    """
+    Configure the Meeshkan agent.
+    """
     print("Welcome to Meeshkan!\n")
     if os.path.isfile(meeshkan.config.CREDENTIALS_FILE):
         res = input("Credential file already exists! Are you sure you want to overwrite it? [Y]/n: ")
@@ -87,12 +95,17 @@ def setup():
             print("Aborting")
             sys.exit(2)
     token = input("Please enter your client secret: ")
-    save_token(token)
+    git_token = input("[Optional] Please enter a Github personal access token (or enter to skip): ")
+    meeshkan.config.ensure_base_dirs(verbose=False)
+    meeshkan.config.Credentials.to_isi(refresh_token=token, git_access_token=git_token)
     print("You're all set up! Now run \"meeshkan start\" to start the service.")
 
 
 @cli.command()
 def start():
+    """
+    Start the agent.
+    """
     try:
         start_agent()
     except meeshkan.exceptions.UnauthorizedRequestException as ex:
@@ -109,7 +122,9 @@ def start():
 
 @cli.command(name='status')
 def daemon_status():
-    """Checks and returns the service daemon status."""
+    """
+    Print the agent status.
+    """
     is_running = Service.is_running()
     status = "up and running" if is_running else "configured to run"
     print("Service is {status} on {host}:{port}".format(status=status, host=Service.HOST,
@@ -121,7 +136,11 @@ def daemon_status():
 @cli.command()
 @click.argument("job_identifier")
 def report(job_identifier):
-    """Returns latest scalar from given job identifier."""
+    """
+    Print the latest scalars reported for a job.
+
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
+    """
     api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
@@ -137,11 +156,16 @@ def report(job_identifier):
 
 @cli.command()
 @click.argument('args', nargs=-1)
-@click.option("--name", type=str)
+@click.option("--name", "-n", type=str, help="Job name")
 @click.option("--report-interval", "-r", type=int, help="Number of seconds between each report for this job.",
               default=Job.DEF_POLLING_INTERVAL, show_default=True)
 def submit(args, name, report_interval):
-    """Submits a new job to the service daemon."""
+    """
+    Submit a new job to the agent.
+
+    ``ARGS`` can be either a single file (extension ``.py``, ``.ipynb``, or ``.sh``)
+    or a shell command such as ``echo Hello``.
+    """
     if not args:
         print("CLI error: Specify job.")
         return
@@ -159,7 +183,11 @@ def submit(args, name, report_interval):
 @cli.command(name='cancel')
 @click.argument("job_identifier")
 def cancel_job(job_identifier):
-    """Cancels a queued/running job."""
+    """
+    Cancel a queued/running job.
+
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
+    """
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
@@ -178,7 +206,9 @@ def cancel_job(job_identifier):
 
 @cli.command()
 def stop():
-    """Stops the service daemon."""
+    """
+    Stop the agent.
+    """
     try:
         api = _get_api()  # type: Api
         api.stop()
@@ -190,7 +220,9 @@ def stop():
 
 @cli.command(name='list')
 def list_jobs():
-    """Lists the job queue and status for each job."""
+    """
+    List the job queue and status for each job.
+    """
     api = _get_api()  # type: Api
     jobs = api.list_jobs()
     if not jobs:
@@ -204,8 +236,11 @@ def list_jobs():
 @cli.command()
 @click.argument("job_identifier")
 def logs(job_identifier):
-    """Retrieves the logs for a given job. job_identifier can be UUID, job number of pattern for job name.
-    First job name that matches is accessed (allows patterns)."""
+    """
+    Retrieve the logs for a given job.
+
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
+    """
     api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
@@ -226,8 +261,11 @@ def logs(job_identifier):
 @cli.command()
 @click.argument("job_identifier")
 def notifications(job_identifier):
-    """Retrieves notification history for a given job. job_identifier can be UUID, job number of pattern for job name.
-    First job name that matches is accessed (allows patterns)."""
+    """
+    Retrieve notification history for a given job.
+
+    ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
+    """
     api = _get_api()
     job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
@@ -242,7 +280,8 @@ def notifications(job_identifier):
 
 @cli.command()
 def sorry():
-    """Send error logs to Meeshkan HQ. Sorry for inconvenience!
+    """
+    Send error logs to Meeshkan HQ. Sorry for inconvenience!
     """
     config, credentials = get_auth()
     status = 0
@@ -274,7 +313,9 @@ def sorry():
 
 @cli.command()
 def clear():
-    """Clears Meeshkan log and job directories in ~/.meeshkan."""
+    """
+    Clear Meeshkan log and job directories in ``~/.meeshkan``.
+    """
     print("Removing jobs directory at {}".format(meeshkan.config.JOBS_DIR))
     shutil.rmtree(str(meeshkan.config.JOBS_DIR))
     print("Removing logs directory at {}".format(meeshkan.config.LOGS_DIR))
@@ -285,7 +326,9 @@ def clear():
 @cli.command()
 @click.pass_context
 def clean(ctx):
-    """Alias for `meeshkan clear`."""
+    """
+    Alias for ``meeshkan clear``.
+    """
     ctx.invoke(clear)
 
 
@@ -303,7 +346,8 @@ def im_bored():
 
 
 def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
-    """Finds a job by accessing UUID, job numbers and job names.
+    """
+    Finds a job by accessing UUID, job numbers and job names.
     Returns the actual job-id if matching. Otherwise returns None.
     """
     # Determine identifier type and search over scheduler
