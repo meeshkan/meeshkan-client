@@ -5,6 +5,7 @@ For detailed API reference and usage instructions, please see [meeshkan-client.r
 
 ## Table of contents
 1. [Overview](#overview)
+1. [Quick start](#quick-start)
 1. [Command-line interface](#command-line-interface)
 1. [Usage as Python library](#usage-as-python-library)
 1. [Working with Amazon SageMaker](#working-with-amazon-sagemaker)
@@ -43,6 +44,10 @@ For detailed documentation of the library usage, see [below](#usage-as-python-li
 
 Note that using `meeshkan` in your Python scripts is optional (though recommended). If you do
 not specify reported scalars, you will only get notifications for when jobs start or finish.
+
+## Quick start
+
+Please see the instructions in [readthedocs.io](https://meeshkan-client.readthedocs.io/en/latest/#quick-start).
 
 ## Command-line interface
 To list available commands, execute `meeshkan` or `meeshkan help`:
