@@ -1,9 +1,10 @@
 # Meeshkan client
 This repository contains Meeshkan client-side code.
 
+For detailed API reference and usage instructions, please see [meeshkan-client.readthedocs.io](https://meeshkan-client.readthedocs.io).
+
 ## Table of contents
 1. [Overview](#overview)
-1. [Quick start](#quick-start)
 1. [Command-line interface](#command-line-interface)
 1. [Usage as Python library](#usage-as-python-library)
 1. [Working with Amazon SageMaker](#working-with-amazon-sagemaker)
@@ -42,97 +43,6 @@ For detailed documentation of the library usage, see [below](#usage-as-python-li
 
 Note that using `meeshkan` in your Python scripts is optional (though recommended). If you do
 not specify reported scalars, you will only get notifications for when jobs start or finish.
-
-## Quick start
-We recommend running all command-line commands below in a [Python virtual environment](https://virtualenv.pypa.io/en/latest/).
-
-#### Sign-up
-Sign up at [meeshkan.com](https://www.meeshkan.com) and you will get your __client secret__ via email.
-
-#### Installation
-Install `meeshkan` with [pip](https://pip.pypa.io/en/stable/installing/):
-```bash
-$ pip install meeshkan
-```
-
-If install fails, your Python version may be too old. Please try again with **Python >= 3.6.2**.
-
-#### Setup
-Setup your credentials:
-```bash
-$ meeshkan setup
-```
-You are prompted for your __client secret__ that you should have received when signing up, so fill that in.  
-You will further be prompted for a GitHub access token. This is *strictly optional* and you only need to fill that in
-if you want to run jobs from GitHub.
-It's used for remotely running git repositories, branches, and commits.  
-The command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, agent logs
-and outputs from your submitted jobs.
-
-Download example script called [report.py](https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py)
-from [meeshkan-client](https://github.com/Meeshkan/meeshkan-client/tree/dev/examples) repository to your current directory:
-```bash
-$ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py
-```
-
-#### Submitting jobs
-Start the agent:
-```bash
-$ meeshkan start
-```
-If starting the agent fails, check that your credentials are properly setup. Also check [known issues](#known-issues).
-
-Submit the example job with 10 second reporting interval:
-```bash
-$ meeshkan submit --name report-example --report-interval 10 report.py
-```
-For ease of use, we also offer the shorthand:
-```bash
-$ meeshkan --name report-example --report-interval 10 report.py
-```  
-If you setup Slack integration in [meeshkan.com](https://www.meeshkan.com),
-you should receive a notification for job being started. You should get notifications every ten seconds. The script
-runs for 20 seconds, so you should get one notification containing scalar values.
-
-#### Other helpful commands
-List running jobs:
-```bash
-$ meeshkan list
-```
-
-Retrieve logs for the job named `report-example`:
-```bash
-$ meeshkan logs report-example
-```
-
-Stop the agent:
-```bash
-$ meeshkan stop
-```
-
-#### PyTorch example
-You can use Meeshkan with any Python machine learning framework. As an example, let us use PyTorch to train a
-convolution neural network on MNIST.
-
-First install `torch` and `torchvision`:
-```bash
-$ pip install torch torchvision
-```
-
-Then download our [PyTorch example](https://github.com/Meeshkan/meeshkan-client/blob/dev/examples/pytorch_mnist.py):
-```bash
-$ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/pytorch_mnist.py
-```
-
-Ensure that the agent is running:
-```bash
-$ meeshkan start
-```
-
-Submit the PyTorch example with a one-minute report interval:
-```bash
-$ meeshkan submit --name pytorch-example --report-interval 60 pytorch_mnist.py
-```
 
 ## Command-line interface
 To list available commands, execute `meeshkan` or `meeshkan help`:
@@ -182,7 +92,6 @@ without time-based notifications (see [below](#reporting-scalars)). When present
 the *report interval* has elapsed. The report interval is measured in **seconds**.
 The default argument (if none are provided) is 3600 seconds (i.e. hourly notifications).
 
-
 ### List submitted jobs
 ```bash
 meeshkan list
@@ -219,6 +128,8 @@ meeshkan stop
 ```
 
 ## Usage as Python library
+
+For detailed API reference, see [meeshkan-client.readthedocs.io](https://meeshkan-client.readthedocs.io).
 
 ### General
 The purpose of the Python API is to be as intuitive, minimal and least invasive as possible.
