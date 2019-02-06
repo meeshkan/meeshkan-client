@@ -203,7 +203,7 @@ class Api:
     @Pyro4.expose
     def list_jobs(self):
         jobs = list()
-        for job in self.scheduler.jobs:
+        for job in self.scheduler.submitted_jobs.values():  # Only list submitted jobs for now, not blocking ones
             temp_job_dict = job.to_dict()
             temp_job_dict['last notification status'] = self.get_notification_status(job.id)
             jobs.append(temp_job_dict)
