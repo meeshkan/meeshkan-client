@@ -195,11 +195,7 @@ class CloudClient:
 
         tasks_json = data['popClientTasks']
 
-        def build_task(json_task):
-            task_type = TaskType[json_task['__typename']]
-            return Task(UUID(json_task['job']['id']), task_type=task_type)
-
-        tasks = [build_task(json_task) for json_task in tasks_json]
+        tasks = [TaskFactory.build(json_task) for json_task in tasks_json]
         return tasks
 
     def close(self):

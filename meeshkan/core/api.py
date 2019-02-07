@@ -13,6 +13,7 @@ from .scheduler import Scheduler
 from .service import Service
 from .tasks import TaskPoller, Task, TaskType
 from ..notifications.notifiers import Notifier
+from ..git import submit_git
 from ..__types__ import HistoryByScalar
 from .serializer import Serializer
 
@@ -104,20 +105,18 @@ class Api:
                      "(job ID {job_id}".format(job_id=task.job_id) if hasattr(task, 'job_id') else "")
         if task.type == TaskType.StopJobTask:
             self.scheduler.stop_job(task.job_id)
-        elif task.type == TaskType.CreateJobTask:
+        elif task.type == TaskType.CreateGitJobTask:
             """
             Fields should include:
-            args
-            cwd
             name  # Optional
+            repo
+            entry_point
+            branch  # Optional
+            commit_sha  # Optional
             poll_interval  # Optional
-            Git:  # Optional
-              repo
-              branch  # Optional
-              commit_sha  # Optional
-              entry_point  # Should be embodied in args
             """
-            pass
+            submit_git(repo=task.repo, entry_point=task.entry_point, branch=task.branch, commit_sha=task.commit_sha,
+                       job_name=task.job_name, report_interval_secs=task.report_interval)
 
     async def poll(self):
         if self.task_poller is not None:

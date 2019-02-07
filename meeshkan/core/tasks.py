@@ -15,13 +15,24 @@ __all__ = []  # type: List[str]
 
 class TaskType(Enum):
     StopJobTask = 0
-    CreateJobTask = 1
+    CreateGitJobTask = 1
 
 
 class Task:
-    def __init__(self, job_id: UUID, task_type: TaskType):
-        self.job_id = job_id
+    def __init__(self, task_type: TaskType, **kwargs):
         self.type = task_type
+        for key, value in kwargs:  # Add all keyword arguments as values
+            setattr(self, key, value)
+
+    def __getattr__(self, item):  # Don't raise any warnings for missing items, instead return None.
+        return getattr(self, item, None)
+
+
+class TaskFactory:
+    @staticmethod
+    def build(json_task):
+        task_type = TaskType[json_task['__typename']]
+        return Task(task_type=task_type, **{"job_id": UUID(json_task['job']['id'])})
 
 
 class TaskPoller:
