@@ -100,9 +100,24 @@ class Api:
         return ""
 
     async def handle_task(self, task: Task):
-        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        LOGGER.debug("Got a new task of type %s %s", task.type.name,
+                     "(job ID {job_id}".format(job_id=task.job_id) if hasattr(task, 'job_id') else "")
         if task.type == TaskType.StopJobTask:
             self.scheduler.stop_job(task.job_id)
+        elif task.type == TaskType.CreateJobTask:
+            """
+            Fields should include:
+            args
+            cwd
+            name  # Optional
+            poll_interval  # Optional
+            Git:  # Optional
+              repo
+              branch  # Optional
+              commit_sha  # Optional
+              entry_point  # Should be embodied in args
+            """
+            pass
 
     async def poll(self):
         if self.task_poller is not None:

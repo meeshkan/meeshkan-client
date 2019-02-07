@@ -15,6 +15,7 @@ __all__ = []  # type: List[str]
 
 class TaskType(Enum):
     StopJobTask = 0
+    CreateJobTask = 1
 
 
 class Task:
