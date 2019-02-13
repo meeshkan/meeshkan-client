@@ -19,20 +19,34 @@ class TaskType(Enum):
 
 
 class Task:
-    def __init__(self, task_type: TaskType, **kwargs):
+    def __init__(self, task_type: TaskType):
         self.type = task_type
-        for key, value in kwargs:  # Add all keyword arguments as values
-            setattr(self, key, value)
 
-    def __getattr__(self, item):  # Don't raise any warnings for missing items, instead return None.
-        return getattr(self, item, None)
+    def describe(self) -> str:
+        raise NotImplementedError
+
+    def __str__(self):
+        return "Task of type {type} - {description}".format(type=self.type.name, description=self.describe())
+
+
+class StopTask(Task):
+    def __init__(self, job_identifier):
+        super().__init__(TaskType.StopJobTask)
+        self.job_identifier = job_identifier
+
+    def describe(self):
+        return "for job that matches identifier {identifier}".format(identifier=self.job_identifier)
 
 
 class TaskFactory:
     @staticmethod
     def build(json_task):
         task_type = TaskType[json_task['__typename']]
-        return Task(task_type=task_type, **{"job_id": UUID(json_task['job']['id'])})
+        if task_type == TaskType.StopJobTask:
+            return StopTask(job_identifier=json_task['job']['id'])
+        elif task_type == TaskType.CreateGitJobTask:
+            return
+        raise RuntimeError("Unrecognized task who dis")
 
 
 class TaskPoller:

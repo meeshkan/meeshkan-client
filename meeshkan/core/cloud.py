@@ -8,7 +8,7 @@ from pathlib import Path
 import requests
 
 from ..__types__ import Token, Payload
-from .tasks import TaskType, Task
+from .tasks import TaskFactory, Task
 from .oauth import TokenStore
 from ..exceptions import UnauthorizedRequestException
 from ..__version__ import __version__
