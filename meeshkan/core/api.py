@@ -11,7 +11,7 @@ from .job import Job, SageMakerJob, ExternalJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
-from .tasks import TaskPoller, Task, TaskType
+from .tasks import TaskPoller, Task, TaskType, StopTask, CreateGitJobTask
 from ..notifications.notifiers import Notifier
 from ..git import submit_git
 from ..__types__ import HistoryByScalar
@@ -101,21 +101,17 @@ class Api:
         return ""
 
     async def handle_task(self, task: Task):
+        # Types are ignored in this function as they're passed as a general `Task`
+        # But once we verify the type, we expect a more specific child of `Task` class
         LOGGER.debug("Got a new task: %s", task)
         if task.type == TaskType.StopJobTask:
-            self.scheduler.stop_job(self.find_job_id(task.job_identifier))
+            job_id = self.find_job_id(task.job_identifier)  # type: ignore
+            if job_id is not None:  # TODO Else we just ignore the task silently?
+                self.scheduler.stop_job(job_id)
         elif task.type == TaskType.CreateGitJobTask:
-            """
-            Fields should include:
-            name  # Optional
-            repo
-            entry_point
-            branch  # Optional
-            commit_sha  # Optional
-            poll_interval  # Optional
-            """
-            submit_git(repo=task.repo, entry_point=task.entry_point, branch=task.branch, commit_sha=task.commit_sha,
-                       job_name=task.job_name, report_interval_secs=task.report_interval)
+            submit_git(repo=task.repo, entry_point=task.entry_point, branch=task.branch,  # type: ignore
+                       commit_sha=task.commit_sha, job_name=task.job_name,  # type: ignore
+                       report_interval_secs=task.report_interval)  # type: ignore
 
     async def poll(self):
         if self.task_poller is not None:
@@ -188,7 +184,6 @@ class Api:
         Returns the actual job-id if matching. Otherwise returns None.
         """
         # Determine identifier type and search over scheduler
-        api = _get_api()
         job_id = job_number = None
         try:
             job_id = uuid.UUID(identifier)
