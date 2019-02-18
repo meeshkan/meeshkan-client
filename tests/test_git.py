@@ -54,7 +54,7 @@ def test_gitrunner_init(clean):
 
 def test_gitrunner_pull_branch(clean):
     gitrunner = GitRunner(repo=CLIENT_REPO)
-    gitrunner.pull_repo(branch=FIRST_OFFICIAL_RELEASE_BRANCH)
+    gitrunner.pull_repo(branch_or_commit=FIRST_OFFICIAL_RELEASE_BRANCH)
     version_fname = os.path.join(gitrunner.target_dir, "meeshkan/__version__.py")
     try:
         assert os.path.isfile(version_fname)
@@ -66,24 +66,11 @@ def test_gitrunner_pull_branch(clean):
 
 def test_gitrunner_pull_commit(clean):
     gitrunner = GitRunner(repo=CLIENT_REPO)
-    gitrunner.pull_repo(commit_sha=FIRST_VERSION_COMMIT)
+    gitrunner.pull_repo(branch_or_commit=FIRST_VERSION_COMMIT)
     version_fname = os.path.join(gitrunner.target_dir, "client/__version__.py")
     try:
         assert os.path.isfile(version_fname)
         with open(version_fname) as version_fd:
             assert version_fd.read() == "__version__ = \"0.0.1\"", "Commit SHA is expected to reset to matching version"
-    finally:
-        clean(gitrunner)
-
-
-def test_gitrunner_pull_branch_and_commit(clean):
-    gitrunner = GitRunner(repo=CLIENT_REPO)
-    gitrunner.pull_repo(branch=FIRST_OFFICIAL_RELEASE_BRANCH, commit_sha=FIRST_VERSION_COMMIT)
-    version_fname = os.path.join(gitrunner.target_dir, "client/__version__.py")
-    try:
-        assert os.path.isfile(version_fname)
-        with open(version_fname) as version_fd:
-            assert version_fd.read() == "__version__ = \"0.0.1\"", "When pulling a commit and a branch, commit SHA is" \
-                                                                   " expected to take precedence!"
     finally:
         clean(gitrunner)
