@@ -1,4 +1,4 @@
-from typing import Callable, Any, Tuple, List, Optional, Dict
+from typing import Callable, Any, Tuple, List, Optional, Dict, cast
 import logging
 import uuid
 from pathlib import Path
@@ -11,7 +11,7 @@ from .job import Job, SageMakerJob, ExternalJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
-from .tasks import TaskPoller, Task, TaskType, StopTask, CreateGitJobTask
+from .tasks import TaskPoller, Task, TaskType, StopTask, CreateGitHubJobTask
 from ..notifications.notifiers import Notifier
 from ..git import submit_git
 from ..__types__ import HistoryByScalar
@@ -105,12 +105,14 @@ class Api:
         # But once we verify the type, we expect a more specific child of `Task` class
         LOGGER.debug("Got a new task: %s", task)
         if task.type == TaskType.StopJobTask:
-            job_id = self.find_job_id(task.job_identifier)  # type: ignore
+            task = cast(StopTask, task)  # typing cast
+            job_id = self.find_job_id(task.job_identifier)
             if job_id is not None:  # TODO Else we just ignore the task silently?
                 self.scheduler.stop_job(job_id)
-        elif task.type == TaskType.CreateGitJobTask:
-            submit_git(repo=task.repo, entry_point=task.entry_point, branch=task.branch,  # type: ignore
-                       commit_sha=task.commit_sha, job_name=task.job_name,  # type: ignore
+        elif task.type == TaskType.CreateGitHubJobTask:
+            task = cast(CreateGitHubJobTask, task)
+            submit_git(repo=task.repo, entry_point=task.entry_point,  # type: ignore
+                       branch_or_commit=task.branch_or_commit, job_name=task.job_name,  # type: ignore
                        report_interval_secs=task.report_interval)  # type: ignore
 
     async def poll(self):
