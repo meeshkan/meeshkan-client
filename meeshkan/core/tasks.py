@@ -15,7 +15,7 @@ __all__ = []  # type: List[str]
 
 class TaskType(Enum):
     StopJobTask = 0
-    CreateGitJobTask = 1
+    CreateGitHubJobTask = 1
 
 
 class Task:
@@ -38,20 +38,19 @@ class StopTask(Task):
         return "for job that matches identifier {identifier}".format(identifier=self.job_identifier)
 
 
-class CreateGitJobTask(Task):
-    def __init__(self, repo: str, entry_point: str, commit_sha: str = None, branch: str = None,
-                 name: str = None, report_interval: float = None):
-        super().__init__(TaskType.CreateGitJobTask)
+class CreateGitHubJobTask(Task):
+    def __init__(self, repo: str, entry_point: str, branch_or_commit: str = None, name: str = None,
+                 report_interval: float = None):
+        super().__init__(TaskType.CreateGitHubJobTask)
         self.repo = repo
         self.entry_point = entry_point
-        self.commit_sha = commit_sha
-        self.branch = branch
+        self.branch_or_commit = branch_or_commit
         self.name = name
         self.report_interval = report_interval
 
     def describe(self):
-        return "running {entry} from {repo}/{branch}@{commit}".format(entry=self.entry_point, repo=self.repo,
-                                                                      branch=self.branch, commit=self.commit_sha)
+        return "running {entry} from {repo}@{branch_or_commit}".format(entry=self.entry_point, repo=self.repo,
+                                                                       branch_or_commit=self.branch_or_commit)
 
 
 class TaskFactory:
@@ -62,9 +61,9 @@ class TaskFactory:
         if task_type == TaskType.StopJobTask:
             return StopTask(job_identifier=task_kw['id'])
         elif task_type == TaskType.CreateGitJobTask:
-            return CreateGitJobTask(repo=task['repo'], entry_point=task_kw['entry_point'],
-                                    commit_sha=task_kw.get('commitSHA'), branch=task_kw.get('branch'),
-                                    name=task_kw.get('name'), report_interval=task_kw.get('reportInterval'))
+            return CreateGitHubJobTask(repo=task['repository'], entry_point=task_kw['entry_point'],
+                                       branch_or_commit=task_kw.get('branch_or_commit_sha'),
+                                       name=task_kw.get('name'), report_interval=task_kw.get('report_interval'))
         raise RuntimeError("Unrecognized task who dis")  # IDAN TODO: update note ofcourse...
 
 
