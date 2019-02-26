@@ -16,7 +16,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 # Required packages.
 # Older version of requests because >= 2.21 conflicts with sagemaker.
 # Older version of jsonschema<3 as required by docker-compose
-REQUIRED = ['boto3', 'dill', 'jsonschema<3''requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib',
+REQUIRED = ['boto3', 'dill', 'jsonschema<3', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib',
             'nbconvert', 'ipykernel', 'notebook']
 
 DEV = ['jupyter', 'nbdime', 'pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker', 'sphinx',
