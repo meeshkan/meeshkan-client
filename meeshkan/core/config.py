@@ -27,7 +27,6 @@ __all__ = []  # type: List[str]
 del logging  # Clean-up (only leaves Path available in this module)
 del os
 del List
-del Optional
 
 
 def ensure_base_dirs(verbose=True):
@@ -69,6 +68,12 @@ class Credentials:
 
     @staticmethod
     def from_isi(path: Path = CREDENTIALS_FILE):
+        """
+        Read credentials from file.
+        :param path: Path from where to read credentials.
+        :raises FileNotFoundError: If path does not exist.
+        :return: Credentials.
+        """
         import configparser
 
         LOGGER.debug("Reading credentials from %s", path)
@@ -80,13 +85,25 @@ class Credentials:
                            git_access_token=conf.get('github', 'token', fallback=""))  # type: ignore
 
     @staticmethod
-    def to_isi(refresh_token: str = None, git_access_token: str = None, path: Path = CREDENTIALS_FILE):
-        """Creates the credential file with given refresh token, git_token or both. Overrides previous token if exists.
-        Does not create missing folders along `path`, instead, raises FileNotFound exception.
+    def to_isi(refresh_token: Optional[str] = None, git_access_token: Optional[str] = None,
+               path: Path = CREDENTIALS_FILE):
         """
-        prev_creds = Credentials.from_isi(path)  # Restore from previous if not some arguments are not supplied
-        git_access_token = git_access_token or prev_creds.git_access_token
-        refresh_token = refresh_token or prev_creds.refresh_token
+        Creates the credential file with given refresh token, git_access_token token or both.
+        Overrides each previous token if exists.
+        Assumes that `path` can be written with `path.open("w")`, i.e., that the parent directory exists.
+
+        :param refresh_token: New refresh_token or None
+        :param git_access_token: New git_access_token or None
+        :param path: Path where to write credentials. If exists, used also to read previous credentials.
+        :return:
+        """
+        try:
+            prev_creds = Credentials.from_isi(path)  # Restore from previous if not some arguments are not supplied
+            git_access_token = git_access_token or prev_creds.git_access_token
+            refresh_token = refresh_token or prev_creds.refresh_token
+        except FileNotFoundError:
+            pass
+
         if not git_access_token:
             if refresh_token is None:
                 raise ValueError("Nothing to write to ISI file.")
