@@ -8,7 +8,7 @@ from pathlib import Path
 import requests
 
 from ..__types__ import Token, Payload
-from .tasks import TaskFactory, Task
+from .tasks import TaskType, Task
 from .oauth import TokenStore
 from ..exceptions import UnauthorizedRequestException
 from ..__version__ import __version__
@@ -195,7 +195,11 @@ class CloudClient:
 
         tasks_json = data['popClientTasks']
 
-        tasks = [TaskFactory.build(json_task) for json_task in tasks_json]
+        def build_task(json_task):
+            task_type = TaskType[json_task['__typename']]
+            return Task(UUID(json_task['job']['id']), task_type=task_type)
+
+        tasks = [build_task(json_task) for json_task in tasks_json]
         return tasks
 
     def close(self):

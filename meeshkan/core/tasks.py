@@ -15,56 +15,12 @@ __all__ = []  # type: List[str]
 
 class TaskType(Enum):
     StopJobTask = 0
-    CreateGitHubJobTask = 1
 
 
 class Task:
-    def __init__(self, task_type: TaskType):
+    def __init__(self, job_id: UUID, task_type: TaskType):
+        self.job_id = job_id
         self.type = task_type
-
-    def describe(self) -> str:
-        raise NotImplementedError
-
-    def __str__(self):
-        return "Task of type {type} - {description}".format(type=self.type.name, description=self.describe())
-
-
-class StopTask(Task):
-    def __init__(self, job_identifier):
-        super().__init__(TaskType.StopJobTask)
-        self.job_identifier = job_identifier
-
-    def describe(self):
-        return "for job that matches identifier {identifier}".format(identifier=self.job_identifier)
-
-
-class CreateGitHubJobTask(Task):
-    def __init__(self, repo: str, entry_point: str, branch_or_commit: str = None, name: str = None,
-                 report_interval: float = None):
-        super().__init__(TaskType.CreateGitHubJobTask)
-        self.repo = repo
-        self.entry_point = entry_point
-        self.branch_or_commit = branch_or_commit
-        self.name = name
-        self.report_interval = report_interval
-
-    def describe(self):
-        return "running {entry} from {repo}@{branch_or_commit}".format(entry=self.entry_point, repo=self.repo,
-                                                                       branch_or_commit=self.branch_or_commit)
-
-
-class TaskFactory:
-    @staticmethod
-    def build(json_task):
-        task_type = TaskType[json_task['__typename']]
-        task_kw = json_task['job']
-        if task_type == TaskType.StopJobTask:
-            return StopTask(job_identifier=task_kw['id'])
-        elif task_type == TaskType.CreateGitJobTask:
-            return CreateGitHubJobTask(repo=task['repository'], entry_point=task_kw['entry_point'],
-                                       branch_or_commit=task_kw.get('branch_or_commit_sha'),
-                                       name=task_kw.get('name'), report_interval=task_kw.get('report_interval'))
-        raise RuntimeError("Unrecognized task who dis")  # IDAN TODO: update note ofcourse...
 
 
 class TaskPoller:

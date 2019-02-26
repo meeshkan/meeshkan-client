@@ -142,7 +142,7 @@ def report(job_identifier):
     ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     api = _get_api()
-    job_id = api.find_job_id_by_identifier(job_identifier)
+    job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
@@ -188,11 +188,11 @@ def cancel_job(job_identifier):
 
     ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
-    api = _get_api()
-    job_id = api.find_job_id_by_identifier(job_identifier)
+    job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
+    api = _get_api()
     job = api.get_job(job_id)  # type: Job
     if job.status.is_running:
         res = input("Job '{name}' is currently running! "
@@ -201,7 +201,7 @@ def cancel_job(job_identifier):
             print("Aborted")
             sys.exit(2)
     api.cancel_job(job_id)
-    print("Canceled '{name}'".format(name=job.name))
+    print("Canceled '{name}'".format(name=api.get_job(job_id).name))
 
 
 @cli.command()
@@ -242,7 +242,7 @@ def logs(job_identifier):
     ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     api = _get_api()
-    job_id = api.find_job_id_by_identifier(job_identifier)
+    job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
@@ -267,7 +267,7 @@ def notifications(job_identifier):
     ``JOB_IDENTIFIER`` is either the job's ID, number, name, or pattern to match against the job's name.
     """
     api = _get_api()
-    job_id = api.find_job_id_by_identifier(job_identifier)
+    job_id = __find_job_by_identifier(job_identifier)
     if not job_id:
         print("Can't find job with given identifier {identifier}".format(identifier=job_identifier))
         sys.exit(1)
@@ -343,6 +343,30 @@ def im_bored():
     author = os.path.splitext(os.path.basename(source))[0].capitalize()  # Create "Author"
     res = requests.get(source).text.split('\n')  # Get the document and split per line
     print("{}: \"{}\"".format(author, res[random.randint(0, len(res)-1)]))  # Choose line at random
+
+
+def __find_job_by_identifier(identifier: str) -> Optional[uuid.UUID]:
+    """
+    Finds a job by accessing UUID, job numbers and job names.
+    Returns the actual job-id if matching. Otherwise returns None.
+    """
+    # Determine identifier type and search over scheduler
+    api = _get_api()
+    job_id = job_number = None
+    try:
+        job_id = uuid.UUID(identifier)
+    except ValueError:
+        pass
+
+    try:
+        job_number = int(identifier)
+        if job_number < 1:  # Only accept valid job numbers.
+            job_number = None
+    except ValueError:
+        pass
+
+    # Treat `identifier` as pattern by default (bottom priority when looking up anyway)
+    return api.find_job_id(job_id=job_id, job_number=job_number, pattern=identifier)
 
 
 if __name__ == '__main__':

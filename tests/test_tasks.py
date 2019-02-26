@@ -4,13 +4,13 @@ import queue
 
 import pytest
 
-from meeshkan.core.tasks import StopTask, TaskType, TaskPoller
+from meeshkan.core.tasks import Task, TaskType, TaskPoller
 
 
 @pytest.mark.asyncio
 async def test_task_poller_handles_tasks():
 
-    fake_task = StopTask(job_identifier='id')
+    fake_task = Task(job_id='id', task_type=TaskType.StopJobTask)
 
     def pop_tasks():
         return [fake_task]
@@ -43,11 +43,11 @@ async def test_task_poller_handles_tasks():
     # First handled item
     assert not handled_tasks.empty(), "Queue should contain two elements at this point"
     handled_item = handled_tasks.get()
-    assert handled_item.job_identifier == fake_task.job_identifier, "Handled item should be identical to the fake task"
+    assert handled_item.job_id == fake_task.job_id, "Handled item should be identical to the fake task"
 
     # Second handled item
     assert not handled_tasks.empty(), "Queue should contain one element at this point"
     handled_item = handled_tasks.get()
-    assert handled_item.job_identifier == fake_task.job_identifier, "Handled item should be identical to the fake task"
+    assert handled_item.job_id == fake_task.job_id, "Handled item should be identical to the fake task"
 
     assert handled_tasks.empty(), "Queue should be empty now"

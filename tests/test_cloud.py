@@ -101,7 +101,7 @@ def test_post_payloads_raises_error_for_multiple_401s():
 def test_pop_tasks():
     mock_session = mock.create_autospec(requests.Session, spec_set=True)
 
-    job_id = str(uuid.uuid4())
+    job_id = uuid.uuid4()
     task_name = 'StopJobTask'
 
     returned_task = {'job': {'id': str(job_id)}, '__typename': task_name}
@@ -121,7 +121,7 @@ def test_pop_tasks():
     assert len(tasks) == 1, "Hard-coded GraphQL query returns a strict single-item list. What happened?"
     created_task = tasks[0]
 
-    assert created_task.job_identifier == job_id, "The job ID for the task should reflect the original job_id after " \
-                                                  "creating a proper Task object"
+    assert created_task.job_id == job_id, "The job ID for the task should reflect the original job_id after creating " \
+                                          "a proper Task object"
     assert created_task.type.name == task_name, "The task typename should match the original typename after creating " \
                                                 "a proper Task object"

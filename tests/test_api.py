@@ -13,7 +13,7 @@ from meeshkan.core.scheduler import Scheduler, QueueProcessor
 from meeshkan.core.service import Service
 from meeshkan.core.job import Job, JobStatus, SageMakerJob, ExternalJob
 from meeshkan.core.sagemaker_monitor import SageMakerJobMonitor
-from meeshkan.core.tasks import TaskType, TaskFactory
+from meeshkan.core.tasks import TaskType, Task
 from meeshkan.api.utils import _notebook_authenticated_session as nb_authenticate, submit_notebook, \
     _get_notebook_path_generic, submit_function
 
@@ -97,7 +97,7 @@ async def test_stopping_job_with_task(cleanup):  # pylint:disable=unused-argumen
         wait_for_true(lambda: job.status == JobStatus.RUNNING)
         # Schedule stop job task
         loop = asyncio.get_event_loop()
-        loop.create_task(api.handle_task(TaskFactory.build({'__typename': 'StopJobTask', 'job': {'id': job.id}})))
+        loop.create_task(api.handle_task(Task(job.id, TaskType.StopJobTask)))
         wait_for_true(scheduler._job_queue.empty)
 
     assert job.status in [JobStatus.CANCELLED_BY_USER, JobStatus.CANCELED]
