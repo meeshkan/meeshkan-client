@@ -1,4 +1,4 @@
-from typing import Callable, Any, Tuple, List, Optional, Dict
+from typing import Callable, Any, Tuple, List, Optional, Dict, cast
 import logging
 import uuid
 from pathlib import Path
@@ -11,8 +11,9 @@ from .job import Job, SageMakerJob, ExternalJob
 from .sagemaker_monitor import SageMakerJobMonitor
 from .scheduler import Scheduler
 from .service import Service
-from .tasks import TaskPoller, Task, TaskType
+from .tasks import TaskPoller, Task, TaskType, StopTask, CreateGitHubJobTask
 from ..notifications.notifiers import Notifier
+from ..git import submit_git
 from ..__types__ import HistoryByScalar
 from .serializer import Serializer
 
@@ -100,42 +101,24 @@ class Api:
         return ""
 
     async def handle_task(self, task: Task):
-        LOGGER.debug("Got task for job ID %s, task type %s", task.job_id, task.type.name)
+        # Types are ignored in this function as they're passed as a general `Task`
+        # But once we verify the type, we expect a more specific child of `Task` class
+        LOGGER.debug("Got a new task: %s", task)
         if task.type == TaskType.StopJobTask:
-            self.scheduler.stop_job(task.job_id)
+            task = cast(StopTask, task)  # typing cast
+            job_id = self.find_job_id(task.job_identifier)
+            if job_id is not None:  # TODO Else we just ignore the task silently?
+                self.scheduler.stop_job(job_id)
+        elif task.type == TaskType.CreateGitHubJobTask:
+            task = cast(CreateGitHubJobTask, task)
+            submit_git(repo=task.repo, entry_point=task.entry_point,  # type: ignore
+                       branch_or_commit=task.branch_or_commit, job_name=task.job_name,  # type: ignore
+                       report_interval_secs=task.report_interval)  # type: ignore
 
     async def poll(self):
         if self.task_poller is not None:
             await self.task_poller.poll(handle_task=self.handle_task)
 
-    # Exposed methods
-
-    @Pyro4.expose
-    def cancel_job(self, job_id: uuid.UUID):
-        self.scheduler.stop_job(job_id)
-
-    @Pyro4.expose
-    def get_job(self, job_id: uuid.UUID) -> Optional[Job]:
-        return self.scheduler.submitted_jobs.get(job_id)
-
-    @Pyro4.expose
-    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[str]]:
-        """Returns the entire notification history for a given job ID. Returns an empty dictionary if no notifier
-        is available."""
-        if self.notifier:
-            notification_history = self.notifier.get_notification_history(job_id)
-            # Normalize the data to human-readable format
-            new_table_history = dict()  # type: Dict[str, List[str]]
-            for notifier_name, notifier_history in notification_history.items():
-                formatted_history = list()
-                for entry in notifier_history:
-                    formatted_history.append("[{time}] {type}: {status}".format(time=entry.time, type=entry.type.name,
-                                                                                status=entry.status.name))
-                new_table_history[notifier_name] = formatted_history
-            return new_table_history
-        return dict()
-
-    @Pyro4.expose
     def find_job_id(self, job_id: uuid.UUID = None, job_number: int = None, pattern: str = None) -> Optional[uuid.UUID]:
         """Finds a job from the scheduler given one of the arguments.
         Operator precedence if given multiple arguments is: UUID, job_number, pattern.
@@ -168,6 +151,56 @@ class Api:
                 return res
 
         return None
+
+    # Exposed methods
+
+    @Pyro4.expose
+    def cancel_job(self, job_id: uuid.UUID):
+        self.scheduler.stop_job(job_id)
+
+    @Pyro4.expose
+    def get_job(self, job_id: uuid.UUID) -> Optional[Job]:
+        return self.scheduler.submitted_jobs.get(job_id)
+
+    @Pyro4.expose
+    def get_notification_history(self, job_id: uuid.UUID) -> Dict[str, List[str]]:
+        """Returns the entire notification history for a given job ID. Returns an empty dictionary if no notifier
+        is available."""
+        if self.notifier:
+            notification_history = self.notifier.get_notification_history(job_id)
+            # Normalize the data to human-readable format
+            new_table_history = dict()  # type: Dict[str, List[str]]
+            for notifier_name, notifier_history in notification_history.items():
+                formatted_history = list()
+                for entry in notifier_history:
+                    formatted_history.append("[{time}] {type}: {status}".format(time=entry.time, type=entry.type.name,
+                                                                                status=entry.status.name))
+                new_table_history[notifier_name] = formatted_history
+            return new_table_history
+        return dict()
+
+    @Pyro4.expose
+    def find_job_id_by_identifier(self, identifier: str) -> Optional[uuid.UUID]:
+        """
+        Finds a job by accessing UUID, job numbers and job names.
+        Returns the actual job-id if matching. Otherwise returns None.
+        """
+        # Determine identifier type and search over scheduler
+        job_id = job_number = None
+        try:
+            job_id = uuid.UUID(identifier)
+        except ValueError:
+            pass
+
+        try:
+            job_number = int(identifier)
+            if job_number < 1:  # Only accept valid job numbers.
+                job_number = None
+        except ValueError:
+            pass
+
+        # Treat `identifier` as pattern by default (bottom priority when looking up anyway)
+        return self.find_job_id(job_id=job_id, job_number=job_number, pattern=identifier)
 
     @Pyro4.expose
     def get_job_output(self, job_id: uuid.UUID) -> Tuple[Path, Path, Path]:
