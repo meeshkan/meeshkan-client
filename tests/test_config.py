@@ -5,6 +5,7 @@ import tempfile
 
 from .utils import TempCredentialsFile
 
+
 # Configuration initialized in `tests/__init__.py`
 def test_config_init():
     assert meeshkan.config.CONFIG.cloud_url == "http://foo.bar", "Configuration should match yaml file contents"
@@ -12,10 +13,14 @@ def test_config_init():
     assert meeshkan.config.CREDENTIALS.git_access_token == 'ghjk', "Credentials should match yaml file contents"
 
 
-def test_credentials_change_with_error():
-    imaginary_path = Path(tempfile.gettempdir()).joinpath(next(tempfile._get_candidate_names()))
-    with pytest.raises(FileNotFoundError):
-        meeshkan.config.Credentials.to_isi("abc", path=imaginary_path.joinpath(next(tempfile._get_candidate_names())))
+def test_credentials_change_without_prev_creds():
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tmp_file_path = Path(temp_dir).joinpath(".credentials")
+        assert not tmp_file_path.is_file()
+        meeshkan.config.Credentials.to_isi("abc", path=tmp_file_path)
+        assert tmp_file_path.is_file()
+    assert not tmp_file_path.is_file()
 
 
 def test_credentials_change_no_error():
