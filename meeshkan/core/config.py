@@ -123,3 +123,6 @@ def init_config(config_path: Path = CONFIG_PATH, credentials_path: Path = CREDEN
     if CREDENTIALS is None or force_refresh:
         CREDENTIALS = Credentials.from_isi(credentials_path)
     return CONFIG, CREDENTIALS
+
+
+del Optional
