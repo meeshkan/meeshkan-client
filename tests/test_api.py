@@ -97,7 +97,7 @@ async def test_stopping_job_with_task(cleanup):  # pylint:disable=unused-argumen
         wait_for_true(lambda: job.status == JobStatus.RUNNING)
         # Schedule stop job task
         loop = asyncio.get_event_loop()
-        loop.create_task(api.handle_task(TaskFactory.build({'__typename': 'StopJobTask', 'job': {'id': job.id}})))
+        loop.create_task(api.handle_task(TaskFactory.build({'__typename': 'StopJobTask', 'job': {'job_id': job.id}})))
         wait_for_true(scheduler._job_queue.empty)
 
     assert job.status in [JobStatus.CANCELLED_BY_USER, JobStatus.CANCELED]

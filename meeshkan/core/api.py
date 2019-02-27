@@ -111,9 +111,9 @@ class Api:
                 self.scheduler.stop_job(job_id)
         elif task.type == TaskType.CreateGitHubJobTask:
             task = cast(CreateGitHubJobTask, task)
-            submit_git(repo=task.repo, entry_point=task.entry_point,  # type: ignore
-                       branch_or_commit=task.branch_or_commit, job_name=task.job_name,  # type: ignore
-                       report_interval_secs=task.report_interval)  # type: ignore
+            submit_git(repo=task.repo, entry_point=task.entry_point,
+                       branch_or_commit=task.branch_or_commit, job_name=task.name,
+                       report_interval_secs=task.report_interval)
 
     async def poll(self):
         if self.task_poller is not None:
