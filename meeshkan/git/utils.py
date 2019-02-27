@@ -1,5 +1,5 @@
 """Provides utilities for pulling and parsing Git commits"""
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, cast
 import tempfile
 import shutil
 import os
@@ -79,6 +79,7 @@ class GitRunner:
         args = ["git", "clone"]
         is_branch = self._is_active_branch(branch_or_commit)
         if is_branch:  # Checkout the relevant branch (if commit not given)
+            branch_or_commit = cast(str, branch_or_commit)  # At this point we know it's a valid, non-None string
             args += ["--depth", "1", "--branch", branch_or_commit]
         args += [self.url, self.target_dir]
 
