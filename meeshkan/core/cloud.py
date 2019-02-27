@@ -188,7 +188,24 @@ class CloudClient:
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :return:
         """
-        mutation = "mutation { popClientTasks { __typename job { id } } }"
+        mutation = "mutation {" \
+              "popClientTasksV2 {" \
+                "__typename" \
+                "... on StopJobTask {" \
+                  "job {" \
+                    "job_id" \
+                    "job_wildcard_identifier" \
+                  "}" \
+                "}" \
+                "... on CreateGitHubJobTask {" \
+                  "repository" \
+                  "entry_point" \
+                  "branch_or_commit_sha" \
+                  "name" \
+                  "report_interval" \
+                "}"\
+              "}"\
+            "}"
         payload = {"query": mutation, "variables": {}}
 
         data = self._post_gql_payload(payload=payload)

@@ -4,7 +4,7 @@ Code related to tasks invoked by the cloud.
 import asyncio
 from enum import Enum
 import logging
-from typing import Callable, List
+from typing import Callable, List, Optional, Union
 from uuid import UUID
 
 LOGGER = logging.getLogger(__name__)
@@ -55,16 +55,18 @@ class CreateGitHubJobTask(Task):
 
 class TaskFactory:
     @staticmethod
-    def build(json_task):
+    def build(json_task) -> Optional[Union[StopTask, CreateGitHubJobTask]]:
         task_type = TaskType[json_task['__typename']]
         task_kw = json_task['job']
         if task_type == TaskType.StopJobTask:
-            return StopTask(job_identifier=task_kw['id'])
+            # "job_wildcard_identifier" is temporary handled in the client until the cloud also has a job store
+            # In the cloud, the job_wildcard_identifier is identical to "job_id" for the time being, but it is optional
+            return StopTask(job_identifier=task_kw.get('job_wildcard_identifier', task.get('job_id')))
         elif task_type == TaskType.CreateGitJobTask:
             return CreateGitHubJobTask(repo=task['repository'], entry_point=task_kw['entry_point'],
                                        branch_or_commit=task_kw.get('branch_or_commit_sha'),
                                        name=task_kw.get('name'), report_interval=task_kw.get('report_interval'))
-        raise RuntimeError("Unrecognized task who dis")  # IDAN TODO: update note ofcourse...
+        LOGGER.warning("Unrecognized task received! %s", json_task)
 
 
 class TaskPoller:
