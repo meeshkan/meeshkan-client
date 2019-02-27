@@ -55,17 +55,17 @@ class CreateGitHubJobTask(Task):
 
 class TaskFactory:
     @staticmethod
-    def build(json_task) -> Optional[Union[StopTask, CreateGitHubJobTask]]:
+    def build(json_task):
         task_type = TaskType[json_task['__typename']]
-        task_kw = json_task['job']
         if task_type == TaskType.StopJobTask:
             # "job_wildcard_identifier" is temporary handled in the client until the cloud also has a job store
             # In the cloud, the job_wildcard_identifier is identical to "job_id" for the time being, but it is optional
-            return StopTask(job_identifier=task_kw.get('job_wildcard_identifier', task.get('job_id')))
-        elif task_type == TaskType.CreateGitJobTask:
-            return CreateGitHubJobTask(repo=task['repository'], entry_point=task_kw['entry_point'],
-                                       branch_or_commit=task_kw.get('branch_or_commit_sha'),
-                                       name=task_kw.get('name'), report_interval=task_kw.get('report_interval'))
+            task_kw = json_task['job']
+            return StopTask(job_identifier=task_kw.get('job_wildcard_identifier', task_kw.get('job_id')))
+        elif task_type == TaskType.CreateGitHubJobTask:
+            return CreateGitHubJobTask(repo=json_task['repository'], entry_point=json_task['entry_point'],
+                                       branch_or_commit=json_task.get('branch_or_commit_sha'),
+                                       name=json_task.get('name'), report_interval=json_task.get('report_interval'))
         LOGGER.warning("Unrecognized task received! %s", json_task)
 
 

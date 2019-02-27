@@ -104,7 +104,7 @@ def test_pop_tasks():
     job_id = str(uuid.uuid4())
     task_name = 'StopJobTask'
 
-    returned_task = {'job': {'id': str(job_id)}, '__typename': task_name}
+    returned_task = {'job': {'job_id': str(job_id)}, '__typename': task_name}
 
     mock_session.post.return_value = MockResponse(status_code=HTTPStatus.OK,
                                                   json_data={'data': {'popClientTasks': [returned_task]}})
