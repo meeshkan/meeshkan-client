@@ -77,16 +77,16 @@ class GitRunner:
         :return The temporary folder with relevant pulled content
         """
         args = ["git", "clone"]
-        commit_sha, branch = self._separate_to_commit_and_branch(branch_or_commit)
-        if branch is not None and commit_sha is None:  # Checkout the relevant branch (if commit not given)
-            args += ["--depth", "1", "--branch", branch]
+        is_branch = self._is_active_branch(branch_or_commit)
+        if is_branch:  # Checkout the relevant branch (if commit not given)
+            args += ["--depth", "1", "--branch", branch_or_commit]
         args += [self.url, self.target_dir]
 
         # TODO: Use async Popen in case it's a large pull?
         proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         GitRunner._wait_and_raise_on_error(proc)
-        if commit_sha is not None:  # Revert to relevant commit SHA
-            proc = Popen(["git", "reset", "--hard", commit_sha], stdout=PIPE, stderr=PIPE, cwd=self.target_dir,
+        if not is_branch and branch_or_commit is not None:  # Revert to relevant commit SHA
+            proc = Popen(["git", "reset", "--hard", branch_or_commit], stdout=PIPE, stderr=PIPE, cwd=self.target_dir,
                          universal_newlines=True)
             GitRunner._wait_and_raise_on_error(proc)
         return self.target_dir
@@ -96,29 +96,18 @@ class GitRunner:
         return "https://{token}:x-oauth-basic@github.com/{repo}".format(token=GitRunner._git_access_token(),
                                                                         repo=self.repo)
 
-    def _is_active_branch(self, branch_or_commit: str) -> bool:
+    def _is_active_branch(self, branch_or_commit: Optional[str]) -> bool:
         """
         Given a `branch_or_commit` argument, finds whether the argument is an active branch.
         :param branch_or_commit:
         """
+        if branch_or_commit is None:
+            return False
         # Get list of active remote branches
         proc = Popen(["git", "ls-remote", self.url], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         GitRunner._wait_and_raise_on_error(proc)
         result = [line.split("\t")[1] for line in proc.stdout.read().splitlines()]  # Returned list is SHA\tBranch name
         return any([branch_or_commit in branch for branch in result])
-
-
-    def _separate_to_commit_and_branch(self, branch_or_commit: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Returns a tuple describing whether the given argument is an active branch or, by default, a commit SHA.
-        :return Tuple of (commit, branch), where one of the items is None and the other contains `branch_or_commit`.
-                A tuple of (None, None) is returned if the input is None.
-        """
-        if branch_or_commit is None:
-            return None, None
-        if self._is_active_branch(branch_or_commit):
-            return None, branch_or_commit
-        return branch_or_commit, None
 
 
     @staticmethod
