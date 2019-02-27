@@ -14,6 +14,7 @@ __all__ = []  # type: List[str]
 
 
 class TaskType(Enum):
+    NullTask = -1
     StopJobTask = 0
     CreateGitHubJobTask = 1
 
@@ -27,6 +28,15 @@ class Task:
 
     def __str__(self):
         return "Task of type {type} - {description}".format(type=self.type.name, description=self.describe())
+
+
+class EmptyTask(Task):
+    def __init__(self, json_input):
+        super().__init__(TaskType.NullTask)
+        self.json_input = json_input
+
+    def describe(self):
+        return "NullTask from unrecognized entry: {json}".format(json=self.json_input)
 
 
 class StopTask(Task):
@@ -62,11 +72,12 @@ class TaskFactory:
             # In the cloud, the job_wildcard_identifier is identical to "job_id" for the time being, but it is optional
             task_kw = json_task['job']
             return StopTask(job_identifier=task_kw.get('job_wildcard_identifier', task_kw.get('job_id')))
-        elif task_type == TaskType.CreateGitHubJobTask:
+        if task_type == TaskType.CreateGitHubJobTask:
             return CreateGitHubJobTask(repo=json_task['repository'], entry_point=json_task['entry_point'],
                                        branch_or_commit=json_task.get('branch_or_commit_sha'),
                                        name=json_task.get('name'), report_interval=json_task.get('report_interval'))
         LOGGER.warning("Unrecognized task received! %s", json_task)
+        return EmptyTask(json_task)
 
 
 class TaskPoller:
