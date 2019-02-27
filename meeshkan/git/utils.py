@@ -76,8 +76,8 @@ class GitRunner:
                                     optional commit to revert to (pulls the repo/branch and hard resets to given commit)
         :return The temporary folder with relevant pulled content
         """
-        commit_sha, branch = self._separate_to_commit_and_branch(branch_or_commit)
         args = ["git", "clone"]
+        commit_sha, branch = self._separate_to_commit_and_branch(branch_or_commit)
         if branch is not None and commit_sha is None:  # Checkout the relevant branch (if commit not given)
             args += ["--depth", "1", "--branch", branch]
         args += [self.url, self.target_dir]
@@ -108,11 +108,14 @@ class GitRunner:
         return any([branch_or_commit in branch for branch in result])
 
 
-    def _separate_to_commit_and_branch(self, branch_or_commit) -> Tuple[Optional[str], Optional[str]]:
+    def _separate_to_commit_and_branch(self, branch_or_commit: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
         """
         Returns a tuple describing whether the given argument is an active branch or, by default, a commit SHA.
         :return Tuple of (commit, branch), where one of the items is None and the other contains `branch_or_commit`.
+                A tuple of (None, None) is returned if the input is None.
         """
+        if branch_or_commit is None:
+            return None, None
         if self._is_active_branch(branch_or_commit):
             return None, branch_or_commit
         return branch_or_commit, None
