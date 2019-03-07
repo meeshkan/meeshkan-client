@@ -96,6 +96,7 @@ class Service:
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         cloud_client = Serializer.deserialize(cloud_client_serialized)
+        # TODO - update this to a separate project :)
         sentry_sdk.init(dsn="https://1533f61505104c79bcbc80d7a719d780@sentry.io/1335066",
                         release="meeshkan-client v{version}".format(version=__version__))
         Pyro4.config.SERIALIZER = Serializer.NAME
