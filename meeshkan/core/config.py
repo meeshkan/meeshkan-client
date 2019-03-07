@@ -44,8 +44,9 @@ def ensure_base_dirs(verbose=True):
 
 
 class Configuration:
-    def __init__(self, cloud_url):
+    def __init__(self, cloud_url, sentry_dsn=None):
         self.cloud_url = cloud_url
+        self.sentry_dsn = sentry_dsn
 
     @staticmethod
     def from_yaml(path: Path = CONFIG_PATH):
@@ -56,7 +57,7 @@ class Configuration:
             raise FileNotFoundError("File {path} not found".format(path=path))
         with path.open('r') as file:
             config = yaml.safe_load(file.read())
-        return Configuration(cloud_url=config['cloud']['url'])
+        return Configuration(cloud_url=config['cloud']['url'], sentry_dsn=config.get('sentry', dict()).get('dsn'))
 
 
 class Credentials:

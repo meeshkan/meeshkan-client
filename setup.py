@@ -3,6 +3,7 @@ import stat
 import os
 from shutil import rmtree
 import sys
+from pathlib import Path
 
 # Package meta-data.
 NAME = 'meeshkan'
@@ -17,7 +18,7 @@ SRC_DIR = 'meeshkan'  # Relative location wrt setup.py
 # Older version of requests because >= 2.21 conflicts with sagemaker.
 # Older version of jsonschema<3 as required by docker-compose
 REQUIRED = ['boto3', 'dill', 'jsonschema<3', 'requests<2.21', 'Click', 'pandas', 'Pyro4', 'PyYAML', 'tabulate', 'matplotlib',
-            'nbconvert', 'ipykernel', 'notebook']
+            'nbconvert', 'ipykernel', 'notebook', 'sentry-sdk']
 
 DEV = ['jupyter', 'nbdime', 'pylint', 'pytest==4.0.2', 'pytest-cov', 'mypy', 'pytest-asyncio', 'sagemaker', 'sphinx',
        'sphinx-click', 'sphinx_rtd_theme']
@@ -70,6 +71,14 @@ class BuildDistCommand(SetupCommand):
 
         self.status("Removing previous builds...")
         self.rmdir_if_exists(os.path.join(here, 'dist'))
+
+        # Write the config.yaml file based on env variables for CI:
+        config_file = Path("meeshkan/core/config.yaml").absolute()
+        with config_file.open('w') as cfid:
+            cfid.writelines(["cloud:\n",
+                             "  url: \"{cloud_url}\"\n".format(cloud_url=os.environ.get("MEESHKAN_CLOUD_URL")),
+                             "sentry:\n",
+                             "  dsn: \"{sentry_dsn}\"\n".format(sentry_dsn=os.environ.get("MEESHKAN_SENTRY_URL"))])
 
         self.status("Building Source and Wheel (universal) distribution...")
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
