@@ -3,6 +3,7 @@ import stat
 import os
 from shutil import rmtree
 import sys
+from pathlib import Path
 
 # Package meta-data.
 NAME = 'meeshkan'
@@ -70,6 +71,14 @@ class BuildDistCommand(SetupCommand):
 
         self.status("Removing previous builds...")
         self.rmdir_if_exists(os.path.join(here, 'dist'))
+
+        # Write the config.yaml file based on env variables for CI:
+        config_file = Path("meeshkan/core/config.yaml").absolute()
+        with config_file.open('w') as cfid:
+            cfid.writelines(["cloud:\n",
+                             "  url: \"{cloud_url}\"\n".format(cloud_url=os.environ.get("MEESHKAN_CLOUD_URL")),
+                             "sentry:\n",
+                             "  dsn: \"{sentry_dsn}\"\n".format(sentry_dsn=os.environ.get("MEESHKAN_SENTRY_URL"))])
 
         self.status("Building Source and Wheel (universal) distribution...")
         os.system("{executable} setup.py sdist bdist_wheel --universal".format(executable=sys.executable))
