@@ -1,2 +1,4 @@
 cloud:
-  url: "https://api.meeshkan.io"
+  url: "None"
+sentry:
+  dsn: "None"
