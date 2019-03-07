@@ -8,6 +8,7 @@ from typing import List
 import socket  # To verify daemon
 import time
 import sys
+import sentry_sdk
 
 import Pyro4  # For daemon management
 
@@ -15,6 +16,7 @@ from .logger import remove_non_file_handlers
 from ..__build__ import _build_api
 from .serializer import Serializer
 from ..exceptions import AgentNotAvailableException
+from ..__version__ import __version__
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
@@ -94,6 +96,8 @@ class Service:
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         cloud_client = Serializer.deserialize(cloud_client_serialized)
+        sentry_sdk.init(dsn="https://1533f61505104c79bcbc80d7a719d780@sentry.io/1335066",
+                        release="meeshkan-client v{version}".format(version=__version__))
         Pyro4.config.SERIALIZER = Serializer.NAME
         Pyro4.config.SERIALIZERS_ACCEPTED.add(Serializer.NAME)
         Pyro4.config.SERIALIZERS_ACCEPTED.add('json')
