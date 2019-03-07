@@ -7,6 +7,7 @@ For detailed API reference and usage instructions, please see [meeshkan-client.r
 1. [Overview](#overview)
 1. [Quick start](#quick-start)
 1. [Command-line interface](#command-line-interface)
+1. [Remote Control with Slack](#remote-control-with-Slack)
 1. [Usage as Python library](#usage-as-python-library)
 1. [Working with Amazon SageMaker](#working-with-amazon-sagemaker)
 1. [Known issues](#known-issues)
@@ -131,6 +132,56 @@ If the job is currently running, you will be prompted to verify you want to abru
 ```bash
 meeshkan stop
 ```
+
+## Remote Control with Slack
+
+### Background
+A core functionality of the Meeshkan agent is it's seamless integration with common platforms.
+For our first integration, we chose to focus on *Slack*.
+
+### Setup and Security  
+When signing up to the first, you may [integrate your agent](https://www.meeshkan.com/docs/slack) to a specific
+workspace and channel (the channel may also be a specific user!). From that moment on, you are considered the de-facto
+*admin* for that integration, and by default, you are the **only** user with remote access to the agent.
+We take security very seriously, and would never expose your machine, code or data to any 3rd party API.
+
+Every Slack channel may have several integrations. When issuing a remote controlled command (as opposed to responding to
+one), the command is assigned to the agent you integrated. If no such agent exists, it is assigned to the agent for
+which you are authorized to run remote commands. If more than one such agent exists - well, that shouldn't happen.
+
+### Slash Commands
+
+Remote controlling from Slack means using /slash commands. All Meeshkan-related commands are prefixed with `/mk-*`.
+As we continue development, we will roll out more and more interactive commands. Eventually, we intend on making things
+even easier with simple NLP mechanisms.
+
+#### Controlling Authorized User List
+To grant users other than yourself remote access to your agent, you can use the `/mk-auth` command where you integrated
+the agent. The `/mk-auth` command has 3 subcommands:
+1. `/mk-auth list` (also `/mk-auth ls`): lists the users allowed to run commands remotely.
+1. `/mk-auth add @user1 [@user2 ...]` (also `/mk-auth allow` and `/mk-auth permit`): adds user(s) to the authorized list
+1. `/mk-auth rm @user1 [@user2 ...]` (also `/mk-auth del`, `/mk-auth delete`, `/mk-auth remove`): removes matching users
+from the list.
+
+
+#### Running code from GitHub  
+You may issue a remote command to run code from GitHub (if you are authorized to do so) using:
+`/mk-gitrun repo[@commit/branch] entrypoint [job name] [report interval]`.
+Where you may choose a specific commit/branch to use, but you have to specify a repository and entry point (the file to
+run). Job name can be extended to multiple words using qutoation marks.
+Examples include:
+```
+/mk-gitrun Meeshkan/meeshkan-client examples/hello_world.py
+/mk-gitrun Meeshkan/meeshkan-client@release-v-0.1.4 examples/hello_world.py "some long job name"
+/mk-gitrun Meeshkan/meeshkan-client examples/hello_world.py 10
+```
+To run code from private repositories, you would need to input a GitHub Access Token with running `meeshkan setup`
+(see the documentation for more information).
+
+#### Stopping a command
+Finally, sometimes you may want to issue a remote command to stop a scheduled or running job.
+This is done with a simple `/mk-stop job_identifier`, where `job_identifier` corresponds to the same usage as the CLI
+(it may be a job name, number, UUID, pattern, etc...)
 
 ## Usage as Python library
 
