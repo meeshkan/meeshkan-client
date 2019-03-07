@@ -17,7 +17,7 @@ from ..__build__ import _build_api
 from .serializer import Serializer
 from ..exceptions import AgentNotAvailableException
 from ..__version__ import __version__
-from ..__utils__ import get_auth
+from .config import init_config
 
 LOGGER = logging.getLogger(__name__)
 DAEMON_BOOT_WAIT_TIME = 2.0  # In seconds
@@ -97,7 +97,7 @@ class Service:
         remove_non_file_handlers()
         os.setsid()  # Separate from tty
         cloud_client = Serializer.deserialize(cloud_client_serialized)
-        config, _ = get_auth()
+        config, _ = init_config()
         if config.sentry_dsn is not None:
             sentry_sdk.init(dsn=config.sentry_dsn,
                             release="meeshkan-client v{version}".format(version=__version__))
