@@ -27,6 +27,8 @@ Setup your credentials::
     $ meeshkan setup
 
 You are prompted for your **API key** that you should have received when signing up, so fill that in.
+If you'd like to be able to run code from private GitHub repositories, you may also fill an optional GitHub Access Token
+(only read access is required) when running ``meeshkan setup``. You may skip that prompt otherwise.
 The command creates the folder ``.meeshkan`` in your home directory. The folder contains your credentials, agent logs
 and outputs from your submitted jobs.
 
