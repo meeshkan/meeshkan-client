@@ -8,7 +8,7 @@ from pathlib import Path
 import requests
 
 from ..__types__ import Token, Payload
-from .tasks import TaskType, Task
+from .tasks import TaskFactory, Task
 from .oauth import TokenStore
 from ..exceptions import UnauthorizedRequestException
 from ..__version__ import __version__
@@ -188,18 +188,31 @@ class CloudClient:
         https://github.com/Meeshkan/meeshkan-cloud/blob/master/src/schema.graphql
         :return:
         """
-        mutation = "mutation { popClientTasks { __typename job { id } } }"
+        mutation = "mutation { " \
+              "popClientTasksV2 { " \
+                "__typename " \
+                "... on StopJobTask { " \
+                  "job { " \
+                    "job_id " \
+                    "job_wildcard_identifier " \
+                  "} " \
+                "} " \
+                "... on CreateGitHubJobTask { " \
+                  "repository " \
+                  "entry_point " \
+                  "branch_or_commit_sha " \
+                  "name " \
+                  "report_interval " \
+                "} "\
+              "} "\
+            "}"
         payload = {"query": mutation, "variables": {}}
 
         data = self._post_gql_payload(payload=payload)
 
-        tasks_json = data['popClientTasks']
+        tasks_json = data['popClientTasksV2']
 
-        def build_task(json_task):
-            task_type = TaskType[json_task['__typename']]
-            return Task(UUID(json_task['job']['id']), task_type=task_type)
-
-        tasks = [build_task(json_task) for json_task in tasks_json]
+        tasks = [TaskFactory.build(json_task) for json_task in tasks_json]
         return tasks
 
     def close(self):

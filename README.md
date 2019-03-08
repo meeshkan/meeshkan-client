@@ -1,10 +1,13 @@
 # Meeshkan client
 This repository contains Meeshkan client-side code.
 
+For detailed API reference and usage instructions, please see [meeshkan-client.readthedocs.io](https://meeshkan-client.readthedocs.io).
+
 ## Table of contents
 1. [Overview](#overview)
 1. [Quick start](#quick-start)
 1. [Command-line interface](#command-line-interface)
+1. [Remote Control with Slack](#remote-control-with-Slack)
 1. [Usage as Python library](#usage-as-python-library)
 1. [Working with Amazon SageMaker](#working-with-amazon-sagemaker)
 1. [Known issues](#known-issues)
@@ -44,95 +47,8 @@ Note that using `meeshkan` in your Python scripts is optional (though recommende
 not specify reported scalars, you will only get notifications for when jobs start or finish.
 
 ## Quick start
-We recommend running all command-line commands below in a [Python virtual environment](https://virtualenv.pypa.io/en/latest/).
 
-#### Sign-up
-Sign up at [meeshkan.com](https://www.meeshkan.com) and you will get your __client secret__ via email.
-
-#### Installation
-Install `meeshkan` with [pip](https://pip.pypa.io/en/stable/installing/):
-```bash
-$ pip install meeshkan
-```
-
-If install fails, your Python version may be too old. Please try again with **Python >= 3.6.2**.
-
-#### Setup
-Setup your credentials:
-```bash
-$ meeshkan setup
-```
-You are prompted for your __client secret__ that you should have received when signing up, so fill that in.  
-You will further be prompted for a GitHub access token. This is *strictly optional* and you only need to fill that in
-if you want to run jobs from GitHub.
-It's used for remotely running git repositories, branches, and commits.  
-The command creates the folder`.meeshkan` in your home directory. The folder contains your credentials, agent logs
-and outputs from your submitted jobs.
-
-Download example script called [report.py](https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py)
-from [meeshkan-client](https://github.com/Meeshkan/meeshkan-client/tree/dev/examples) repository to your current directory:
-```bash
-$ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/report.py
-```
-
-#### Submitting jobs
-Start the agent:
-```bash
-$ meeshkan start
-```
-If starting the agent fails, check that your credentials are properly setup. Also check [known issues](#known-issues).
-
-Submit the example job with 10 second reporting interval:
-```bash
-$ meeshkan submit --name report-example --report-interval 10 report.py
-```
-For ease of use, we also offer the shorthand:
-```bash
-$ meeshkan --name report-example --report-interval 10 report.py
-```  
-If you setup Slack integration in [meeshkan.com](https://www.meeshkan.com),
-you should receive a notification for job being started. You should get notifications every ten seconds. The script
-runs for 20 seconds, so you should get one notification containing scalar values.
-
-#### Other helpful commands
-List running jobs:
-```bash
-$ meeshkan list
-```
-
-Retrieve logs for the job named `report-example`:
-```bash
-$ meeshkan logs report-example
-```
-
-Stop the agent:
-```bash
-$ meeshkan stop
-```
-
-#### PyTorch example
-You can use Meeshkan with any Python machine learning framework. As an example, let us use PyTorch to train a
-convolution neural network on MNIST.
-
-First install `torch` and `torchvision`:
-```bash
-$ pip install torch torchvision
-```
-
-Then download our [PyTorch example](https://github.com/Meeshkan/meeshkan-client/blob/dev/examples/pytorch_mnist.py):
-```bash
-$ wget https://raw.githubusercontent.com/Meeshkan/meeshkan-client/dev/examples/pytorch_mnist.py
-```
-
-Ensure that the agent is running:
-```bash
-$ meeshkan start
-```
-
-Submit the PyTorch example with a one-minute report interval:
-```bash
-$ meeshkan submit --name pytorch-example --report-interval 60 pytorch_mnist.py
-```
+Please see the instructions in [readthedocs.io](https://meeshkan-client.readthedocs.io/en/latest/#quick-start).
 
 ## Command-line interface
 To list available commands, execute `meeshkan` or `meeshkan help`:
@@ -182,7 +98,6 @@ without time-based notifications (see [below](#reporting-scalars)). When present
 the *report interval* has elapsed. The report interval is measured in **seconds**.
 The default argument (if none are provided) is 3600 seconds (i.e. hourly notifications).
 
-
 ### List submitted jobs
 ```bash
 meeshkan list
@@ -218,7 +133,59 @@ If the job is currently running, you will be prompted to verify you want to abru
 meeshkan stop
 ```
 
+## Remote Control with Slack
+
+### Background
+A core functionality of the Meeshkan agent is it's seamless integration with common platforms.
+For our first integration, we chose to focus on *Slack*.
+
+### Setup and Security  
+When signing up to the first, you may [integrate your agent](https://www.meeshkan.com/docs/slack) to a specific
+workspace and channel (the channel may also be a specific user!). From that moment on, you are considered the de-facto
+*admin* for that integration, and by default, you are the **only** user with remote access to the agent.
+We take security very seriously, and would never expose your machine, code or data to any 3rd party API.
+
+Every Slack channel may have several integrations. When issuing a remote controlled command (as opposed to responding to
+one), the command is assigned to the agent you integrated. If no such agent exists, it is assigned to the agent for
+which you are authorized to run remote commands. If more than one such agent exists - well, that shouldn't happen.
+
+### Slash Commands
+
+Remote controlling from Slack means using /slash commands. All Meeshkan-related commands are prefixed with `/mk-*`.
+As we continue development, we will roll out more and more interactive commands. Eventually, we intend on making things
+even easier with simple NLP mechanisms.
+
+#### Controlling Authorized User List
+To grant users other than yourself remote access to your agent, you can use the `/mk-auth` command where you integrated
+the agent. The `/mk-auth` command has 3 subcommands:
+1. `/mk-auth list` (also `/mk-auth ls`): lists the users allowed to run commands remotely.
+1. `/mk-auth add @user1 [@user2 ...]` (also `/mk-auth allow` and `/mk-auth permit`): adds user(s) to the authorized list
+1. `/mk-auth rm @user1 [@user2 ...]` (also `/mk-auth del`, `/mk-auth delete`, `/mk-auth remove`): removes matching users
+from the list.
+
+
+#### Running code from GitHub  
+You may issue a remote command to run code from GitHub (if you are authorized to do so) using:
+`/mk-gitrun repo[@commit/branch] entrypoint [job name] [report interval]`.
+Where you may choose a specific commit/branch to use, but you have to specify a repository and entry point (the file to
+run). Job name can be extended to multiple words using qutoation marks.
+Examples include:
+```
+/mk-gitrun Meeshkan/meeshkan-client examples/hello_world.py
+/mk-gitrun Meeshkan/meeshkan-client@release-v-0.1.4 examples/hello_world.py "some long job name"
+/mk-gitrun Meeshkan/meeshkan-client examples/hello_world.py 10
+```
+To run code from private repositories, you would need to input a GitHub Access Token with running `meeshkan setup`
+(see the documentation for more information).
+
+#### Stopping a command
+Finally, sometimes you may want to issue a remote command to stop a scheduled or running job.
+This is done with a simple `/mk-stop job_identifier`, where `job_identifier` corresponds to the same usage as the CLI
+(it may be a job name, number, UUID, pattern, etc...)
+
 ## Usage as Python library
+
+For detailed API reference, see [meeshkan-client.readthedocs.io](https://meeshkan-client.readthedocs.io).
 
 ### General
 The purpose of the Python API is to be as intuitive, minimal and least invasive as possible.

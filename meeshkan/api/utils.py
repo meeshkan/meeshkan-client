@@ -26,11 +26,14 @@ VALID_CHARACTERS = string.ascii_letters + '_'
 
 def submit_notebook(job_name: str = None, report_interval: Optional[float] = None, notebook_password: str = None):
     """
-    Submits the current notebook to the Meeshkan agent. Requires the agent to be running.
+    Submits the whole Jupyter notebook for execution. Requires the agent to be running.
     Can only be called from within a notebook instance.
-    On password-protected notebooks, the `password` argument must be supplied.
+    On password-protected notebooks, ``notebook_password`` must be supplied.
+
+    :param job_name: Name of the job.
+    :param report_interval: Report interval in seconds.
+    :param notebook_password: Notebook password, required for password-protected notebooks.
     """
-    # try:
     try:
         # ignoring Mypy static type checking as `get_ipython` will only be dynamically defined if the calling script
         # was run from ipython shell (terminal or ZMQ based)
