@@ -109,6 +109,8 @@ class Api:
             job_id = self.find_job_id_by_identifier(task.job_identifier)
             if job_id is not None:  # TODO Else we just ignore the task silently?
                 self.scheduler.stop_job(job_id)
+            else:
+                LOGGER.debug("Cannot find job matching identifier \"%s\"", task.job_identifier)
         elif task.type == TaskType.CreateGitHubJobTask:
             task = cast(CreateGitHubJobTask, task)
             submit_git(repo=task.repo, entry_point=task.entry_point,
