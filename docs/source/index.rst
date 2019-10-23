@@ -7,6 +7,8 @@
 Meeshkan - Monitoring and remote-control tool for machine learning jobs
 =======================================================================
 
+**NOTICE: The package has been deprecated.**
+
 ``meeshkan`` is a Python package providing control to your machine learning jobs.
 
 Main Features
